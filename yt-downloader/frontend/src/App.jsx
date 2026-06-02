@@ -264,14 +264,15 @@ let idCounter = 1
 const newItem = () => ({ id: idCounter++, url:'', info:null, selectedFormat:null, error:null })
 
 export default function App() {
+  const [items, setItems] = useState(() => [newItem()])
   const [serverInfo, setServerInfo] = useState(null)
+  const [fetchingId, setFetchingId] = useState(null)
+  const [jobs, setJobs] = useState([])
+  const pollRef = useRef(null)
 
   useEffect(() => {
     fetch(`${API}/health`).then(r=>r.json()).then(d => setServerInfo(d)).catch(()=>{})
   }, [])
-  const [fetchingId, setFetchingId] = useState(null)
-  const [jobs, setJobs] = useState([])            // active/done jobs
-  const pollRef = useRef(null)
 
   // ── item helpers ──────────────────────────────────────────────────────
   const updateItem = (id, key, val) =>
