@@ -49,7 +49,7 @@ const S = {
 }
 
 // ── URL input row ──────────────────────────────────────────────────────────
-function UrlRow({ value, onChange, onRemove, onFetch, fetching, info, canRemove }) {
+function UrlRow({ value, onChange, onRemove, info, error, canRemove }) {
   const valid = isValidYT(value)
   return (
     <div style={{ display:'flex', gap:8, alignItems:'flex-start' }}>
@@ -57,26 +57,18 @@ function UrlRow({ value, onChange, onRemove, onFetch, fetching, info, canRemove 
         <div style={{
           ...S.card, display:'flex', alignItems:'center', gap:8,
           padding:'6px 6px 6px 14px',
-          borderColor: info ? 'rgba(16,185,129,0.3)' : valid ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.08)',
+          borderColor: error ? 'rgba(239,68,68,0.3)' : info ? 'rgba(16,185,129,0.3)' : valid ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.08)',
         }}>
           <span style={{ fontSize:16, flexShrink:0 }}>🔗</span>
           <input
             value={value}
             onChange={e => onChange(e.target.value)}
-            onKeyDown={e => e.key==='Enter' && onFetch()}
             placeholder="https://youtube.com/watch?v=..."
             style={{ flex:1, background:'none', border:'none', outline:'none', fontSize:14, color:'#e8e8f0', fontFamily:'inherit', padding:'8px 0' }}
           />
-          {info && <span style={S.pill('#10b981')}>✓ Ready</span>}
-          <button onClick={onFetch} disabled={fetching || !value.trim()} style={{
-            background: fetching ? 'rgba(139,92,246,0.4)' : 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
-            border:'none', borderRadius:8, color:'#fff', fontSize:12, fontWeight:600,
-            padding:'8px 16px', cursor: fetching?'not-allowed':'pointer', fontFamily:'inherit', flexShrink:0,
-          }}>
-            {fetching ? '…' : 'Fetch'}
-          </button>
+          {info && <span style={S.pill('#10b981')}>✓</span>}
+          {error && <span style={S.pill('#ef4444')}>✗</span>}
         </div>
-        {/* Mini video preview */}
         {info && (
           <div style={{ display:'flex', gap:10, alignItems:'center', padding:'8px 12px', background:'rgba(255,255,255,0.02)', borderRadius:10, border:'1px solid rgba(255,255,255,0.06)' }}>
             <img src={info.thumbnail} alt="" style={{ width:60, height:36, objectFit:'cover', borderRadius:6, flexShrink:0 }} />
@@ -84,6 +76,11 @@ function UrlRow({ value, onChange, onRemove, onFetch, fetching, info, canRemove 
               <p style={{ margin:0, fontSize:12, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{info.title}</p>
               <p style={{ margin:0, fontSize:11, color:'#555' }}>{info.uploader} · {formatDuration(info.duration)}</p>
             </div>
+          </div>
+        )}
+        {error && (
+          <div style={{ fontSize:11, color:'#f87171', background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'6px 10px' }}>
+            ✗ {error}
           </div>
         )}
       </div>
@@ -208,51 +205,53 @@ function JobCard({ job }) {
 }
 
 // ── Batch queue panel ─────────────────────────────────────────────────────
-function QueuePanel({ items, onItemChange, onAddItem, onRemoveItem, onFetchInfo, fetchingIdx, allReady, onStartAll }) {
+function QueuePanel({ items, onItemChange, onAddItem, onRemoveItem, onFetchAll, fetching, allReady, onStartAll }) {
+  const readyCount = items.filter(x=>x.info&&x.selectedFormat).length
+  const hasUrls = items.some(x=>x.url.trim())
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-      {items.map((item, i) => (
-        <div key={item.id} style={{ ...S.card, padding:14 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-            <span style={{ ...S.mono, fontSize:11, color:'#555', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:6, padding:'2px 8px', flexShrink:0 }}>
-              #{i+1}
-            </span>
-            {item.info && <span style={S.pill('#10b981')}>✓ ready</span>}
-            {item.error && <span style={S.pill('#ef4444')}>✗ {item.error}</span>}
-          </div>
-          <UrlRow
-            value={item.url}
-            onChange={v => onItemChange(item.id, 'url', v)}
-            onRemove={() => onRemoveItem(item.id)}
-            onFetch={() => onFetchInfo(item.id)}
-            fetching={fetchingIdx === item.id}
-            info={item.info}
-            canRemove={items.length > 1}
-          />
-          {item.info && (
-            <div style={{ marginTop:10 }}>
+      {/* URL inputs */}
+      <div style={{ ...S.card, padding:14, display:'flex', flexDirection:'column', gap:8 }}>
+        {items.map((item, i) => (
+          <div key={item.id} style={{ display:'flex', flexDirection:'column', gap:6 }}>
+            {i > 0 && <div style={{ height:1, background:'rgba(255,255,255,0.05)', margin:'4px 0' }} />}
+            <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
+              <span style={{ ...S.mono, fontSize:10, color:'#444', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:5, padding:'1px 7px', flexShrink:0 }}>#{i+1}</span>
+            </div>
+            <UrlRow
+              value={item.url}
+              onChange={v => onItemChange(item.id, 'url', v)}
+              onRemove={() => onRemoveItem(item.id)}
+              info={item.info}
+              error={item.error}
+              canRemove={items.length > 1}
+            />
+            {item.info && (
               <FormatPicker
                 info={item.info}
                 selected={item.selectedFormat}
                 onSelect={fmt => onItemChange(item.id, 'selectedFormat', fmt)}
               />
-            </div>
-          )}
-        </div>
-      ))}
+            )}
+          </div>
+        ))}
+      </div>
 
+      {/* Action buttons */}
       <div style={{ display:'flex', gap:10 }}>
         <button onClick={onAddItem} style={{
-          flex:1, padding:'11px', borderRadius:10, border:'1px dashed rgba(255,255,255,0.15)',
+          flex:'0 0 auto', padding:'11px 18px', borderRadius:10, border:'1px dashed rgba(255,255,255,0.15)',
           background:'rgba(255,255,255,0.02)', color:'#666', fontSize:13, fontWeight:600,
           cursor:'pointer', fontFamily:'inherit',
-        }}>
-          + Add URL
+        }}>+ Add URL</button>
+
+        <button onClick={onFetchAll} disabled={fetching || !hasUrls} style={{ ...S.btn(!fetching && hasUrls), flex:1 }}>
+          {fetching ? '⏳ Fetching info…' : `🔍 Fetch All (${items.length})`}
         </button>
-        <button onClick={onStartAll} disabled={!allReady} style={{ ...S.btn(allReady), flex:2 }}>
-          {allReady
-            ? `⚡ Download & Normalize All (${items.filter(x=>x.info&&x.selectedFormat).length})`
-            : 'Fetch all URLs first'}
+
+        <button onClick={onStartAll} disabled={!allReady} style={{ ...S.btn(allReady), flex:1,
+          background: allReady ? 'linear-gradient(135deg,#10b981,#059669)' : '#1c1c2a' }}>
+          {allReady ? `⚡ Download All (${readyCount})` : 'Fetch first →'}
         </button>
       </div>
     </div>
@@ -285,8 +284,6 @@ export default function App() {
   const fetchInfo = async (id) => {
     const item = items.find(it => it.id===id)
     if (!item || !item.url.trim()) return
-    setFetchingId(id)
-    updateItem(id, 'error', null)
     try {
       const res = await fetch(`${API}/info`, {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -300,10 +297,16 @@ export default function App() {
         : it
       ))
     } catch(e) {
-      updateItem(id, 'error', e.message)
-    } finally {
-      setFetchingId(null)
+      setItems(prev => prev.map(it => it.id===id ? {...it, error:e.message} : it))
     }
+  }
+
+  const fetchAll = async () => {
+    const pending = items.filter(it => it.url.trim() && !it.info)
+    if (!pending.length) return
+    setFetchingId('all')
+    await Promise.allSettled(pending.map(it => fetchInfo(it.id)))
+    setFetchingId(null)
   }
 
   const allReady = items.every(it => it.info && it.selectedFormat)
@@ -428,8 +431,8 @@ export default function App() {
           onItemChange={updateItem}
           onAddItem={addItem}
           onRemoveItem={removeItem}
-          onFetchInfo={fetchInfo}
-          fetchingIdx={fetchingId}
+          onFetchAll={fetchAll}
+          fetching={fetchingId === 'all'}
           allReady={allReady && items.some(it=>it.info)}
           onStartAll={startAll}
         />
