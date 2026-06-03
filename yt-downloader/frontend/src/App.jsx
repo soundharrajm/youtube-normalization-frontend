@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import AdminPanel from './AdminPanel.jsx'
+import CookieSetup from './CookieSetup.jsx'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ||
@@ -381,6 +383,8 @@ const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error
 
 export default function App() {
   const [items, setItems]           = useState(() => [newItem()])
+  const [showAdmin, setShowAdmin]   = useState(false)
+  const [showCookieSetup, setShowCookieSetup] = useState(false)
   const [user, setUser]             = useState(null)       // { name, email, picture, session_id }
   const [serverInfo, setServerInfo] = useState(null)
   const [fetchingAll, setFetchingAll] = useState(false)
@@ -566,12 +570,21 @@ export default function App() {
         <header style={{ textAlign:'center', padding:'48px 0 28px', position:'relative' }}>
 
           {/* Auth button — top right of header */}
-          <div style={{ position:'absolute', top:48, right:0 }}>
-            {user
-              ? <UserAvatar user={user} onLogout={logout} />
-              : <GoogleLoginButton onLogin={() => {}} />
-            }
+          <div style={{ position:'absolute', top:48, right:0, display:'flex', gap:8, alignItems:'center' }}>
+            <button onClick={() => setShowAdmin(true)} style={{
+              background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)',
+              borderRadius:8, color:'#666', fontSize:12, fontWeight:600,
+              padding:'7px 12px', cursor:'pointer', fontFamily:'inherit',
+            }}>🔧 Admin</button>
+            {user ? (
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <UserAvatar user={user} onLogout={logout} />
+              </div>
+            ) : (
+              <GoogleLoginButton onLogin={() => {}} />
+            )}
           </div>
+          {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
 
           <div style={{ display:'inline-flex', alignItems:'center', gap:10, marginBottom:12 }}>
             <div style={{ width:32, height:32, borderRadius:8, background:'linear-gradient(135deg,#8b5cf6,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>▼</div>
@@ -591,8 +604,20 @@ export default function App() {
 
           {/* Login status banner */}
           {user ? (
-            <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.2)', borderRadius:100, padding:'4px 14px', fontSize:12, color:'#10b981' }}>
-              ✓ Signed in as <strong>{user.email}</strong> — age-restricted videos enabled
+            <div style={{ display:'inline-flex', alignItems:'center', gap:8 }}>
+              <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.2)', borderRadius:100, padding:'4px 14px', fontSize:12, color:'#10b981' }}>
+                ✓ Signed in as <strong>{user.email}</strong>
+              </div>
+              <button onClick={() => setShowCookieSetup(v => !v)} style={{
+                display:'inline-flex', alignItems:'center', gap:5,
+                background: showCookieSetup ? 'rgba(139,92,246,0.2)' : 'rgba(245,158,11,0.08)',
+                border: `1px solid ${showCookieSetup ? 'rgba(139,92,246,0.4)' : 'rgba(245,158,11,0.2)'}`,
+                borderRadius:100, padding:'4px 14px', fontSize:12,
+                color: showCookieSetup ? '#a78bfa' : '#f59e0b',
+                cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+              }}>
+                🍪 {showCookieSetup ? 'Hide cookie setup' : 'Setup age-restricted downloads'}
+              </button>
             </div>
           ) : (
             <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:100, padding:'4px 14px', fontSize:12, color:'#f59e0b' }}>
@@ -604,6 +629,15 @@ export default function App() {
             <span style={{ color:'#8b5cf6' }}>yt-dlp</span> → <span style={{ color:'#3b82f6' }}>libx264 · crf 19 · forced-idr 1</span> → <span style={{ color:'#10b981' }}>_normalize.mp4</span>
           </div>
         </header>
+
+        {/* Cookie setup panel */}
+        {user && showCookieSetup && (
+          <CookieSetup
+            sessionId={user.session_id}
+            onDone={() => setShowCookieSetup(false)}
+            onClose={() => setShowCookieSetup(false)}
+          />
+        )}
 
         {/* URL inputs */}
         <div style={{ ...S.card, padding:16, display:'flex', flexDirection:'column', gap:12, marginBottom:12 }}>
