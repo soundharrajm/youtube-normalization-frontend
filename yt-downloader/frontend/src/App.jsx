@@ -11,10 +11,7 @@ const REDIRECT_URI = window.location.origin
 function apiFetch(url, options = {}) {
   return fetch(url, {
     ...options,
-    headers: {
-      'bypass-tunnel-reminder': 'true',
-      ...options.headers,
-    },
+    headers: { 'bypass-tunnel-reminder': 'true', ...options.headers },
   })
 }
 
@@ -70,7 +67,6 @@ function GoogleLoginButton({ onLogin }) {
     })
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
   }
-
   return (
     <button onClick={handleLogin} style={{
       display:'flex', alignItems:'center', gap:10, padding:'10px 20px',
@@ -163,7 +159,6 @@ function FormatPicker({ info, selected, onSelect }) {
   const formats = allFormats.filter(f => tab === 'video' ? f.type === 'video' : f.type === 'audio')
   const videoCount = allFormats.filter(f => f.type === 'video').length
   const audioCount = allFormats.filter(f => f.type === 'audio').length
-
   return (
     <div style={{ ...S.card, overflow:'hidden' }}>
       <div style={{ display:'flex', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
@@ -221,7 +216,6 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
   const valid = isValidYT(url)
   const isFetching = fetchStatus === 'fetching'
   const needsLogin = error?.includes('LOGIN_REQUIRED')
-
   return (
     <div style={{ display:'flex', gap:8, alignItems:'flex-start' }}>
       <div style={{ flex:1, display:'flex', flexDirection:'column', gap:6 }}>
@@ -240,14 +234,12 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
           {fetchStatus === 'done' && !error && <span style={{ ...S.pill('#10b981'), flexShrink:0 }}>✓ ready</span>}
           {fetchStatus === 'error' && <span style={{ ...S.pill('#ef4444'), flexShrink:0 }}>✗ failed</span>}
         </div>
-
         <MiniBar
           pct={fetchPct || 0}
           color={error ? '#ef4444' : '#8b5cf6'}
           label={isFetching ? '⏳ Fetching video info…' : fetchStatus === 'done' ? '✓ Fetch complete' : fetchStatus === 'error' ? '✗ Fetch failed' : ''}
           show={!!fetchStatus}
         />
-
         {info && (
           <div style={{ display:'flex', gap:10, alignItems:'center', padding:'8px 12px', background:'rgba(255,255,255,0.02)', borderRadius:10, border:'1px solid rgba(255,255,255,0.06)' }}>
             <img src={info.thumbnail} alt="" style={{ width:60, height:36, objectFit:'cover', borderRadius:6, flexShrink:0 }} />
@@ -257,24 +249,21 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
             </div>
           </div>
         )}
-
         {error && (
           <div style={{ fontSize:12, background: needsLogin ? 'rgba(245,158,11,0.07)' : 'rgba(239,68,68,0.07)',
             border: `1px solid ${needsLogin ? 'rgba(245,158,11,0.25)' : 'rgba(239,68,68,0.2)'}`,
             borderRadius:8, padding:'10px 12px' }}>
             {needsLogin ? (
               <p style={{ margin:0, color:'#f59e0b', fontSize:12 }}>
-                🔒 This video requires sign-in. Please <strong>Login with Google</strong> above to download age-restricted videos.
+                🔒 This video requires sign-in. Please <strong>Login with Google</strong> above.
               </p>
             ) : (
               <p style={{ margin:0, color:'#f87171' }}>✗ {error}</p>
             )}
           </div>
         )}
-
         {info && <FormatPicker info={info} selected={item.selectedFormat} onSelect={fmt => onChange('selectedFormat', fmt)} />}
       </div>
-
       {canRemove && (
         <button onClick={onRemove} style={{
           width:34, height:34, borderRadius:8, border:'1px solid rgba(255,255,255,0.08)',
@@ -293,7 +282,6 @@ function JobCard({ job }) {
   const isNorm = job.status === 'normalizing'
   const isDl   = job.status === 'downloading' || job.status === 'processing'
   const isQ    = job.status === 'queued'
-
   return (
     <div style={{ ...S.card, padding:'12px 14px' }}>
       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -321,23 +309,19 @@ function JobCard({ job }) {
           }}>↓ Save</a>
         )}
       </div>
-
       <MiniBar pct={isDl ? job.progress : dlDone && !isQ ? 100 : 0}
         color={isDl ? '#8b5cf6' : '#10b981'}
         label={isDl ? `↓ Downloading ${job.progress}%` : dlDone && !isQ ? '✓ Downloaded' : ''}
         show={!isQ && job.status !== 'error'} />
-
       <MiniBar pct={isNorm ? job.normProgress : job.status === 'done' ? 100 : 0}
         color={isNorm ? '#3b82f6' : '#10b981'}
         label={isNorm ? `▶ Normalizing ${job.normProgress}%` : job.status === 'done' ? '✓ Normalized' : '▶ Normalize pending'}
         show={!isQ && !isDl && job.status !== 'error'} />
-
       {job.status === 'done' && job.outFilename && (
         <div style={{ marginTop:6, fontSize:10, color:'#10b981', ...S.mono, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:5, padding:'3px 8px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
           ✓ {job.outFilename}
         </div>
       )}
-
       {job.status === 'error' && job.error && (
         <p style={{ margin:'6px 0 0', fontSize:11, color:'#f87171' }}>{job.error}</p>
       )}
@@ -353,7 +337,6 @@ function QueueBadge({ jobs }) {
   const failed  = jobs.filter(j => j.status === 'error').length
   const total   = jobs.length
   if (total === 0) return null
-
   return (
     <div style={{
       position:'fixed', top:16, right:16, zIndex:100,
@@ -396,7 +379,7 @@ export default function App() {
   const [items, setItems]           = useState(() => [newItem()])
   const [showAdmin, setShowAdmin]   = useState(false)
   const [showCookieSetup, setShowCookieSetup] = useState(false)
-  const [user, setUser]             = useState(null)       // { name, email, picture, session_id }
+  const [user, setUser]             = useState(null)
   const [serverInfo, setServerInfo] = useState(null)
   const [fetchingAll, setFetchingAll] = useState(false)
   const [jobs, setJobs]             = useState([])
@@ -407,48 +390,36 @@ export default function App() {
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
     if (code) {
-      // Clear code from URL
       window.history.replaceState({}, '', window.location.pathname)
-      // Exchange code for session
       apiFetch(`${API}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }),
       }).then(r => r.json()).then(data => {
         if (data.session_id) {
-          const userData = {
-            session_id: data.session_id,
-            name:       data.name,
-            email:      data.email,
-            picture:    data.picture,
-          }
+          const userData = { session_id: data.session_id, name: data.name, email: data.email, picture: data.picture }
           setUser(userData)
           localStorage.setItem('yt_session', JSON.stringify(userData))
         }
       }).catch(console.error)
     }
-
-    // Restore session from localStorage
     const stored = localStorage.getItem('yt_session')
     if (stored && !code) {
       try {
         const parsed = JSON.parse(stored)
-        // Verify session still valid
         apiFetch(`${API}/auth/session/${parsed.session_id}`)
           .then(r => { if (r.ok) return r.json(); throw new Error('invalid') })
           .then(() => setUser(parsed))
           .catch(() => localStorage.removeItem('yt_session'))
       } catch { localStorage.removeItem('yt_session') }
     }
-
     apiFetch(`${API}/health`).then(r=>r.json()).then(setServerInfo).catch(()=>{})
   }, [])
 
   const logout = async () => {
     if (user?.session_id) {
       await apiFetch(`${API}/auth/logout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: user.session_id }),
       }).catch(() => {})
     }
@@ -465,13 +436,11 @@ export default function App() {
     const item = items.find(it => it.id===id)
     if (!item?.url.trim()) return
     setItems(prev => prev.map(it => it.id===id ? {...it, fetchStatus:'fetching', fetchPct:0, error:null, info:null} : it))
-
     let pct = 0
     const ticker = setInterval(() => {
       pct = Math.min(pct + Math.random()*8, 88)
       setItems(prev => prev.map(it => it.id===id ? {...it, fetchPct:Math.round(pct)} : it))
     }, 300)
-
     try {
       const res = await apiFetch(`${API}/info`, {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -494,12 +463,49 @@ export default function App() {
     }
   }
 
+  // ── fetchAll: sequential with 2s delay to avoid Google rate limiting ──────
   const fetchAll = async () => {
     const pending = items.filter(it => it.url.trim() && !it.info)
     if (!pending.length) return
     setFetchingAll(true)
-    await Promise.allSettled(pending.map(it => fetchOne(it.id)))
+    for (let i = 0; i < pending.length; i++) {
+      await fetchOne(pending[i].id)
+      if (i < pending.length - 1)
+        await new Promise(r => setTimeout(r, 2000))
+    }
     setFetchingAll(false)
+  }
+
+  // ── refreshJobs: manually re-check all job statuses ───────────────────────
+  const refreshJobs = async () => {
+    if (!jobs.length) return
+    const snapshot = [...jobs]
+    const results = await Promise.allSettled(
+      snapshot.map(j => apiFetch(`${API}/download/status/${j.jobId}`).then(r => r.json()))
+    )
+    setJobs(prev => {
+      let updated = [...prev]
+      results.forEach((r, i) => {
+        if (r.status !== 'fulfilled') return
+        const d = r.value
+        const jobId = snapshot[i].jobId
+        updated = updated.map(j => {
+          if (j.jobId !== jobId) return j
+          if (d.status === 'done') return {
+            ...j, status:'done', progress:100, normProgress:100,
+            downloadUrl:`${API}/download/file/${jobId}`, outFilename:d.filename,
+          }
+          if (d.status === 'error') return { ...j, status:'error', error:d.error }
+          return {
+            ...j, status:d.status,
+            progress:d.progress ?? j.progress,
+            normProgress:d.normalize_progress ?? j.normProgress,
+            title: d.title || j.title,
+          }
+        })
+      })
+      return updated
+    })
   }
 
   const allReady = items.every(it => it.info && it.selectedFormat)
@@ -517,7 +523,6 @@ export default function App() {
     })
     const data = await res.json()
     if (!res.ok) return
-
     const newJobs = data.jobs.map((j,i) => ({
       jobId: j.job_id, url: j.url,
       title: items.find(it=>it.url.trim()===j.url)?.info?.title || j.url,
@@ -535,11 +540,9 @@ export default function App() {
     pollRef.current = setInterval(async () => {
       const active = allJobs.filter(j => !['done','error'].includes(j.status))
       if (!active.length) { clearInterval(pollRef.current); return }
-
       const results = await Promise.allSettled(
         active.map(j => apiFetch(`${API}/download/status/${j.jobId}`).then(r=>r.json()))
       )
-
       setJobs(prev => {
         let updated = [...prev]
         results.forEach((r,i) => {
@@ -579,8 +582,6 @@ export default function App() {
       <div style={S.wrap}>
         {/* Header */}
         <header style={{ textAlign:'center', padding:'48px 0 28px', position:'relative' }}>
-
-          {/* Auth button — top right of header */}
           <div style={{ position:'absolute', top:48, right:0, display:'flex', gap:8, alignItems:'center' }}>
             <button onClick={() => setShowAdmin(true)} style={{
               background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)',
@@ -613,7 +614,6 @@ export default function App() {
             Add URLs → Fetch All → Download simultaneously → ffmpeg normalize
           </p>
 
-          {/* Login status banner */}
           {user ? (
             <div style={{ display:'inline-flex', alignItems:'center', gap:8 }}>
               <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.2)', borderRadius:100, padding:'4px 14px', fontSize:12, color:'#10b981' }}>
@@ -680,7 +680,9 @@ export default function App() {
           <button onClick={fetchAll} disabled={fetchingAll || !items.some(it=>it.url.trim()&&!it.info)} style={{
             ...S.btn(!fetchingAll && items.some(it=>it.url.trim()&&!it.info)), flex:1,
           }}>
-            {fetchingAll ? '⏳ Fetching…' : `🔍 Fetch All (${items.filter(it=>it.url.trim()&&!it.info).length} pending)`}
+            {fetchingAll
+              ? `⏳ Fetching… (2s delay between URLs)`
+              : `🔍 Fetch All (${items.filter(it=>it.url.trim()&&!it.info).length} pending)`}
           </button>
 
           <button onClick={startAll} disabled={!allReady || !items.some(it=>it.info)} style={{
@@ -693,7 +695,16 @@ export default function App() {
         {/* Jobs */}
         {jobs.length > 0 && (
           <div>
-            <div style={{ fontSize:12, color:'#444', fontWeight:600, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:10 }}>Downloads</div>
+            {/* Downloads header with Refresh button */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+              <div style={{ fontSize:12, color:'#444', fontWeight:600, letterSpacing:'0.5px', textTransform:'uppercase' }}>Downloads</div>
+              <button onClick={refreshJobs} style={{
+                background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)',
+                borderRadius:6, color:'#aaa', fontSize:11, fontWeight:600,
+                padding:'4px 12px', cursor:'pointer', fontFamily:'inherit',
+                display:'flex', alignItems:'center', gap:4,
+              }}>↻ Refresh</button>
+            </div>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {jobs.map(job => <JobCard key={job.jobId} job={job} />)}
             </div>
@@ -704,10 +715,10 @@ export default function App() {
         {jobs.length === 0 && (
           <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
             {[
-              { icon:'🔑', color:'#f59e0b', title:'Google SSO',           desc:'Sign in to download age-restricted videos' },
-              { icon:'⚡', color:'#8b5cf6', title:'Parallel downloads',   desc:'All URLs process simultaneously' },
-              { icon:'▶', color:'#3b82f6', title:'ffmpeg normalize',      desc:'libx264 · crf 19 · forced-idr 1' },
-              { icon:'🔒', color:'#10b981', title:'Fully local',          desc:'Files saved on your server' },
+              { icon:'🔑', color:'#f59e0b', title:'Google SSO',         desc:'Sign in to download age-restricted videos' },
+              { icon:'⚡', color:'#8b5cf6', title:'Parallel downloads', desc:'All URLs process simultaneously' },
+              { icon:'▶', color:'#3b82f6', title:'ffmpeg normalize',    desc:'libx264 · crf 19 · forced-idr 1' },
+              { icon:'🔒', color:'#10b981', title:'Fully local',        desc:'Files saved on your server' },
             ].map(f => (
               <div key={f.title} style={{ flex:'1 1 180px', ...S.card, padding:'14px' }}>
                 <div style={{ width:30, height:30, borderRadius:8, background:`${f.color}18`, border:`1px solid ${f.color}33`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, marginBottom:8, color:f.color }}>{f.icon}</div>
