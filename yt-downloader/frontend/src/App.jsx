@@ -1,7 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 
 const API = import.meta.env.VITE_API_URL || '/api'
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  '406747955382-digauab6tpgo7f9rr7sbl0qoajc01oub.apps.googleusercontent.com'
+const REDIRECT_URI = window.location.origin
 
+// ── utils ──────────────────────────────────────────────────────────────────
 function formatDuration(sec) {
   if (!sec) return ''
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60
@@ -40,6 +44,78 @@ const S = {
   }),
 }
 
+// ── Google Login button ────────────────────────────────────────────────────
+function GoogleLoginButton({ onLogin }) {
+  const handleLogin = () => {
+    const params = new URLSearchParams({
+      client_id:     GOOGLE_CLIENT_ID,
+      redirect_uri:  REDIRECT_URI,
+      response_type: 'code',
+      scope:         'openid email profile https://www.googleapis.com/auth/youtube.readonly',
+      access_type:   'offline',
+      prompt:        'consent',
+    })
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
+  }
+
+  return (
+    <button onClick={handleLogin} style={{
+      display:'flex', alignItems:'center', gap:10, padding:'10px 20px',
+      background:'#fff', border:'none', borderRadius:10, cursor:'pointer',
+      fontSize:14, fontWeight:600, color:'#333', fontFamily:'inherit',
+      boxShadow:'0 2px 8px rgba(0,0,0,0.3)',
+    }}>
+      <svg width="18" height="18" viewBox="0 0 48 48">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      </svg>
+      Sign in with Google
+    </button>
+  )
+}
+
+// ── User avatar ────────────────────────────────────────────────────────────
+function UserAvatar({ user, onLogout }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position:'relative' }}>
+      <button onClick={() => setOpen(!open)} style={{
+        display:'flex', alignItems:'center', gap:8, padding:'6px 12px 6px 6px',
+        background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)',
+        borderRadius:100, cursor:'pointer', fontFamily:'inherit',
+      }}>
+        {user.picture
+          ? <img src={user.picture} alt="" style={{ width:28, height:28, borderRadius:'50%' }} />
+          : <div style={{ width:28, height:28, borderRadius:'50%', background:'#8b5cf6', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:'#fff' }}>
+              {user.name?.[0] || '?'}
+            </div>
+        }
+        <span style={{ fontSize:13, color:'#e8e8f0', fontWeight:500 }}>{user.name || user.email}</span>
+        <span style={{ color:'#555', fontSize:11 }}>▾</span>
+      </button>
+      {open && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 8px)', right:0,
+          background:'#111', border:'1px solid rgba(255,255,255,0.1)',
+          borderRadius:10, padding:8, minWidth:180, zIndex:100,
+          boxShadow:'0 8px 24px rgba(0,0,0,0.4)',
+        }}>
+          <p style={{ margin:'0 0 4px', fontSize:13, color:'#e8e8f0', padding:'4px 10px' }}>{user.name}</p>
+          <p style={{ margin:'0 0 8px', fontSize:11, color:'#555', padding:'0 10px' }}>{user.email}</p>
+          <div style={{ height:1, background:'rgba(255,255,255,0.07)', margin:'4px 0' }} />
+          <button onClick={() => { setOpen(false); onLogout() }} style={{
+            width:'100%', padding:'8px 10px', background:'none', border:'none',
+            color:'#f87171', fontSize:13, cursor:'pointer', textAlign:'left',
+            fontFamily:'inherit', borderRadius:6,
+          }}>Sign out</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Mini progress bar ──────────────────────────────────────────────────────
 function MiniBar({ pct, color, label, show }) {
   if (!show) return null
@@ -56,22 +132,89 @@ function MiniBar({ pct, color, label, show }) {
   )
 }
 
+// ── Quality badge color ────────────────────────────────────────────────────
+function qualityColor(label) {
+  if (!label) return '#555'
+  if (label.includes('4K'))       return '#f59e0b'
+  if (label.includes('2K'))       return '#a78bfa'
+  if (label.includes('Full HD'))  return '#8b5cf6'
+  if (label.includes('HD'))       return '#3b82f6'
+  if (label.includes('Best'))     return '#10b981'
+  return '#555'
+}
+
+// ── Format picker ──────────────────────────────────────────────────────────
+function FormatPicker({ info, selected, onSelect }) {
+  const [tab, setTab] = useState('video')
+  const allFormats = info?.formats || []
+  const formats = allFormats.filter(f => tab === 'video' ? f.type === 'video' : f.type === 'audio')
+  const videoCount = allFormats.filter(f => f.type === 'video').length
+  const audioCount = allFormats.filter(f => f.type === 'audio').length
+
+  return (
+    <div style={{ ...S.card, overflow:'hidden' }}>
+      <div style={{ display:'flex', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
+        {[{ key:'video', label:`🎬 Video (${videoCount})` }, { key:'audio', label:`🎵 Audio (${audioCount})` }].map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{
+            flex:1, padding:'10px', background: tab===t.key ? 'rgba(139,92,246,0.1)':'none',
+            border:'none', borderBottom: tab===t.key ? '2px solid #8b5cf6':'2px solid transparent',
+            color: tab===t.key ? '#a78bfa':'#555', fontSize:12, fontWeight:600,
+            cursor:'pointer', fontFamily:'inherit',
+          }}>{t.label}</button>
+        ))}
+      </div>
+      <div style={{ maxHeight:220, overflowY:'auto', padding:8, display:'flex', flexDirection:'column', gap:4 }}>
+        {formats.map(fmt => {
+          const sel = selected?.format_id === fmt.format_id
+          const qColor = qualityColor(fmt.label)
+          const isBest = fmt.format_id === 'bestvideo+bestaudio/best'
+          return (
+            <div key={fmt.format_id} onClick={() => onSelect(fmt)} style={{
+              display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:8,
+              cursor:'pointer',
+              background: sel ? 'rgba(139,92,246,0.14)' : isBest ? 'rgba(16,185,129,0.05)' : 'rgba(255,255,255,0.02)',
+              border: sel ? '1px solid rgba(139,92,246,0.4)' : isBest ? '1px solid rgba(16,185,129,0.2)' : '1px solid transparent',
+            }}>
+              <div style={{ width:9, height:9, borderRadius:'50%', flexShrink:0,
+                border:`2px solid ${sel?'#8b5cf6':'#444'}`, background:sel?'#8b5cf6':'none' }} />
+              <span style={{ flex:1, fontSize:13, fontWeight:sel?600:400, color:sel?'#e8e8f0':'#ccc' }}>{fmt.label}</span>
+              <div style={{ display:'flex', gap:4, alignItems:'center', flexShrink:0 }}>
+                {fmt.quality && !isBest && (
+                  <span style={{ fontSize:10, fontWeight:700, color:qColor,
+                    background:`${qColor}22`, border:`1px solid ${qColor}44`,
+                    borderRadius:4, padding:'1px 6px' }}>{fmt.quality}</span>
+                )}
+                {fmt.filesize && (
+                  <span style={{ ...S.mono, fontSize:10, color:'#444',
+                    background:'rgba(255,255,255,0.04)', padding:'1px 6px', borderRadius:4 }}>
+                    {formatSize(fmt.filesize)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+        {formats.length === 0 && (
+          <p style={{ fontSize:12, color:'#444', textAlign:'center', padding:16, margin:0 }}>No {tab} formats</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── URL Row ────────────────────────────────────────────────────────────────
 function UrlRow({ item, onChange, onRemove, canRemove }) {
   const { url, info, error, fetchStatus, fetchPct } = item
   const valid = isValidYT(url)
   const isFetching = fetchStatus === 'fetching'
+  const needsLogin = error?.includes('LOGIN_REQUIRED')
 
   return (
     <div style={{ display:'flex', gap:8, alignItems:'flex-start' }}>
       <div style={{ flex:1, display:'flex', flexDirection:'column', gap:6 }}>
         <div style={{
-          ...S.card, display:'flex', alignItems:'center', gap:8,
-          padding:'6px 6px 6px 14px',
-          borderColor: error ? 'rgba(239,68,68,0.35)'
-                      : info  ? 'rgba(16,185,129,0.35)'
-                      : valid ? 'rgba(139,92,246,0.25)'
-                      :         'rgba(255,255,255,0.08)',
+          ...S.card, display:'flex', alignItems:'center', gap:8, padding:'6px 6px 6px 14px',
+          borderColor: error ? 'rgba(239,68,68,0.35)' : info ? 'rgba(16,185,129,0.35)' : valid ? 'rgba(139,92,246,0.25)' : 'rgba(255,255,255,0.08)',
         }}>
           <span style={{ fontSize:15, flexShrink:0 }}>🔗</span>
           <input
@@ -85,15 +228,13 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
           {fetchStatus === 'error' && <span style={{ ...S.pill('#ef4444'), flexShrink:0 }}>✗ failed</span>}
         </div>
 
-        {/* Fetch progress bar */}
         <MiniBar
           pct={fetchPct || 0}
           color={error ? '#ef4444' : '#8b5cf6'}
-          label={error ? '✗ Fetch failed' : isFetching ? '⏳ Fetching video info…' : fetchStatus === 'done' ? '✓ Fetch complete' : ''}
+          label={isFetching ? '⏳ Fetching video info…' : fetchStatus === 'done' ? '✓ Fetch complete' : fetchStatus === 'error' ? '✗ Fetch failed' : ''}
           show={!!fetchStatus}
         />
 
-        {/* Video preview */}
         {info && (
           <div style={{ display:'flex', gap:10, alignItems:'center', padding:'8px 12px', background:'rgba(255,255,255,0.02)', borderRadius:10, border:'1px solid rgba(255,255,255,0.06)' }}>
             <img src={info.thumbnail} alt="" style={{ width:60, height:36, objectFit:'cover', borderRadius:6, flexShrink:0 }} />
@@ -104,14 +245,20 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
           </div>
         )}
 
-        {/* Error message */}
         {error && (
-          <div style={{ fontSize:11, color:'#f87171', background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'6px 10px' }}>
-            ✗ {error}
+          <div style={{ fontSize:12, background: needsLogin ? 'rgba(245,158,11,0.07)' : 'rgba(239,68,68,0.07)',
+            border: `1px solid ${needsLogin ? 'rgba(245,158,11,0.25)' : 'rgba(239,68,68,0.2)'}`,
+            borderRadius:8, padding:'10px 12px' }}>
+            {needsLogin ? (
+              <p style={{ margin:0, color:'#f59e0b', fontSize:12 }}>
+                🔒 This video requires sign-in. Please <strong>Login with Google</strong> above to download age-restricted videos.
+              </p>
+            ) : (
+              <p style={{ margin:0, color:'#f87171' }}>✗ {error}</p>
+            )}
           </div>
         )}
 
-        {/* Format picker */}
         {info && <FormatPicker info={info} selected={item.selectedFormat} onSelect={fmt => onChange('selectedFormat', fmt)} />}
       </div>
 
@@ -126,46 +273,7 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
   )
 }
 
-// ── Format picker ──────────────────────────────────────────────────────────
-function FormatPicker({ info, selected, onSelect }) {
-  const [tab, setTab] = useState('video')
-  const formats = (info?.formats || []).filter(f => tab === 'video' ? f.type === 'video' : f.type === 'audio')
-  return (
-    <div style={{ ...S.card, overflow:'hidden' }}>
-      <div style={{ display:'flex', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
-        {['video','audio'].map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            flex:1, padding:'10px', background: tab===t ? 'rgba(139,92,246,0.1)':'none',
-            border:'none', borderBottom: tab===t ? '2px solid #8b5cf6':'2px solid transparent',
-            color: tab===t ? '#a78bfa':'#555', fontSize:12, fontWeight:600,
-            cursor:'pointer', fontFamily:'inherit',
-          }}>
-            {t === 'video' ? '🎬 Video' : '🎵 Audio'}
-          </button>
-        ))}
-      </div>
-      <div style={{ maxHeight:180, overflowY:'auto', padding:8, display:'flex', flexDirection:'column', gap:4 }}>
-        {formats.map(fmt => {
-          const sel = selected?.format_id === fmt.format_id
-          return (
-            <div key={fmt.format_id} onClick={() => onSelect(fmt)} style={{
-              display:'flex', alignItems:'center', gap:8, padding:'7px 10px', borderRadius:8,
-              cursor:'pointer', background: sel ? 'rgba(139,92,246,0.14)':'rgba(255,255,255,0.02)',
-              border: sel ? '1px solid rgba(139,92,246,0.35)':'1px solid transparent',
-            }}>
-              <div style={{ width:9, height:9, borderRadius:'50%', flexShrink:0, border:`2px solid ${sel?'#8b5cf6':'#444'}`, background:sel?'#8b5cf6':'none' }} />
-              <span style={{ flex:1, fontSize:13, fontWeight:sel?500:400, color:sel?'#e8e8f0':'#aaa' }}>{fmt.label}</span>
-              {fmt.filesize && <span style={{ ...S.mono, fontSize:10, color:'#444', background:'rgba(255,255,255,0.04)', padding:'1px 6px', borderRadius:4 }}>{formatSize(fmt.filesize)}</span>}
-            </div>
-          )
-        })}
-        {formats.length === 0 && <p style={{ fontSize:12, color:'#444', textAlign:'center', padding:16, margin:0 }}>No {tab} formats</p>}
-      </div>
-    </div>
-  )
-}
-
-// ── Job card with per-video progress ──────────────────────────────────────
+// ── Job card ───────────────────────────────────────────────────────────────
 function JobCard({ job }) {
   const meta = PHASE[job.status] || PHASE.queued
   const dlDone = !['downloading','processing','queued'].includes(job.status)
@@ -175,7 +283,6 @@ function JobCard({ job }) {
 
   return (
     <div style={{ ...S.card, padding:'12px 14px' }}>
-      {/* Header row */}
       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
         <div style={{ width:28, height:28, borderRadius:'50%', background:meta.color, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, color:'#fff', fontWeight:700, flexShrink:0 }}>
           {meta.icon}
@@ -202,30 +309,22 @@ function JobCard({ job }) {
         )}
       </div>
 
-      {/* Download progress */}
-      <MiniBar
-        pct={isDl ? job.progress : dlDone && !isQ ? 100 : 0}
+      <MiniBar pct={isDl ? job.progress : dlDone && !isQ ? 100 : 0}
         color={isDl ? '#8b5cf6' : '#10b981'}
         label={isDl ? `↓ Downloading ${job.progress}%` : dlDone && !isQ ? '✓ Downloaded' : ''}
-        show={!isQ && job.status !== 'error'}
-      />
+        show={!isQ && job.status !== 'error'} />
 
-      {/* Normalize progress */}
-      <MiniBar
-        pct={isNorm ? job.normProgress : job.status === 'done' ? 100 : 0}
+      <MiniBar pct={isNorm ? job.normProgress : job.status === 'done' ? 100 : 0}
         color={isNorm ? '#3b82f6' : '#10b981'}
         label={isNorm ? `▶ Normalizing ${job.normProgress}%` : job.status === 'done' ? '✓ Normalized' : '▶ Normalize pending'}
-        show={!isQ && !isDl && job.status !== 'error'}
-      />
+        show={!isQ && !isDl && job.status !== 'error'} />
 
-      {/* Output filename */}
       {job.status === 'done' && job.outFilename && (
         <div style={{ marginTop:6, fontSize:10, color:'#10b981', ...S.mono, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:5, padding:'3px 8px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
           ✓ {job.outFilename}
         </div>
       )}
 
-      {/* Error */}
       {job.status === 'error' && job.error && (
         <p style={{ margin:'6px 0 0', fontSize:11, color:'#f87171' }}>{job.error}</p>
       )}
@@ -233,7 +332,7 @@ function JobCard({ job }) {
   )
 }
 
-// ── Queue badge (top-right) ────────────────────────────────────────────────
+// ── Queue badge ────────────────────────────────────────────────────────────
 function QueueBadge({ jobs }) {
   const queued  = jobs.filter(j => j.status === 'queued').length
   const active  = jobs.filter(j => !['done','error','queued'].includes(j.status)).length
@@ -264,7 +363,6 @@ function QueueBadge({ jobs }) {
             borderRadius:6, padding:'1px 8px' }}>{r.val}</span>
         </div>
       ))}
-      {/* Overall progress bar */}
       {total > 0 && (
         <div style={{ marginTop:4 }}>
           <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:100, height:3 }}>
@@ -282,28 +380,77 @@ let _id = 1
 const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error:null, fetchStatus:null, fetchPct:0 })
 
 export default function App() {
-  const [items, setItems]         = useState(() => [newItem()])
+  const [items, setItems]           = useState(() => [newItem()])
+  const [user, setUser]             = useState(null)       // { name, email, picture, session_id }
   const [serverInfo, setServerInfo] = useState(null)
   const [fetchingAll, setFetchingAll] = useState(false)
-  const [jobs, setJobs]           = useState([])
-  const pollRef                   = useRef(null)
+  const [jobs, setJobs]             = useState([])
+  const pollRef                     = useRef(null)
 
+  // ── Handle OAuth callback ────────────────────────────────────────────────
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
+    if (code) {
+      // Clear code from URL
+      window.history.replaceState({}, '', window.location.pathname)
+      // Exchange code for session
+      fetch(`${API}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }),
+      }).then(r => r.json()).then(data => {
+        if (data.session_id) {
+          const userData = {
+            session_id: data.session_id,
+            name:       data.name,
+            email:      data.email,
+            picture:    data.picture,
+          }
+          setUser(userData)
+          localStorage.setItem('yt_session', JSON.stringify(userData))
+        }
+      }).catch(console.error)
+    }
+
+    // Restore session from localStorage
+    const stored = localStorage.getItem('yt_session')
+    if (stored && !code) {
+      try {
+        const parsed = JSON.parse(stored)
+        // Verify session still valid
+        fetch(`${API}/auth/session/${parsed.session_id}`)
+          .then(r => { if (r.ok) return r.json(); throw new Error('invalid') })
+          .then(() => setUser(parsed))
+          .catch(() => localStorage.removeItem('yt_session'))
+      } catch { localStorage.removeItem('yt_session') }
+    }
+
     fetch(`${API}/health`).then(r=>r.json()).then(setServerInfo).catch(()=>{})
   }, [])
 
+  const logout = async () => {
+    if (user?.session_id) {
+      await fetch(`${API}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: user.session_id }),
+      }).catch(() => {})
+    }
+    setUser(null)
+    localStorage.removeItem('yt_session')
+  }
+
   const updateItem = (id, key, val) =>
     setItems(prev => prev.map(it => it.id===id ? {...it, [key]:val} : it))
-
   const addItem    = () => setItems(prev => [...prev, newItem()])
   const removeItem = (id) => setItems(prev => prev.filter(it => it.id!==id))
 
   const fetchOne = async (id) => {
     const item = items.find(it => it.id===id)
     if (!item?.url.trim()) return
-
-    // Animate fetch progress 0→90% while waiting
     setItems(prev => prev.map(it => it.id===id ? {...it, fetchStatus:'fetching', fetchPct:0, error:null, info:null} : it))
+
     let pct = 0
     const ticker = setInterval(() => {
       pct = Math.min(pct + Math.random()*8, 88)
@@ -311,9 +458,9 @@ export default function App() {
     }, 300)
 
     try {
-      const res  = await fetch(`${API}/info`, {
+      const res = await fetch(`${API}/info`, {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ url: item.url.trim() }),
+        body: JSON.stringify({ url: item.url.trim(), session_id: user?.session_id || null }),
       })
       const data = await res.json()
       clearInterval(ticker)
@@ -344,11 +491,12 @@ export default function App() {
 
   const startAll = async () => {
     const payload = items.filter(it=>it.info&&it.selectedFormat).map(it=>({
-      url: it.url.trim(),
-      format_id: it.selectedFormat.format_id,
+      url:        it.url.trim(),
+      format_id:  it.selectedFormat.format_id,
+      session_id: user?.session_id || null,
     }))
     if (!payload.length) return
-    const res  = await fetch(`${API}/download/batch`, {
+    const res = await fetch(`${API}/download/batch`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ items: payload }),
     })
@@ -381,20 +529,20 @@ export default function App() {
         let updated = [...prev]
         results.forEach((r,i) => {
           if (r.status !== 'fulfilled') return
-          const data = r.value
+          const d = r.value
           const jobId = active[i].jobId
           updated = updated.map(j => {
             if (j.jobId !== jobId) return j
-            if (data.status === 'done') return {
+            if (d.status === 'done') return {
               ...j, status:'done', progress:100, normProgress:100,
-              downloadUrl:`${API}/download/file/${jobId}`, outFilename:data.filename,
+              downloadUrl:`${API}/download/file/${jobId}`, outFilename:d.filename,
             }
-            if (data.status === 'error') return { ...j, status:'error', error:data.error }
-            return { ...j, status:data.status,
-              progress:data.progress??j.progress,
-              normProgress:data.normalize_progress??j.normProgress,
-              queue_position:data.queue_position??j.queue_position,
-              title: data.title || j.title,
+            if (d.status === 'error') return { ...j, status:'error', error:d.error }
+            return { ...j, status:d.status,
+              progress:d.progress??j.progress,
+              normProgress:d.normalize_progress??j.normProgress,
+              queue_position:d.queue_position??j.queue_position,
+              title: d.title || j.title,
             }
           })
         })
@@ -411,35 +559,50 @@ export default function App() {
       <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:0,
         background:'radial-gradient(ellipse 70% 40% at 50% -5%, rgba(139,92,246,0.18) 0%, transparent 70%)' }} />
 
-      {/* Queue badge — top right */}
       <QueueBadge jobs={jobs} />
 
       <div style={S.wrap}>
         {/* Header */}
-        <header style={{ textAlign:'center', padding:'52px 0 32px' }}>
-          <div style={{ display:'inline-flex', alignItems:'center', gap:10, marginBottom:14 }}>
+        <header style={{ textAlign:'center', padding:'48px 0 28px', position:'relative' }}>
+
+          {/* Auth button — top right of header */}
+          <div style={{ position:'absolute', top:48, right:0 }}>
+            {user
+              ? <UserAvatar user={user} onLogout={logout} />
+              : <GoogleLoginButton onLogin={() => {}} />
+            }
+          </div>
+
+          <div style={{ display:'inline-flex', alignItems:'center', gap:10, marginBottom:12 }}>
             <div style={{ width:32, height:32, borderRadius:8, background:'linear-gradient(135deg,#8b5cf6,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>▼</div>
             <span style={{ fontSize:19, fontWeight:700, letterSpacing:'-0.4px' }}>YT Downloader</span>
           </div>
-          <h1 style={{ fontSize:34, fontWeight:700, margin:'0 0 8px', letterSpacing:'-1.2px', lineHeight:1.15 }}>
+
+          <h1 style={{ fontSize:32, fontWeight:700, margin:'0 0 8px', letterSpacing:'-1.2px', lineHeight:1.15 }}>
             Batch Download &amp; Normalize<br />
             <span style={{ background:'linear-gradient(90deg,#8b5cf6,#ec4899)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
               YouTube Videos in Parallel
             </span>
           </h1>
-          <p style={{ fontSize:14, color:'#666', margin:'0 0 12px' }}>
+
+          <p style={{ fontSize:14, color:'#666', margin:'0 0 10px' }}>
             Add URLs → Fetch All → Download simultaneously → ffmpeg normalize
           </p>
-          <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:100, padding:'4px 14px', fontSize:11, color:'#555', ...S.mono }}>
-            <span style={{ color:'#8b5cf6' }}>yt-dlp</span> → <span style={{ color:'#3b82f6' }}>libx264 · crf 19 · forced-idr 1</span> → <span style={{ color:'#10b981' }}>_normalize.mp4</span>
-          </div>
-          {serverInfo && (
-            <div style={{ marginTop:8, display:'inline-flex', alignItems:'center', gap:10, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:100, padding:'4px 14px', fontSize:11, color:'#555', ...S.mono }}>
-              <span>⚙ {serverInfo.max_workers} worker{serverInfo.max_workers>1?'s':''}</span>
-              <span style={{ color:'rgba(255,255,255,0.1)' }}>|</span>
-              <span>{serverInfo.cpu_count} CPU</span>
+
+          {/* Login status banner */}
+          {user ? (
+            <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.2)', borderRadius:100, padding:'4px 14px', fontSize:12, color:'#10b981' }}>
+              ✓ Signed in as <strong>{user.email}</strong> — age-restricted videos enabled
+            </div>
+          ) : (
+            <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:100, padding:'4px 14px', fontSize:12, color:'#f59e0b' }}>
+              🔒 Sign in with Google to download age-restricted videos
             </div>
           )}
+
+          <div style={{ marginTop:8, display:'inline-flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:100, padding:'4px 14px', fontSize:11, color:'#555', ...S.mono }}>
+            <span style={{ color:'#8b5cf6' }}>yt-dlp</span> → <span style={{ color:'#3b82f6' }}>libx264 · crf 19 · forced-idr 1</span> → <span style={{ color:'#10b981' }}>_normalize.mp4</span>
+          </div>
         </header>
 
         {/* URL inputs */}
@@ -482,12 +645,10 @@ export default function App() {
           </button>
         </div>
 
-        {/* Jobs list */}
+        {/* Jobs */}
         {jobs.length > 0 && (
           <div>
-            <div style={{ fontSize:12, color:'#444', fontWeight:600, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:10 }}>
-              Downloads
-            </div>
+            <div style={{ fontSize:12, color:'#444', fontWeight:600, letterSpacing:'0.5px', textTransform:'uppercase', marginBottom:10 }}>Downloads</div>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {jobs.map(job => <JobCard key={job.jobId} job={job} />)}
             </div>
@@ -498,10 +659,10 @@ export default function App() {
         {jobs.length === 0 && (
           <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
             {[
-              { icon:'⚡', color:'#8b5cf6', title:'Parallel downloads',  desc:'All URLs process simultaneously' },
-              { icon:'▶', color:'#3b82f6', title:'ffmpeg normalize',     desc:'libx264 · crf 19 · forced-idr 1' },
-              { icon:'🌍', color:'#f59e0b', title:'Auto proxy',          desc:'Detects geo-block, fetches country proxies' },
-              { icon:'🔒', color:'#10b981', title:'Fully local',         desc:'Files saved on your server' },
+              { icon:'🔑', color:'#f59e0b', title:'Google SSO',           desc:'Sign in to download age-restricted videos' },
+              { icon:'⚡', color:'#8b5cf6', title:'Parallel downloads',   desc:'All URLs process simultaneously' },
+              { icon:'▶', color:'#3b82f6', title:'ffmpeg normalize',      desc:'libx264 · crf 19 · forced-idr 1' },
+              { icon:'🔒', color:'#10b981', title:'Fully local',          desc:'Files saved on your server' },
             ].map(f => (
               <div key={f.title} style={{ flex:'1 1 180px', ...S.card, padding:'14px' }}>
                 <div style={{ width:30, height:30, borderRadius:8, background:`${f.color}18`, border:`1px solid ${f.color}33`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, marginBottom:8, color:f.color }}>{f.icon}</div>
