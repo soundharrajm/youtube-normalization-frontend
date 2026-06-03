@@ -690,6 +690,16 @@ export default function App() {
           }}>
             ⚡ Download All ({items.filter(it=>it.info&&it.selectedFormat).length})
           </button>
+
+          {jobs.length > 0 && (
+            <button onClick={refreshJobs} style={{
+              flex:'0 0 auto', padding:'11px 16px', borderRadius:10,
+              border:'1px solid rgba(99,102,241,0.3)',
+              background:'rgba(99,102,241,0.08)', color:'#818cf8',
+              fontSize:18, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
+              title:'Refresh download statuses',
+            }}>↻</button>
+          )}
         </div>
 
         {/* Jobs */}
