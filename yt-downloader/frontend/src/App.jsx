@@ -7,6 +7,17 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ||
   '406747955382-digauab6tpgo7f9rr7sbl0qoajc01oub.apps.googleusercontent.com'
 const REDIRECT_URI = window.location.origin
 
+// ── localtunnel bypass wrapper ─────────────────────────────────────────────
+function apiFetch(url, options = {}) {
+  return fetch(url, {
+    ...options,
+    headers: {
+      'bypass-tunnel-reminder': 'true',
+      ...options.headers,
+    },
+  })
+}
+
 // ── utils ──────────────────────────────────────────────────────────────────
 function formatDuration(sec) {
   if (!sec) return ''
@@ -399,7 +410,7 @@ export default function App() {
       // Clear code from URL
       window.history.replaceState({}, '', window.location.pathname)
       // Exchange code for session
-      fetch(`${API}/auth/google`, {
+      apiFetch(`${API}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }),
@@ -423,19 +434,19 @@ export default function App() {
       try {
         const parsed = JSON.parse(stored)
         // Verify session still valid
-        fetch(`${API}/auth/session/${parsed.session_id}`)
+        apiFetch(`${API}/auth/session/${parsed.session_id}`)
           .then(r => { if (r.ok) return r.json(); throw new Error('invalid') })
           .then(() => setUser(parsed))
           .catch(() => localStorage.removeItem('yt_session'))
       } catch { localStorage.removeItem('yt_session') }
     }
 
-    fetch(`${API}/health`).then(r=>r.json()).then(setServerInfo).catch(()=>{})
+    apiFetch(`${API}/health`).then(r=>r.json()).then(setServerInfo).catch(()=>{})
   }, [])
 
   const logout = async () => {
     if (user?.session_id) {
-      await fetch(`${API}/auth/logout`, {
+      await apiFetch(`${API}/auth/logout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: user.session_id }),
@@ -462,7 +473,7 @@ export default function App() {
     }, 300)
 
     try {
-      const res = await fetch(`${API}/info`, {
+      const res = await apiFetch(`${API}/info`, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ url: item.url.trim(), session_id: user?.session_id || null }),
       })
@@ -500,7 +511,7 @@ export default function App() {
       session_id: user?.session_id || null,
     }))
     if (!payload.length) return
-    const res = await fetch(`${API}/download/batch`, {
+    const res = await apiFetch(`${API}/download/batch`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ items: payload }),
     })
@@ -526,7 +537,7 @@ export default function App() {
       if (!active.length) { clearInterval(pollRef.current); return }
 
       const results = await Promise.allSettled(
-        active.map(j => fetch(`${API}/download/status/${j.jobId}`).then(r=>r.json()))
+        active.map(j => apiFetch(`${API}/download/status/${j.jobId}`).then(r=>r.json()))
       )
 
       setJobs(prev => {

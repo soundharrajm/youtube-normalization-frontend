@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
+function apiFetch(url, options = {}) {
+  return fetch(url, {
+    ...options,
+    headers: { 'bypass-tunnel-reminder': 'true', ...options.headers },
+  })
+}
+
 const STEPS = [
   {
     icon: '🧩',
@@ -45,7 +52,7 @@ export default function CookieSetup({ sessionId, onDone, onClose }) {
 
   useEffect(() => {
     // Check if cookies already uploaded
-    fetch(`${API}/admin/cookies/status?secret=check&session_id=${sessionId}`)
+    apiFetch(`${API}/admin/cookies/status?secret=check&session_id=${sessionId}`)
       .then(r => r.json())
       .then(d => setCookieStatus(d))
       .catch(() => {})
@@ -56,7 +63,7 @@ export default function CookieSetup({ sessionId, onDone, onClose }) {
     setUploading(true)
     setErrMsg('')
     try {
-      const res = await fetch(`${API}/admin/cookies/upload`, {
+      const res = await apiFetch(`${API}/admin/cookies/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 
+function apiFetch(url, options = {}) {
+  return fetch(url, {
+    ...options,
+    headers: { 'bypass-tunnel-reminder': 'true', ...options.headers },
+  })
+}
+
 const S = {
   card: { background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14 },
   mono: { fontFamily:"'JetBrains Mono',monospace" },
@@ -17,7 +24,7 @@ export default function AdminPanel({ onClose }) {
 
   const checkStatus = async (s) => {
     try {
-      const res = await fetch(`${API}/admin/cookies/status?secret=${encodeURIComponent(s)}`)
+      const res = await apiFetch(`${API}/admin/cookies/status?secret=${encodeURIComponent(s)}`)
       if (res.status === 403) return false
       const data = await res.json()
       setStatus(data)
@@ -36,7 +43,7 @@ export default function AdminPanel({ onClose }) {
     setUploading(true)
     setMsg(null)
     try {
-      const res = await fetch(`${API}/admin/cookies/upload`, {
+      const res = await apiFetch(`${API}/admin/cookies/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cookies, secret }),
@@ -55,7 +62,7 @@ export default function AdminPanel({ onClose }) {
 
   const clear = async () => {
     if (!confirm('Clear service cookies? Age-restricted downloads will fail until new cookies are uploaded.')) return
-    const res = await fetch(`${API}/admin/cookies/clear?secret=${encodeURIComponent(secret)}`, { method:'DELETE' })
+    const res = await apiFetch(`${API}/admin/cookies/clear?secret=${encodeURIComponent(secret)}`, { method:'DELETE' })
     const data = await res.json()
     setMsg({ type:'success', text: data.message })
     await checkStatus(secret)
