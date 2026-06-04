@@ -241,11 +241,18 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
           show={!!fetchStatus}
         />
         {info && (
-          <div style={{ display:'flex', gap:10, alignItems:'center', padding:'8px 12px', background:'rgba(255,255,255,0.02)', borderRadius:10, border:'1px solid rgba(255,255,255,0.06)' }}>
-            <img src={info.thumbnail} alt="" style={{ width:60, height:36, objectFit:'cover', borderRadius:6, flexShrink:0 }} />
-            <div style={{ minWidth:0 }}>
-              <p style={{ margin:0, fontSize:12, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{info.title}</p>
-              <p style={{ margin:0, fontSize:11, color:'#555' }}>{info.uploader} · {formatDuration(info.duration)}</p>
+          <div style={{ display:'flex', gap:10, alignItems:'center', padding:'8px 12px', background:'rgba(255,255,255,0.04)', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)' }}>
+            <img src={info.thumbnail} alt="" style={{ width:72, height:42, objectFit:'cover', borderRadius:6, flexShrink:0 }} />
+            <div style={{ minWidth:0, flex:1 }}>
+              <p style={{ margin:0, fontSize:13, fontWeight:600, color:'#e8e8f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{info.title}</p>
+              <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:4 }}>
+                <span style={{ fontSize:12, color:'#aaa', fontWeight:500 }}>{info.uploader}</span>
+                {info.duration && (
+                  <span style={{ fontSize:11, color:'#10b981', background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.25)', borderRadius:4, padding:'1px 6px', fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>
+                    {formatDuration(info.duration)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -275,55 +282,118 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
   )
 }
 
+// ── Circular progress ─────────────────────────────────────────────────────
+function CircleProgress({ pct, color, size=44, stroke=3, label, done }) {
+  const r = (size - stroke * 2) / 2
+  const circ = 2 * Math.PI * r
+  const offset = circ - (pct / 100) * circ
+  return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, flexShrink:0 }}>
+      <div style={{ position:'relative', width:size, height:size }}>
+        <svg width={size} height={size} style={{ transform:'rotate(-90deg)' }}>
+          <circle cx={size/2} cy={size/2} r={r} fill="none"
+            stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
+          <circle cx={size/2} cy={size/2} r={r} fill="none"
+            stroke={done ? '#10b981' : color} strokeWidth={stroke}
+            strokeDasharray={circ} strokeDashoffset={offset}
+            strokeLinecap="round"
+            style={{ transition:'stroke-dashoffset 0.4s ease' }} />
+        </svg>
+        <div style={{
+          position:'absolute', inset:0, display:'flex', alignItems:'center',
+          justifyContent:'center', fontSize:10, fontWeight:700,
+          color: done ? '#10b981' : color, fontFamily:"'JetBrains Mono',monospace",
+        }}>
+          {done ? '✓' : `${pct}%`}
+        </div>
+      </div>
+      <span style={{ fontSize:9, color:'#555', fontWeight:600, letterSpacing:'0.3px', textTransform:'uppercase' }}>{label}</span>
+    </div>
+  )
+}
+
 // ── Job card ───────────────────────────────────────────────────────────────
 function JobCard({ job }) {
-  const meta = PHASE[job.status] || PHASE.queued
-  const dlDone = !['downloading','processing','queued'].includes(job.status)
+  const meta  = PHASE[job.status] || PHASE.queued
+  const isQ   = job.status === 'queued'
+  const isDl  = job.status === 'downloading' || job.status === 'processing'
   const isNorm = job.status === 'normalizing'
-  const isDl   = job.status === 'downloading' || job.status === 'processing'
-  const isQ    = job.status === 'queued'
+  const isDone = job.status === 'done'
+  const isErr  = job.status === 'error'
+
+  const dlPct   = isDl ? job.progress : (isDone || isNorm) ? 100 : 0
+  const normPct = isNorm ? job.normProgress : isDone ? 100 : 0
+
   return (
     <div style={{ ...S.card, padding:'12px 14px' }}>
       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-        <div style={{ width:28, height:28, borderRadius:'50%', background:meta.color, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, color:'#fff', fontWeight:700, flexShrink:0 }}>
+
+        {/* Status icon */}
+        <div style={{ width:32, height:32, borderRadius:'50%', background:`${meta.color}22`,
+          border:`1.5px solid ${meta.color}55`, display:'flex', alignItems:'center',
+          justifyContent:'center', fontSize:14, color:meta.color, flexShrink:0 }}>
           {meta.icon}
         </div>
+
+        {/* Title + url */}
         <div style={{ flex:1, minWidth:0 }}>
-          <p style={{ margin:0, fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          <p style={{ margin:0, fontSize:13, fontWeight:600, color:'#e8e8f0',
+            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
             {job.title || job.url || '…'}
           </p>
-          <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:2 }}>
-            <span style={{ fontSize:11, color:'#444', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:240, ...S.mono }}>
+          <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:3 }}>
+            <span style={{ fontSize:11, color:'#555', overflow:'hidden', textOverflow:'ellipsis',
+              whiteSpace:'nowrap', maxWidth:200, fontFamily:"'JetBrains Mono',monospace" }}>
               {(job.url||'').replace('https://www.youtube.com/watch?v=','yt:')}
             </span>
-            <span style={S.pill(meta.color)}>
-              {isQ && job.queue_position > 0 ? `#${job.queue_position+1} in queue` : meta.label}
+            <span style={{ fontSize:10, color:meta.color, background:`${meta.color}18`,
+              border:`1px solid ${meta.color}33`, borderRadius:100, padding:'1px 7px', fontWeight:600, flexShrink:0 }}>
+              {isQ && job.queue_position > 0 ? `#${job.queue_position+1} queued` : meta.label}
             </span>
           </div>
         </div>
-        {job.status === 'done' && job.downloadUrl && (
-          <a href={job.downloadUrl} download style={{
-            background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.3)',
-            borderRadius:8, color:'#34d399', fontSize:12, fontWeight:700,
-            padding:'6px 14px', textDecoration:'none', flexShrink:0,
-          }}>↓ Save</a>
-        )}
+
+        {/* Right side: circles + save button */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+          {/* Download circle */}
+          {!isQ && !isErr && (
+            <CircleProgress
+              pct={dlPct} color='#8b5cf6' size={44} stroke={3}
+              label="DL" done={dlPct === 100} />
+          )}
+          {/* Normalize circle */}
+          {!isQ && !isErr && !isDl && (
+            <CircleProgress
+              pct={normPct} color='#3b82f6' size={44} stroke={3}
+              label="NRM" done={normPct === 100} />
+          )}
+          {/* Save button */}
+          {isDone && job.downloadUrl && (
+            <a href={job.downloadUrl} download style={{
+              background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.3)',
+              borderRadius:8, color:'#34d399', fontSize:12, fontWeight:700,
+              padding:'6px 14px', textDecoration:'none',
+            }}>↓ Save</a>
+          )}
+        </div>
       </div>
-      <MiniBar pct={isDl ? job.progress : dlDone && !isQ ? 100 : 0}
-        color={isDl ? '#8b5cf6' : '#10b981'}
-        label={isDl ? `↓ Downloading ${job.progress}%` : dlDone && !isQ ? '✓ Downloaded' : ''}
-        show={!isQ && job.status !== 'error'} />
-      <MiniBar pct={isNorm ? job.normProgress : job.status === 'done' ? 100 : 0}
-        color={isNorm ? '#3b82f6' : '#10b981'}
-        label={isNorm ? `▶ Normalizing ${job.normProgress}%` : job.status === 'done' ? '✓ Normalized' : '▶ Normalize pending'}
-        show={!isQ && !isDl && job.status !== 'error'} />
-      {job.status === 'done' && job.outFilename && (
-        <div style={{ marginTop:6, fontSize:10, color:'#10b981', ...S.mono, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:5, padding:'3px 8px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+
+      {/* Filename */}
+      {isDone && job.outFilename && (
+        <div style={{ marginTop:8, fontSize:10, color:'#10b981',
+          fontFamily:"'JetBrains Mono',monospace",
+          background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)',
+          borderRadius:5, padding:'3px 8px', overflow:'hidden',
+          textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
           ✓ {job.outFilename}
         </div>
       )}
-      {job.status === 'error' && job.error && (
-        <p style={{ margin:'6px 0 0', fontSize:11, color:'#f87171' }}>{job.error}</p>
+
+      {/* Error */}
+      {isErr && job.error && (
+        <p style={{ margin:'8px 0 0', fontSize:11, color:'#f87171',
+          background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)',
+          borderRadius:6, padding:'6px 10px' }}>{job.error}</p>
       )}
     </div>
   )
@@ -371,6 +441,27 @@ function QueueBadge({ jobs }) {
   )
 }
 
+// ── URL import helpers ────────────────────────────────────────────────────
+function parseImportedUrls(text, fileType) {
+  try {
+    if (fileType === 'json') {
+      const parsed = JSON.parse(text)
+      const arr = Array.isArray(parsed) ? parsed : Object.values(parsed).flat()
+      return arr.map(u => String(u).trim()).filter(u => isValidYT(u))
+    }
+    // CSV — find url column or just grab all valid YT urls from any column
+    const lines = text.split(/\r?\n/).filter(Boolean)
+    const urls = []
+    lines.forEach(line => {
+      const cells = line.split(',').map(c => c.replace(/^"|"$/g, '').trim())
+      cells.forEach(cell => { if (isValidYT(cell)) urls.push(cell) })
+    })
+    return [...new Set(urls)]
+  } catch {
+    return []
+  }
+}
+
 // ── Main App ───────────────────────────────────────────────────────────────
 let _id = 1
 const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error:null, fetchStatus:null, fetchPct:0 })
@@ -384,6 +475,29 @@ export default function App() {
   const [fetchingAll, setFetchingAll] = useState(false)
   const [jobs, setJobs]             = useState([])
   const pollRef                     = useRef(null)
+  const fileInputRef                = useRef(null)
+
+  const importUrls = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const fileType = file.name.endsWith('.json') ? 'json' : 'csv'
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const urls = parseImportedUrls(ev.target.result, fileType)
+      if (!urls.length) { alert('No valid YouTube URLs found in file'); return }
+      setItems(prev => {
+        const existing = prev.filter(it => it.url.trim())
+        const existingUrls = new Set(existing.map(it => it.url.trim()))
+        const newItems = urls
+          .filter(u => !existingUrls.has(u))
+          .map(u => ({ ...newItem(), url: u }))
+        const base = prev.some(it => !it.url.trim()) ? existing : prev
+        return [...base, ...newItems]
+      })
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
 
   // ── Handle OAuth callback ────────────────────────────────────────────────
   useEffect(() => {
@@ -669,13 +783,28 @@ export default function App() {
         </div>
 
         {/* Action buttons */}
-        <div style={{ display:'flex', gap:10, marginBottom:32 }}>
+        <div style={{ display:'flex', gap:10, marginBottom:32, flexWrap:'wrap' }}>
+          <input
+            ref={fileInputRef} type="file" accept=".json,.csv"
+            onChange={importUrls}
+            style={{ display:'none' }}
+          />
           <button onClick={addItem} style={{
             flex:'0 0 auto', padding:'11px 18px', borderRadius:10,
             border:'1px dashed rgba(255,255,255,0.15)',
             background:'rgba(255,255,255,0.02)', color:'#666',
             fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
           }}>+ Add URL</button>
+
+          <button onClick={() => fileInputRef.current?.click()} style={{
+            flex:'0 0 auto', padding:'11px 18px', borderRadius:10,
+            border:'1px dashed rgba(99,102,241,0.3)',
+            background:'rgba(99,102,241,0.06)', color:'#818cf8',
+            fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
+            display:'flex', alignItems:'center', gap:6,
+          }}>
+            ↑ Import JSON/CSV
+          </button>
 
           <button onClick={fetchAll} disabled={fetchingAll || !items.some(it=>it.url.trim()&&!it.info)} style={{
             ...S.btn(!fetchingAll && items.some(it=>it.url.trim()&&!it.info)), flex:1,
