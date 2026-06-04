@@ -475,6 +475,9 @@ export default function App() {
   const [serverInfo, setServerInfo] = useState(null)
   const [fetchingAll, setFetchingAll] = useState(false)
   const [showSearch, setShowSearch]     = useState(false)
+  const [dlCountdown, setDlCountdown]   = useState(0)
+  const [dlIndex, setDlIndex]           = useState(0)
+  const [dlTotal, setDlTotal]           = useState(0)
   const [jobs, setJobs]             = useState([])
   const pollRef                     = useRef(null)
   const fileInputRef                = useRef(null)
@@ -598,7 +601,7 @@ export default function App() {
     for (let i = 0; i < pending.length; i++) {
       await fetchOne(pending[i].id)
       if (i < pending.length - 1)
-        await new Promise(r => setTimeout(r, 5000))
+        await new Promise(r => setTimeout(r, 4000))
     }
     setFetchingAll(false)
   }
@@ -638,28 +641,60 @@ export default function App() {
   const allReady = items.every(it => it.info && it.selectedFormat)
 
   const startAll = async () => {
-    const payload = items.filter(it=>it.info&&it.selectedFormat).map(it=>({
-      url:        it.url.trim(),
-      format_id:  it.selectedFormat.format_id,
-      session_id: user?.session_id || null,
-    }))
-    if (!payload.length) return
-    const res = await apiFetch(`${API}/download/batch`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ items: payload }),
-    })
-    const data = await res.json()
-    if (!res.ok) return
-    const newJobs = data.jobs.map((j,i) => ({
-      jobId: j.job_id, url: j.url,
-      title: items.find(it=>it.url.trim()===j.url)?.info?.title || j.url,
-      format: items.find(it=>it.url.trim()===j.url)?.selectedFormat?.label || '',
-      status:'queued', progress:0, normProgress:0,
-      queue_position: j.queue_position,
-      downloadUrl:null, outFilename:null, error:null,
-    }))
-    setJobs(prev => [...newJobs, ...prev])
-    startPolling([...newJobs, ...jobs])
+    const readyItems = items.filter(it => it.info && it.selectedFormat)
+    if (!readyItems.length) return
+
+    setDlTotal(readyItems.length)
+    setDlIndex(0)
+
+    const DELAY = 4000 // ms between each download request
+    let allNewJobs = []
+
+    for (let i = 0; i < readyItems.length; i++) {
+      const it = readyItems[i]
+      setDlIndex(i + 1)
+
+      const res = await apiFetch(`${API}/download/batch`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          items: [{
+            url:        it.url.trim(),
+            format_id:  it.selectedFormat.format_id,
+            session_id: user?.session_id || null,
+          }]
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.jobs?.length) {
+        const j = data.jobs[0]
+        const newJob = {
+          jobId: j.job_id, url: j.url,
+          title: it.info?.title || j.url,
+          format: it.selectedFormat?.label || '',
+          status:'queued', progress:0, normProgress:0,
+          queue_position: j.queue_position,
+          downloadUrl:null, outFilename:null, error:null,
+        }
+        allNewJobs = [newJob, ...allNewJobs]
+        setJobs(prev => [newJob, ...prev])
+        startPolling([newJob, ...allNewJobs, ...jobs])
+      }
+
+      // Countdown delay between downloads
+      if (i < readyItems.length - 1) {
+        let secs = Math.ceil(DELAY / 1000)
+        setDlCountdown(secs)
+        const timer = setInterval(() => {
+          secs -= 1
+          setDlCountdown(secs)
+          if (secs <= 0) clearInterval(timer)
+        }, 1000)
+        await new Promise(r => setTimeout(r, DELAY))
+        setDlCountdown(0)
+      }
+    }
+    setDlIndex(0)
+    setDlTotal(0)
   }
 
   const startPolling = useCallback((allJobs) => {
@@ -839,10 +874,54 @@ export default function App() {
               : `🔍 Fetch All (${items.filter(it=>it.url.trim()&&!it.info).length} pending)`}
           </button>
 
-          <button onClick={startAll} disabled={!allReady || !items.some(it=>it.info)} style={{
-            ...S.btn(allReady && items.some(it=>it.info), '#10b981'), flex:1,
-          }}>
-            ⚡ Download All ({items.filter(it=>it.info&&it.selectedFormat).length})
+          <button
+            onClick={startAll}
+            disabled={!allReady || !items.some(it=>it.info) || dlTotal > 0}
+            style={{
+              ...S.btn((allReady && items.some(it=>it.info) && dlTotal === 0), '#10b981'),
+              flex:1, position:'relative', overflow:'hidden',
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            }}
+          >
+            {dlTotal > 0 ? (
+              <>
+                {/* Animated fill bar */}
+                <div style={{
+                  position:'absolute', inset:0, zIndex:0,
+                  background:'rgba(0,0,0,0.25)',
+                  width: dlCountdown > 0
+                    ? `${((4 - dlCountdown) / 4) * 100}%`
+                    : '100%',
+                  transition:'width 1s linear',
+                  borderRadius:10,
+                }} />
+                {/* Circular countdown */}
+                {dlCountdown > 0 ? (
+                  <div style={{ position:'relative', zIndex:1, display:'flex', alignItems:'center', gap:8 }}>
+                    <svg width={28} height={28} style={{ transform:'rotate(-90deg)', flexShrink:0 }}>
+                      <circle cx={14} cy={14} r={11} fill="none"
+                        stroke="rgba(255,255,255,0.15)" strokeWidth={2.5} />
+                      <circle cx={14} cy={14} r={11} fill="none"
+                        stroke="#fff" strokeWidth={2.5}
+                        strokeDasharray={69.1}
+                        strokeDashoffset={69.1 - (69.1 * (4 - dlCountdown) / 4)}
+                        strokeLinecap="round"
+                        style={{ transition:'stroke-dashoffset 1s linear' }}
+                      />
+                    </svg>
+                    <span style={{ fontSize:13, fontWeight:700 }}>
+                      Next in {dlCountdown}s · {dlIndex}/{dlTotal}
+                    </span>
+                  </div>
+                ) : (
+                  <span style={{ position:'relative', zIndex:1, fontSize:13, fontWeight:700 }}>
+                    ↓ Sending {dlIndex}/{dlTotal}…
+                  </span>
+                )}
+              </>
+            ) : (
+              <>⚡ Download All ({items.filter(it=>it.info&&it.selectedFormat).length})</>
+            )}
           </button>
 
           {jobs.length > 0 && (
