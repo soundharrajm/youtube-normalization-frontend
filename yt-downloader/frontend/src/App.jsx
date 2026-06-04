@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import AdminPanel from './AdminPanel.jsx'
 import CookieSetup from './CookieSetup.jsx'
+import SearchPanel from './SearchPanel.jsx'
 
 const API = import.meta.env.VITE_API_URL || '/api'
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ||
@@ -473,6 +474,7 @@ export default function App() {
   const [user, setUser]             = useState(null)
   const [serverInfo, setServerInfo] = useState(null)
   const [fetchingAll, setFetchingAll] = useState(false)
+  const [showSearch, setShowSearch]     = useState(false)
   const [jobs, setJobs]             = useState([])
   const pollRef                     = useRef(null)
   const fileInputRef                = useRef(null)
@@ -545,6 +547,17 @@ export default function App() {
     setItems(prev => prev.map(it => it.id===id ? {...it, [key]:val} : it))
   const addItem    = () => setItems(prev => [...prev, newItem()])
   const removeItem = (id) => setItems(prev => prev.filter(it => it.id!==id))
+
+  const addUrlFromSearch = (url) => {
+    setItems(prev => {
+      if (prev.some(it => it.url.trim() === url.trim())) return prev
+      const hasEmpty = prev.some(it => !it.url.trim())
+      if (hasEmpty) {
+        return prev.map(it => !it.url.trim() ? { ...it, url } : it)
+      }
+      return [...prev, { ...newItem(), url }]
+    })
+  }
 
   const fetchOne = async (id) => {
     const item = items.find(it => it.id===id)
@@ -789,6 +802,18 @@ export default function App() {
             onChange={importUrls}
             style={{ display:'none' }}
           />
+          {showSearch && (
+            <SearchPanel
+              onAddUrl={addUrlFromSearch}
+              onClose={() => setShowSearch(false)}
+            />
+          )}
+          <button onClick={() => setShowSearch(true)} style={{
+            flex:'0 0 auto', padding:'11px 18px', borderRadius:10,
+            border:'1px solid rgba(139,92,246,0.3)',
+            background:'rgba(139,92,246,0.1)', color:'#a78bfa',
+            fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
+          }}>🔎 Search YouTube</button>
           <button onClick={addItem} style={{
             flex:'0 0 auto', padding:'11px 18px', borderRadius:10,
             border:'1px dashed rgba(255,255,255,0.15)',
