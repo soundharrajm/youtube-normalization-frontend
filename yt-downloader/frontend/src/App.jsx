@@ -598,7 +598,7 @@ export default function App() {
     for (let i = 0; i < pending.length; i++) {
       await fetchOne(pending[i].id)
       if (i < pending.length - 1)
-        await new Promise(r => setTimeout(r, 2000))
+        await new Promise(r => setTimeout(r, 5000))
     }
     setFetchingAll(false)
   }
@@ -835,7 +835,7 @@ export default function App() {
             ...S.btn(!fetchingAll && items.some(it=>it.url.trim()&&!it.info)), flex:1,
           }}>
             {fetchingAll
-              ? `⏳ Fetching… (2s delay between URLs)`
+              ? `⏳ Fetching… (4s delay between URLs)`
               : `🔍 Fetch All (${items.filter(it=>it.url.trim()&&!it.info).length} pending)`}
           </button>
 
