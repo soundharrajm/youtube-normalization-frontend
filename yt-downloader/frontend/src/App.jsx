@@ -213,7 +213,15 @@ function FormatPicker({ info, selected, onSelect }) {
 
 // ── URL Row ────────────────────────────────────────────────────────────────
 function UrlRow({ item, onChange, onRemove, canRemove }) {
-  const { url, info, error, fetchStatus, fetchPct } = item
+  const { url, info, error, fetchStatus, fetchPct, fetchStart } = item
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    if (fetchStatus !== 'fetching') { setElapsed(0); return }
+    const t = setInterval(() => {
+      setElapsed(fetchStart ? ((Date.now() - fetchStart) / 1000).toFixed(1) : 0)
+    }, 100)
+    return () => clearInterval(t)
+  }, [fetchStatus, fetchStart])
   const valid = isValidYT(url)
   const isFetching = fetchStatus === 'fetching'
   const needsLogin = error?.includes('LOGIN_REQUIRED')
@@ -238,7 +246,15 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
         <MiniBar
           pct={fetchPct || 0}
           color={error ? '#ef4444' : '#8b5cf6'}
-          label={isFetching ? '⏳ Fetching video info…' : fetchStatus === 'done' ? '✓ Fetch complete' : fetchStatus === 'error' ? '✗ Fetch failed' : ''}
+          label={
+            isFetching
+              ? `⏳ Fetching video info… ${elapsed}s`
+              : fetchStatus === 'done'
+                ? `✓ Fetch complete${item.fetchTime ? ` · ${item.fetchTime}s` : ''}`
+                : fetchStatus === 'error'
+                  ? `✗ Fetch failed${item.fetchTime ? ` · ${item.fetchTime}s` : ''}`
+                  : ''
+          }
           show={!!fetchStatus}
         />
         {info && (
@@ -465,7 +481,7 @@ function parseImportedUrls(text, fileType) {
 
 // ── Main App ───────────────────────────────────────────────────────────────
 let _id = 1
-const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error:null, fetchStatus:null, fetchPct:0 })
+const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error:null, fetchStatus:null, fetchPct:0, fetchTime:null, fetchStart:null })
 
 export default function App() {
   const [items, setItems]           = useState(() => [newItem()])
@@ -565,7 +581,8 @@ export default function App() {
   const fetchOne = async (id) => {
     const item = items.find(it => it.id===id)
     if (!item?.url.trim()) return
-    setItems(prev => prev.map(it => it.id===id ? {...it, fetchStatus:'fetching', fetchPct:0, error:null, info:null} : it))
+    const fetchStartTime = Date.now()
+    setItems(prev => prev.map(it => it.id===id ? {...it, fetchStatus:'fetching', fetchPct:0, error:null, info:null, fetchTime:null, fetchStart:fetchStartTime} : it))
     let pct = 0
     const ticker = setInterval(() => {
       pct = Math.min(pct + Math.random()*8, 88)
@@ -580,14 +597,16 @@ export default function App() {
       clearInterval(ticker)
       if (!res.ok) throw new Error(data.detail || 'Failed')
       const firstFmt = data.formats.find(f=>f.type==='video') || data.formats[0]
+      const fetchElapsed = ((Date.now() - fetchStartTime) / 1000).toFixed(1)
       setItems(prev => prev.map(it => it.id===id
-        ? { ...it, info:data, selectedFormat:firstFmt, error:null, fetchStatus:'done', fetchPct:100 }
+        ? { ...it, info:data, selectedFormat:firstFmt, error:null, fetchStatus:'done', fetchPct:100, fetchTime:fetchElapsed }
         : it
       ))
     } catch(e) {
       clearInterval(ticker)
+      const fetchElapsed = ((Date.now() - fetchStartTime) / 1000).toFixed(1)
       setItems(prev => prev.map(it => it.id===id
-        ? { ...it, error:e.message, fetchStatus:'error', fetchPct:100 }
+        ? { ...it, error:e.message, fetchStatus:'error', fetchPct:100, fetchTime:fetchElapsed }
         : it
       ))
     }
