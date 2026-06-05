@@ -665,55 +665,65 @@ export default function App() {
 
     setDlTotal(readyItems.length)
     setDlIndex(0)
+    setDlCountdown(0)
 
-    const DELAY = 4000 // ms between each download request
+    const DELAY = 4000
     let allNewJobs = []
 
-    for (let i = 0; i < readyItems.length; i++) {
-      const it = readyItems[i]
-      setDlIndex(i + 1)
+    try {
+      for (let i = 0; i < readyItems.length; i++) {
+        const it = readyItems[i]
+        setDlIndex(i + 1)
 
-      const res = await apiFetch(`${API}/download/batch`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          items: [{
-            url:        it.url.trim(),
-            format_id:  it.selectedFormat.format_id,
-            session_id: user?.session_id || null,
-          }]
-        }),
-      })
-      const data = await res.json()
-      if (res.ok && data.jobs?.length) {
-        const j = data.jobs[0]
-        const newJob = {
-          jobId: j.job_id, url: j.url,
-          title: it.info?.title || j.url,
-          format: it.selectedFormat?.label || '',
-          status:'queued', progress:0, normProgress:0,
-          queue_position: j.queue_position,
-          downloadUrl:null, outFilename:null, error:null,
+        try {
+          const res = await apiFetch(`${API}/download/batch`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              items: [{
+                url:        it.url.trim(),
+                format_id:  it.selectedFormat.format_id,
+                session_id: user?.session_id || null,
+              }]
+            }),
+          })
+          const data = await res.json()
+          if (res.ok && data.jobs?.length) {
+            const j = data.jobs[0]
+            const newJob = {
+              jobId: j.job_id, url: j.url,
+              title: it.info?.title || j.url,
+              format: it.selectedFormat?.label || '',
+              status:'queued', progress:0, normProgress:0,
+              queue_position: j.queue_position,
+              downloadUrl:null, outFilename:null, error:null,
+            }
+            allNewJobs = [newJob, ...allNewJobs]
+            setJobs(prev => [newJob, ...prev])
+            startPolling([newJob, ...allNewJobs, ...jobs])
+          }
+        } catch (err) {
+          console.error(`Download dispatch failed for ${it.url}:`, err)
         }
-        allNewJobs = [newJob, ...allNewJobs]
-        setJobs(prev => [newJob, ...prev])
-        startPolling([newJob, ...allNewJobs, ...jobs])
-      }
 
-      // Countdown delay between downloads
-      if (i < readyItems.length - 1) {
-        let secs = Math.ceil(DELAY / 1000)
-        setDlCountdown(secs)
-        const timer = setInterval(() => {
-          secs -= 1
+        // Countdown delay between downloads
+        if (i < readyItems.length - 1) {
+          let secs = Math.ceil(DELAY / 1000)
           setDlCountdown(secs)
-          if (secs <= 0) clearInterval(timer)
-        }, 1000)
-        await new Promise(r => setTimeout(r, DELAY))
-        setDlCountdown(0)
+          const timer = setInterval(() => {
+            secs -= 1
+            setDlCountdown(secs)
+            if (secs <= 0) clearInterval(timer)
+          }, 1000)
+          await new Promise(r => setTimeout(r, DELAY))
+          setDlCountdown(0)
+        }
       }
+    } finally {
+      // Always reset — even if loop errors out
+      setDlIndex(0)
+      setDlTotal(0)
+      setDlCountdown(0)
     }
-    setDlIndex(0)
-    setDlTotal(0)
   }
 
   const startPolling = useCallback((allJobs) => {
@@ -895,7 +905,7 @@ export default function App() {
 
           <button
             onClick={startAll}
-            disabled={!allReady || !items.some(it=>it.info) || dlTotal > 0}
+            disabled={dlTotal > 0 || !items.some(it=>it.info && it.selectedFormat)}
             style={{
               ...S.btn((allReady && items.some(it=>it.info) && dlTotal === 0), '#10b981'),
               flex:1, position:'relative', overflow:'hidden',
