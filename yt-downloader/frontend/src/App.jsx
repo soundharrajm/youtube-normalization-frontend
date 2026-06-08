@@ -224,7 +224,7 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
   }, [fetchStatus, fetchStart])
   const valid = isValidYT(url)
   const isFetching = fetchStatus === 'fetching'
-  const needsLogin = error?.includes('LOGIN_REQUIRED')
+  const needsLogin = error?.includes('LOGIN_REQUIRED') || error?.includes('sign-in') || error?.includes('Sign in') || error?.includes('🔒') || error?.includes('🔞')
   return (
     <div style={{ display:'flex', gap:8, alignItems:'flex-start' }}>
       <div style={{ flex:1, display:'flex', flexDirection:'column', gap:6 }}>
