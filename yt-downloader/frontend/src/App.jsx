@@ -3,6 +3,7 @@ import AdminPanel from './AdminPanel.jsx'
 import CookieSetup from './CookieSetup.jsx'
 import SearchPanel from './SearchPanel.jsx'
 
+// v2.1.0
 const API = import.meta.env.VITE_API_URL || '/api'
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ||
   '406747955382-digauab6tpgo7f9rr7sbl0qoajc01oub.apps.googleusercontent.com'
@@ -639,6 +640,7 @@ export default function App() {
   const [showCompletion, setShowCompletion] = useState(false)
   const [fetchIndex, setFetchIndex]     = useState(0)
   const [fetchTotal, setFetchTotal]     = useState(0)
+  const [parallelFetch, setParallelFetch] = useState(false)
   const [showSearch, setShowSearch]     = useState(false)
   const [dlCountdown, setDlCountdown]   = useState(0)
   const [dlIndex, setDlIndex]           = useState(0)
