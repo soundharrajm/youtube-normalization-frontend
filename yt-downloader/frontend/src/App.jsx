@@ -241,7 +241,8 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
           />
           {isFetching && <span style={{ ...S.pill('#8b5cf6'), flexShrink:0 }}>fetching…</span>}
           {fetchStatus === 'done' && !error && <span style={{ ...S.pill('#10b981'), flexShrink:0 }}>✓ ready</span>}
-          {fetchStatus === 'error' && <span style={{ ...S.pill('#ef4444'), flexShrink:0 }}>✗ failed</span>}
+          {fetchStatus === 'error' && needsLogin && <span style={{ ...S.pill('#f59e0b'), flexShrink:0 }}>🔒 login required</span>}
+          {fetchStatus === 'error' && !needsLogin && <span style={{ ...S.pill('#ef4444'), flexShrink:0 }}>✗ unavailable</span>}
         </div>
         <MiniBar
           pct={fetchPct || 0}
@@ -252,7 +253,7 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
               : fetchStatus === 'done'
                 ? `✓ Fetch complete${item.fetchTime ? ` · ${item.fetchTime}s` : ''}`
                 : fetchStatus === 'error'
-                  ? `✗ Fetch failed${item.fetchTime ? ` · ${item.fetchTime}s` : ''}`
+                  ? `${needsLogin ? '🔒 Login required' : '✗ Video unavailable'}${item.fetchTime ? ` · ${item.fetchTime}s` : ''}`
                   : ''
           }
           show={!!fetchStatus}
@@ -274,15 +275,32 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
           </div>
         )}
         {error && (
-          <div style={{ fontSize:12, background: needsLogin ? 'rgba(245,158,11,0.07)' : 'rgba(239,68,68,0.07)',
+          <div style={{
+            fontSize:12,
+            background: needsLogin ? 'rgba(245,158,11,0.07)' : 'rgba(239,68,68,0.07)',
             border: `1px solid ${needsLogin ? 'rgba(245,158,11,0.25)' : 'rgba(239,68,68,0.2)'}`,
-            borderRadius:8, padding:'10px 12px' }}>
+            borderRadius:8, padding:'10px 12px',
+          }}>
             {needsLogin ? (
               <p style={{ margin:0, color:'#f59e0b', fontSize:12 }}>
-                🔒 This video requires sign-in. Please <strong>Login with Google</strong> above.
+                {error}
+              </p>
+            ) : error?.includes('Failed to fetch') || error?.includes('NetworkError') ? (
+              <p style={{ margin:0, color:'#f87171', fontSize:12 }}>
+                🔌 Backend unreachable. Check if your local server and tunnel are running.
+              </p>
+            ) : error?.includes('rate limit') || error?.includes('rate-limited') ? (
+              <p style={{ margin:0, color:'#f59e0b', fontSize:12 }}>
+                ⏱ YouTube rate limited. Please wait 1 hour before retrying.
+              </p>
+            ) : error?.includes('geo-restricted') || error?.includes('not available') ? (
+              <p style={{ margin:0, color:'#f87171', fontSize:12 }}>
+                🌍 {error}
               </p>
             ) : (
-              <p style={{ margin:0, color:'#f87171' }}>✗ {error}</p>
+              <p style={{ margin:0, color:'#f87171', fontSize:12 }}>
+                {error}
+              </p>
             )}
           </div>
         )}
