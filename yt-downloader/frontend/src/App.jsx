@@ -887,7 +887,7 @@ export default function App() {
           .map(r => r.value)
         if (newJobs.length) {
           setJobs(prev => [...newJobs, ...prev])
-          startPolling([...newJobs, ...jobs])
+          startPolling()
         }
       } else {
         // SEQUENTIAL MODE — send one download at a time with countdown
@@ -900,7 +900,7 @@ export default function App() {
             if (newJob) {
               allNewJobs = [newJob, ...allNewJobs]
               setJobs(prev => [newJob, ...prev])
-              startPolling([newJob, ...allNewJobs, ...jobs])
+              startPolling()
             }
           } catch (err) {
             console.error('Download dispatch failed:', err)
@@ -925,36 +925,56 @@ export default function App() {
     }
   }
 
-  const startPolling = useCallback((allJobs) => {
+  const jobsRef = useRef([])
+  // Keep jobsRef in sync with jobs state
+  useEffect(() => { jobsRef.current = jobs }, [jobs])
+
+  const startPolling = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current)
     pollRef.current = setInterval(async () => {
-      const active = allJobs.filter(j => !['done','error'].includes(j.status))
-      if (!active.length) { clearInterval(pollRef.current); return }
+      // Use ref to get latest jobs without stale closure
+      const allCurrent = jobsRef.current
+      const active = allCurrent.filter(j => !['done','error'].includes(j.status))
+
+      // Stop polling when nothing active
+      if (!active.length) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+        return
+      }
+
+      // Fetch status for all active jobs
       const results = await Promise.allSettled(
-        active.map(j => apiFetch(`${API}/download/status/${j.jobId}`).then(r=>r.json()))
+        active.map(j => apiFetch(`${API}/download/status/${j.jobId}`).then(r => r.json()))
       )
+
       setJobs(prev => {
         let updated = [...prev]
-        results.forEach((r,i) => {
+        results.forEach((r, i) => {
           if (r.status !== 'fulfilled') return
           const d = r.value
-          const jobId = active[i].jobId
+          const jobId = active[i]?.jobId
+          if (!jobId) return
           updated = updated.map(j => {
             if (j.jobId !== jobId) return j
             if (d.status === 'done') return {
               ...j, status:'done', progress:100, normProgress:100,
-              downloadUrl:`${API}/download/file/${jobId}`, outFilename:d.filename,
+              downloadUrl:`${API}/download/file/${jobId}`,
+              outFilename: d.filename,
             }
-            if (d.status === 'error') return { ...j, status:'error', error:d.error }
-            return { ...j, status:d.status,
-              progress:d.progress??j.progress,
-              normProgress:d.normalize_progress??j.normProgress,
-              queue_position:d.queue_position??j.queue_position,
-              title: d.title || j.title,
+            if (d.status === 'error') return {
+              ...j, status:'error', error: d.error,
+            }
+            return {
+              ...j,
+              status:         d.status,
+              progress:       d.progress        ?? j.progress,
+              normProgress:   d.normalize_progress ?? j.normProgress,
+              queue_position: d.queue_position  ?? j.queue_position,
+              title:          d.title           || j.title,
             }
           })
         })
-        allJobs = updated
         return updated
       })
     }, 800)
@@ -962,15 +982,19 @@ export default function App() {
 
   useEffect(() => () => pollRef.current && clearInterval(pollRef.current), [])
 
-  // Show completion popup when all active jobs finish
+  // Show completion popup only when ALL jobs are done (no queued/downloading/normalizing)
+  const popupShownForCount = useRef(0)
   useEffect(() => {
     if (!jobs.length) return
-    const active  = jobs.filter(j => !['done','error'].includes(j.status))
-    const done    = jobs.filter(j => j.status === 'done')
-    const hasAny  = jobs.some(j => j.status === 'done')
-    if (active.length === 0 && hasAny) {
-      // Small delay to let UI settle
-      setTimeout(() => setShowCompletion(true), 800)
+    const active  = jobs.filter(j => !['done','error'].includes(j.status)).length
+    const done    = jobs.filter(j => j.status === 'done').length
+    const total   = jobs.length
+    // Only show when ALL jobs finished AND we haven't shown for this batch yet
+    if (active === 0 && done > 0 && total === done + jobs.filter(j=>j.status==='error').length) {
+      if (popupShownForCount.current !== total) {
+        popupShownForCount.current = total
+        setTimeout(() => setShowCompletion(true), 800)
+      }
     }
   }, [jobs])
 
