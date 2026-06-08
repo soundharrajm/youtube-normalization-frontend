@@ -479,6 +479,134 @@ function parseImportedUrls(text, fileType) {
   }
 }
 
+
+// ── Completion Popup ───────────────────────────────────────────────────────
+function CompletionPopup({ jobs, onClose }) {
+  const [copied, setCopied] = useState(false)
+  const doneJobs = jobs.filter(j => j.status === 'done' && j.outFilename)
+
+  const allNames = doneJobs.map(j => j.outFilename).join('\n')
+
+  const copyAll = () => {
+    navigator.clipboard.writeText(allNames).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const copyOne = (name) => {
+    navigator.clipboard.writeText(name)
+  }
+
+  if (!doneJobs.length) return null
+
+  return (
+    <div style={{
+      position:'fixed', inset:0, zIndex:300,
+      background:'rgba(0,0,0,0.7)', backdropFilter:'blur(4px)',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      padding:16,
+    }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{
+        background:'#0e0e1a', border:'1px solid rgba(16,185,129,0.3)',
+        borderRadius:16, padding:24, width:'100%', maxWidth:600,
+        maxHeight:'80vh', display:'flex', flexDirection:'column', gap:16,
+        boxShadow:'0 24px 80px rgba(0,0,0,0.6)',
+      }}>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ width:36, height:36, borderRadius:10,
+              background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.3)',
+              display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>
+              ✓
+            </div>
+            <div>
+              <p style={{ margin:0, fontSize:16, fontWeight:700, color:'#e8e8f0' }}>
+                {doneJobs.length} Video{doneJobs.length > 1 ? 's' : ''} Normalized
+              </p>
+              <p style={{ margin:0, fontSize:12, color:'#555' }}>
+                Click any filename to copy it
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            width:32, height:32, borderRadius:8, border:'1px solid rgba(255,255,255,0.1)',
+            background:'rgba(255,255,255,0.05)', color:'#888',
+            fontSize:16, cursor:'pointer', display:'flex',
+            alignItems:'center', justifyContent:'center',
+          }}>✕</button>
+        </div>
+
+        {/* File list */}
+        <div style={{
+          overflowY:'auto', display:'flex', flexDirection:'column', gap:6,
+          maxHeight:340,
+        }}>
+          {doneJobs.map((job, i) => (
+            <div
+              key={job.jobId}
+              onClick={() => copyOne(job.outFilename)}
+              title="Click to copy"
+              style={{
+                display:'flex', alignItems:'center', gap:10,
+                padding:'8px 12px', borderRadius:8, cursor:'pointer',
+                background:'rgba(255,255,255,0.03)',
+                border:'1px solid rgba(255,255,255,0.06)',
+                transition:'all 0.15s',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(16,185,129,0.08)'
+                e.currentTarget.style.borderColor = 'rgba(16,185,129,0.2)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'
+              }}
+            >
+              <span style={{ fontSize:11, color:'#555', fontFamily:"'JetBrains Mono',monospace",
+                flexShrink:0, width:20, textAlign:'right' }}>{i+1}.</span>
+              <span style={{ fontSize:12, color:'#10b981',
+                fontFamily:"'JetBrains Mono',monospace",
+                overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
+                {job.outFilename}
+              </span>
+              <span style={{ fontSize:10, color:'#444', flexShrink:0 }}>📋</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{ display:'flex', gap:8, borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:12 }}>
+          <button
+            onClick={copyAll}
+            style={{
+              flex:1, padding:'10px', borderRadius:10, fontSize:13, fontWeight:700,
+              cursor:'pointer', fontFamily:'inherit',
+              border: copied ? '1px solid rgba(16,185,129,0.5)' : '1px solid rgba(139,92,246,0.3)',
+              background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(139,92,246,0.12)',
+              color: copied ? '#34d399' : '#a78bfa',
+            }}
+          >
+            {copied ? '✓ Copied all filenames!' : '📋 Copy All Filenames'}
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              padding:'10px 20px', borderRadius:10, fontSize:13, fontWeight:700,
+              cursor:'pointer', fontFamily:'inherit',
+              border:'1px solid rgba(255,255,255,0.1)',
+              background:'rgba(255,255,255,0.04)', color:'#666',
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main App ───────────────────────────────────────────────────────────────
 let _id = 1
 const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error:null, fetchStatus:null, fetchPct:0, fetchTime:null, fetchStart:null })
@@ -490,6 +618,9 @@ export default function App() {
   const [user, setUser]             = useState(null)
   const [serverInfo, setServerInfo] = useState(null)
   const [fetchingAll, setFetchingAll] = useState(false)
+  const [showCompletion, setShowCompletion] = useState(false)
+  const [fetchIndex, setFetchIndex]     = useState(0)
+  const [fetchTotal, setFetchTotal]     = useState(0)
   const [showSearch, setShowSearch]     = useState(false)
   const [dlCountdown, setDlCountdown]   = useState(0)
   const [dlIndex, setDlIndex]           = useState(0)
@@ -526,17 +657,32 @@ export default function App() {
     const code = params.get('code')
     if (code) {
       window.history.replaceState({}, '', window.location.pathname)
+      console.log('[AUTH] OAuth code received, exchanging...')
+      console.log('[AUTH] API URL:', API)
+      console.log('[AUTH] Redirect URI:', REDIRECT_URI)
       apiFetch(`${API}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }),
-      }).then(r => r.json()).then(data => {
+      }).then(async r => {
+        const data = await r.json()
+        console.log('[AUTH] Response status:', r.status, data)
         if (data.session_id) {
-          const userData = { session_id: data.session_id, name: data.name, email: data.email, picture: data.picture }
+          const userData = {
+            session_id: data.session_id,
+            name: data.name,
+            email: data.email,
+            picture: data.picture
+          }
           setUser(userData)
           localStorage.setItem('yt_session', JSON.stringify(userData))
+          console.log('[AUTH] Login success:', data.email)
+        } else {
+          console.error('[AUTH] No session_id in response:', data)
         }
-      }).catch(console.error)
+      }).catch(err => {
+        console.error('[AUTH] Fetch error:', err)
+      })
     }
     const stored = localStorage.getItem('yt_session')
     if (stored && !code) {
@@ -612,17 +758,32 @@ export default function App() {
     }
   }
 
-  // ── fetchAll: sequential with 2s delay to avoid Google rate limiting ──────
+  // ── fetchAll: sequential or parallel based on parallelFetch flag ────────────
   const fetchAll = async () => {
     const pending = items.filter(it => it.url.trim() && !it.info)
     if (!pending.length) return
     setFetchingAll(true)
-    for (let i = 0; i < pending.length; i++) {
-      await fetchOne(pending[i].id)
-      if (i < pending.length - 1)
-        await new Promise(r => setTimeout(r, 4000))
+    setFetchTotal(pending.length)
+
+    if (parallelFetch) {
+      // PARALLEL MODE: send all at once — fast, uses all CPUs
+      // Good for high-CPU machines, may trigger rate limiting
+      setFetchIndex(pending.length)
+      await Promise.allSettled(pending.map(it => fetchOne(it.id)))
+    } else {
+      // SEQUENTIAL MODE: one at a time — safe, no rate limiting
+      // Good for single CPU or when rate limited
+      for (let i = 0; i < pending.length; i++) {
+        setFetchIndex(i + 1)
+        await fetchOne(pending[i].id)
+        if (i < pending.length - 1)
+          await new Promise(r => setTimeout(r, 1000))
+      }
     }
+
     setFetchingAll(false)
+    setFetchIndex(0)
+    setFetchTotal(0)
   }
 
   // ── refreshJobs: manually re-check all job statuses ───────────────────────
@@ -659,6 +820,32 @@ export default function App() {
 
   const allReady = items.every(it => it.info && it.selectedFormat)
 
+  const _dispatchDownload = async (it) => {
+    const res = await apiFetch(`${API}/download/batch`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        items: [{
+          url:        it.url.trim(),
+          format_id:  it.selectedFormat.format_id,
+          session_id: user?.session_id || null,
+        }]
+      }),
+    })
+    const data = await res.json()
+    if (res.ok && data.jobs?.length) {
+      const j = data.jobs[0]
+      return {
+        jobId: j.job_id, url: j.url,
+        title: it.info?.title || j.url,
+        format: it.selectedFormat?.label || '',
+        status:'queued', progress:0, normProgress:0,
+        queue_position: j.queue_position,
+        downloadUrl:null, outFilename:null, error:null,
+      }
+    }
+    return null
+  }
+
   const startAll = async () => {
     const readyItems = items.filter(it => it.info && it.selectedFormat)
     if (!readyItems.length) return
@@ -667,59 +854,51 @@ export default function App() {
     setDlIndex(0)
     setDlCountdown(0)
 
-    const DELAY = 4000
-    let allNewJobs = []
-
     try {
-      for (let i = 0; i < readyItems.length; i++) {
-        const it = readyItems[i]
-        setDlIndex(i + 1)
-
-        try {
-          const res = await apiFetch(`${API}/download/batch`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              items: [{
-                url:        it.url.trim(),
-                format_id:  it.selectedFormat.format_id,
-                session_id: user?.session_id || null,
-              }]
-            }),
-          })
-          const data = await res.json()
-          if (res.ok && data.jobs?.length) {
-            const j = data.jobs[0]
-            const newJob = {
-              jobId: j.job_id, url: j.url,
-              title: it.info?.title || j.url,
-              format: it.selectedFormat?.label || '',
-              status:'queued', progress:0, normProgress:0,
-              queue_position: j.queue_position,
-              downloadUrl:null, outFilename:null, error:null,
-            }
-            allNewJobs = [newJob, ...allNewJobs]
-            setJobs(prev => [newJob, ...prev])
-            startPolling([newJob, ...allNewJobs, ...jobs])
-          }
-        } catch (err) {
-          console.error(`Download dispatch failed for ${it.url}:`, err)
+      if (parallelFetch) {
+        // PARALLEL MODE — send all download requests at once
+        // Backend MAX_WORKERS controls how many normalize simultaneously
+        setDlIndex(readyItems.length)
+        const results = await Promise.allSettled(
+          readyItems.map(it => _dispatchDownload(it))
+        )
+        const newJobs = results
+          .filter(r => r.status === 'fulfilled' && r.value)
+          .map(r => r.value)
+        if (newJobs.length) {
+          setJobs(prev => [...newJobs, ...prev])
+          startPolling([...newJobs, ...jobs])
         }
-
-        // Countdown delay between downloads
-        if (i < readyItems.length - 1) {
-          let secs = Math.ceil(DELAY / 1000)
-          setDlCountdown(secs)
-          const timer = setInterval(() => {
-            secs -= 1
+      } else {
+        // SEQUENTIAL MODE — send one download at a time with countdown
+        const DELAY = 4000
+        let allNewJobs = []
+        for (let i = 0; i < readyItems.length; i++) {
+          setDlIndex(i + 1)
+          try {
+            const newJob = await _dispatchDownload(readyItems[i])
+            if (newJob) {
+              allNewJobs = [newJob, ...allNewJobs]
+              setJobs(prev => [newJob, ...prev])
+              startPolling([newJob, ...allNewJobs, ...jobs])
+            }
+          } catch (err) {
+            console.error('Download dispatch failed:', err)
+          }
+          if (i < readyItems.length - 1) {
+            let secs = Math.ceil(DELAY / 1000)
             setDlCountdown(secs)
-            if (secs <= 0) clearInterval(timer)
-          }, 1000)
-          await new Promise(r => setTimeout(r, DELAY))
-          setDlCountdown(0)
+            const timer = setInterval(() => {
+              secs -= 1
+              setDlCountdown(secs)
+              if (secs <= 0) clearInterval(timer)
+            }, 1000)
+            await new Promise(r => setTimeout(r, DELAY))
+            setDlCountdown(0)
+          }
         }
       }
     } finally {
-      // Always reset — even if loop errors out
       setDlIndex(0)
       setDlTotal(0)
       setDlCountdown(0)
@@ -762,6 +941,18 @@ export default function App() {
   }, [])
 
   useEffect(() => () => pollRef.current && clearInterval(pollRef.current), [])
+
+  // Show completion popup when all active jobs finish
+  useEffect(() => {
+    if (!jobs.length) return
+    const active  = jobs.filter(j => !['done','error'].includes(j.status))
+    const done    = jobs.filter(j => j.status === 'done')
+    const hasAny  = jobs.some(j => j.status === 'done')
+    if (active.length === 0 && hasAny) {
+      // Small delay to let UI settle
+      setTimeout(() => setShowCompletion(true), 800)
+    }
+  }, [jobs])
 
   return (
     <div style={S.app}>
@@ -841,6 +1032,13 @@ export default function App() {
           />
         )}
 
+        {showCompletion && (
+          <CompletionPopup
+            jobs={jobs}
+            onClose={() => setShowCompletion(false)}
+          />
+        )}
+
         {/* URL inputs */}
         <div style={{ ...S.card, padding:16, display:'flex', flexDirection:'column', gap:12, marginBottom:12 }}>
           {items.map((item, i) => (
@@ -895,11 +1093,33 @@ export default function App() {
             ↑ Import JSON/CSV
           </button>
 
+          {/* Parallel/Sequential toggle */}
+          <button
+            onClick={() => setParallelFetch(v => !v)}
+            title={parallelFetch ? 'Parallel mode — click to switch to Sequential' : 'Sequential mode — click to switch to Parallel'}
+            style={{
+              flex:'0 0 auto', padding:'11px 14px', borderRadius:10,
+              border: parallelFetch
+                ? '1px solid rgba(245,158,11,0.4)'
+                : '1px solid rgba(99,102,241,0.3)',
+              background: parallelFetch
+                ? 'rgba(245,158,11,0.08)'
+                : 'rgba(99,102,241,0.08)',
+              color: parallelFetch ? '#f59e0b' : '#818cf8',
+              fontSize:11, fontWeight:700, cursor:'pointer',
+              fontFamily:'inherit', whiteSpace:'nowrap',
+            }}
+          >
+            {parallelFetch ? '⚡ Parallel' : '↕ Sequential'}
+          </button>
+
           <button onClick={fetchAll} disabled={fetchingAll || !items.some(it=>it.url.trim()&&!it.info)} style={{
             ...S.btn(!fetchingAll && items.some(it=>it.url.trim()&&!it.info)), flex:1,
           }}>
             {fetchingAll
-              ? `⏳ Fetching… (4s delay between URLs)`
+              ? parallelFetch
+                ? `⏳ Fetching all ${fetchTotal} in parallel…`
+                : `⏳ Fetching ${fetchIndex}/${fetchTotal}…`
               : `🔍 Fetch All (${items.filter(it=>it.url.trim()&&!it.info).length} pending)`}
           </button>
 
@@ -924,8 +1144,11 @@ export default function App() {
                   transition:'width 1s linear',
                   borderRadius:10,
                 }} />
-                {/* Circular countdown */}
-                {dlCountdown > 0 ? (
+                {parallelFetch ? (
+                  <span style={{ position:'relative', zIndex:1, fontSize:13, fontWeight:700 }}>
+                    ⚡ Sending all {dlTotal} in parallel…
+                  </span>
+                ) : dlCountdown > 0 ? (
                   <div style={{ position:'relative', zIndex:1, display:'flex', alignItems:'center', gap:8 }}>
                     <svg width={28} height={28} style={{ transform:'rotate(-90deg)', flexShrink:0 }}>
                       <circle cx={14} cy={14} r={11} fill="none"
