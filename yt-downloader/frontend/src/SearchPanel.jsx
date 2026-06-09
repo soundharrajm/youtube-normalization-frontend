@@ -158,7 +158,7 @@ export default function SearchPanel({ onAddUrl, onClose }) {
               />
 
               {/* Suggestions dropdown */}
-              {showSug && suggestions.length > 0 && (
+              {showSug && suggestions.length > 0 && results.length === 0 && !loading && (
                 <div style={{
                   position:'absolute', top:'calc(100% + 4px)', left:0, right:0, zIndex:50,
                   background:'#1a1a2e', border:'1px solid rgba(255,255,255,0.1)',
