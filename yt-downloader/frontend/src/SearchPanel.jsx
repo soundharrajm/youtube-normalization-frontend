@@ -72,6 +72,7 @@ export default function SearchPanel({ onAddUrl, onClose }) {
     setResults([])
     setShowSug(false)
     setSuggestions([])
+    inputRef.current?.blur()
     try {
       const finalQ = contentType ? `${q.trim()} ${contentType}` : q.trim()
       const params = new URLSearchParams({ q: finalQ, max: 12, order })
@@ -88,7 +89,7 @@ export default function SearchPanel({ onAddUrl, onClose }) {
   }
 
   const handleAdd = (video) => {
-    onAddUrl(video.url)
+    onAddUrl(video)  // pass full video object, not just URL
     setAdded(prev => new Set([...prev, video.video_id]))
   }
 
@@ -142,11 +143,11 @@ export default function SearchPanel({ onAddUrl, onClose }) {
                 value={query}
                 onChange={e => { setQuery(e.target.value); fetchSuggestions(e.target.value) }}
                 onKeyDown={e => {
-                  if (e.key === 'Enter') search()
+                  if (e.key === 'Enter') { setShowSug(false); search() }
                   if (e.key === 'Escape') setShowSug(false)
                 }}
                 onFocus={() => suggestions.length && setShowSug(true)}
-                onBlur={() => setTimeout(() => setShowSug(false), 150)}
+                onBlur={() => setTimeout(() => setShowSug(false), 200)}
                 placeholder="Search for trailers, episodes, channels…"
                 style={{
                   width:'100%', padding:'10px 14px', borderRadius:10, fontSize:14,

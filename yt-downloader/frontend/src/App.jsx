@@ -737,15 +737,61 @@ export default function App() {
   const addItem    = () => setItems(prev => [...prev, newItem()])
   const removeItem = (id) => setItems(prev => prev.filter(it => it.id!==id))
 
-  const addUrlFromSearch = (url) => {
+  const addUrlFromSearch = (video) => {
+    // video = { url, video_id, title, thumbnail, duration, channel, views }
+    const url = typeof video === 'string' ? video : video.url
+    if (items.some(it => it.url.trim() === url.trim())) return
+
+    // Build info object directly from search result — skip fetch entirely
+    const info = typeof video === 'object' ? {
+      title:     video.title,
+      thumbnail: video.thumbnail,
+      duration:  video.duration_seconds || null,
+      uploader:  video.channel,
+      formats: [
+        {
+          format_id: 'bestvideo+bestaudio/best',
+          type:      'video',
+          ext:       'mp4',
+          resolution:'best',
+          filesize:  null,
+          height:    9999,
+          quality:   'Best Available',
+          label:     '⭐ Best Quality (recommended)',
+        }
+      ],
+    } : null
+
+    const defaultFormat = info ? info.formats[0] : null
+
     setItems(prev => {
-      if (prev.some(it => it.url.trim() === url.trim())) return prev
       const hasEmpty = prev.some(it => !it.url.trim())
       if (hasEmpty) {
-        return prev.map(it => !it.url.trim() ? { ...it, url } : it)
+        return prev.map(it => {
+          if (!it.url.trim()) {
+            return {
+              ...it, url,
+              info:           info,
+              selectedFormat: defaultFormat,
+              fetchStatus:    info ? 'done' : null,
+              fetchPct:       info ? 100 : 0,
+              error:          null,
+            }
+          }
+          return it
+        })
       }
-      return [...prev, { ...newItem(), url }]
+      return [...prev, {
+        ...newItem(), url,
+        info:           info,
+        selectedFormat: defaultFormat,
+        fetchStatus:    info ? 'done' : null,
+        fetchPct:       info ? 100 : 0,
+        error:          null,
+      }]
     })
+
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const fetchOne = async (id) => {
