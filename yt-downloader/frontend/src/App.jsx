@@ -13,7 +13,11 @@ const REDIRECT_URI = window.location.origin
 function apiFetch(url, options = {}) {
   return fetch(url, {
     ...options,
-    headers: { 'bypass-tunnel-reminder': 'true', ...options.headers },
+    headers: {
+      'bypass-tunnel-reminder':    'true',
+      'ngrok-skip-browser-warning':'true',
+      ...options.headers,
+    },
   })
 }
 

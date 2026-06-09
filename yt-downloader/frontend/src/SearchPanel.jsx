@@ -5,7 +5,11 @@ const API = import.meta.env.VITE_API_URL || '/api'
 function apiFetch(url, options = {}) {
   return fetch(url, {
     ...options,
-    headers: { 'bypass-tunnel-reminder': 'true', ...options.headers },
+    headers: {
+      'bypass-tunnel-reminder':    'true',
+      'ngrok-skip-browser-warning':'true',
+      ...options.headers,
+    },
   })
 }
 
@@ -14,6 +18,14 @@ const FILTERS = [
   { label: 'Short',  value: 'short' },
   { label: 'Medium', value: 'medium' },
   { label: 'Long',   value: 'long' },
+]
+
+const CONTENT_TYPES = [
+  { label: 'All Videos', value: '' },
+  { label: 'Shorts',     value: '#Shorts' },
+  { label: 'Full Ep',    value: 'full episode' },
+  { label: 'Trailer',    value: 'trailer' },
+  { label: 'Promo',      value: 'promo' },
 ]
 
 const ORDERS = [
@@ -29,6 +41,7 @@ export default function SearchPanel({ onAddUrl, onClose }) {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState(null)
   const [duration, setDuration]   = useState('')
+  const [contentType, setContentType] = useState('')
   const [order, setOrder]         = useState('relevance')
   const [added, setAdded]         = useState(new Set())
   const [suggestions, setSuggestions] = useState([])
@@ -60,7 +73,8 @@ export default function SearchPanel({ onAddUrl, onClose }) {
     setShowSug(false)
     setSuggestions([])
     try {
-      const params = new URLSearchParams({ q: q.trim(), max: 12, order })
+      const finalQ = contentType ? `${q.trim()} ${contentType}` : q.trim()
+      const params = new URLSearchParams({ q: finalQ, max: 12, order })
       if (duration) params.set('duration', duration)
       const r = await apiFetch(`${API}/search?${params}`)
       const d = await r.json()
@@ -208,6 +222,25 @@ export default function SearchPanel({ onAddUrl, onClose }) {
                   color: duration === f.value ? '#a78bfa' : '#666',
                 }}
               >{f.label}</button>
+            ))}
+
+            <span style={{ fontSize:11, color:'#555', fontWeight:600, marginLeft:8, marginRight:2 }}>TYPE:</span>
+            {CONTENT_TYPES.map(ct => (
+              <button
+                key={ct.value}
+                onClick={() => setContentType(ct.value)}
+                style={{
+                  padding:'3px 11px', borderRadius:100, fontSize:11, fontWeight:600,
+                  cursor:'pointer', fontFamily:'inherit',
+                  border: contentType === ct.value
+                    ? '1px solid #10b981'
+                    : '1px solid rgba(255,255,255,0.1)',
+                  background: contentType === ct.value
+                    ? 'rgba(16,185,129,0.2)'
+                    : 'rgba(255,255,255,0.03)',
+                  color: contentType === ct.value ? '#34d399' : '#666',
+                }}
+              >{ct.label}</button>
             ))}
 
             <span style={{ fontSize:11, color:'#555', fontWeight:600, marginLeft:8, marginRight:2 }}>SORT:</span>
