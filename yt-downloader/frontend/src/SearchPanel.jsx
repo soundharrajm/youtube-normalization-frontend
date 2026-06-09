@@ -73,6 +73,7 @@ export default function SearchPanel({ onAddUrl, onClose }) {
     setShowSug(false)
     setSuggestions([])
     inputRef.current?.blur()
+    document.activeElement?.blur()
     try {
       const finalQ = contentType ? `${q.trim()} ${contentType}` : q.trim()
       const params = new URLSearchParams({ q: finalQ, max: 12, order })
@@ -147,7 +148,7 @@ export default function SearchPanel({ onAddUrl, onClose }) {
                   if (e.key === 'Escape') setShowSug(false)
                 }}
                 onFocus={() => suggestions.length && setShowSug(true)}
-                onBlur={() => setTimeout(() => setShowSug(false), 200)}
+                onBlur={() => setTimeout(() => { setShowSug(false); setSuggestions([]) }, 200)}
                 placeholder="Search for trailers, episodes, channels…"
                 style={{
                   width:'100%', padding:'10px 14px', borderRadius:10, fontSize:14,
@@ -159,9 +160,10 @@ export default function SearchPanel({ onAddUrl, onClose }) {
               {/* Suggestions dropdown */}
               {showSug && suggestions.length > 0 && (
                 <div style={{
-                  position:'absolute', top:'calc(100% + 4px)', left:0, right:0, zIndex:10,
+                  position:'absolute', top:'calc(100% + 4px)', left:0, right:0, zIndex:50,
                   background:'#1a1a2e', border:'1px solid rgba(255,255,255,0.1)',
                   borderRadius:10, overflow:'hidden', boxShadow:'0 8px 24px rgba(0,0,0,0.4)',
+                  maxHeight:280, overflowY:'auto',
                 }}>
                   {suggestions.map((s, i) => (
                     <div
