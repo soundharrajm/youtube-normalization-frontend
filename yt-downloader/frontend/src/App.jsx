@@ -774,9 +774,9 @@ export default function App() {
       {!showSettings && (
         <div onClick={()=>setShowSettings(true)} style={{
           position:'fixed', right:0, top:'50%', transform:'translateY(-50%)', zIndex:140,
-          writingMode:'vertical-rl', background:'rgba(127,119,221,0.16)', border:'1px solid rgba(127,119,221,0.28)',
-          borderRight:'none', borderRadius:'8px 0 0 8px', padding:'14px 7px', fontSize:10, fontWeight:700,
-          color:T.pu2, cursor:'pointer', letterSpacing:'.07em', userSelect:'none',
+          writingMode:'vertical-rl', background:'rgba(127,119,221,0.1)', border:'1px solid rgba(127,119,221,0.2)',
+          borderRight:'none', borderRadius:'6px 0 0 6px', padding:'8px 5px', fontSize:9, fontWeight:700,
+          color:'rgba(127,119,221,0.6)', cursor:'pointer', letterSpacing:'.06em', userSelect:'none',
         }}>
           ⚙ SETTINGS
         </div>
