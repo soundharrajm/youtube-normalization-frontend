@@ -377,7 +377,7 @@ function CompletionPopup({ jobs, onClose }) {
 }
 
 // ── SettingsPanel (right slide panel) ─────────────────────────────────────
-function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn }) {
+function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs }) {
   const activePreset = PRESETS.find(p => p.id === normConfig.presetId) || PRESETS[2]
   const [localOpen, setLocalOpen] = useState(true)
   const [customFlags, setCustomFlags] = useState(normConfig.presetId==='custom' ? normConfig.flags : '')
@@ -436,7 +436,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
 
       {/* Panel */}
       <div style={{
-        position:'fixed', right:0, top:0, height:'100vh', width:300,
+        position:'fixed', right:0, top:0, height:'100vh', width:'min(300px, 90vw)',
         background:'#0d0d1c', borderLeft:'1px solid rgba(127,119,221,0.18)',
         transform:open?'translateX(0)':'translateX(100%)',
         transition:'transform .25s ease', zIndex:160,
@@ -702,12 +702,12 @@ export default function App() {
         setDlIndex(readyItems.length)
         const results = await Promise.allSettled(readyItems.map(it=>_dispatchDownload(it)))
         const newJobs = results.filter(r=>r.status==='fulfilled'&&r.value).map(r=>r.value)
-        if (newJobs.length) { setJobs(prev=>[...newJobs,...prev]); startPolling() }
+        if (newJobs.length) { setJobs(prev=>[...newJobs,...prev]); startPolling(); setShowSettings(v => !v) }
       } else {
         const DELAY = 4000
         for (let i=0;i<readyItems.length;i++) {
           setDlIndex(i+1)
-          try { const nj=await _dispatchDownload(readyItems[i]); if(nj){setJobs(prev=>[nj,...prev]);startPolling()} } catch(_){}
+          try { const nj=await _dispatchDownload(readyItems[i]); if(nj){setJobs(prev=>[nj,...prev]);startPolling();setShowSettings(v => !v)} } catch(_){}
           if (i<readyItems.length-1) { let s=Math.ceil(DELAY/1000); setDlCountdown(s); const t=setInterval(()=>{s-=1;setDlCountdown(s);if(s<=0)clearInterval(t)},1000); await new Promise(r=>setTimeout(r,DELAY)); setDlCountdown(0) }
         }
       }
@@ -747,16 +747,14 @@ export default function App() {
 
   // ── Styles ─────────────────────────────────────────────────────────────
   const st = {
-    app:     { minHeight:'100vh', background:T.bg, fontFamily:"'Space Grotesk',sans-serif", color:'#e8e8f0' },
-    wrap:    { maxWidth:920, margin:'0 auto', padding:'0 24px 80px' },
+    app:     { minHeight:'100vh', background:T.bg, fontFamily:"'Space Grotesk',sans-serif", color:'#e8e8f0', overflowX:'hidden' },
+    wrap:    { maxWidth:'100%', margin:'0 auto', padding:'0 16px 80px' },
   }
 
   return (
     <div style={st.app}>
       {/* Radial glow */}
       <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:0, background:'radial-gradient(ellipse 70% 40% at 50% -5%, rgba(127,119,221,0.16) 0%, transparent 70%)' }} />
-
-      <QueueBadge jobs={jobs} />
 
       {showCompletion && <CompletionPopup jobs={jobs} onClose={()=>setShowCompletion(false)} />}
 
@@ -768,23 +766,43 @@ export default function App() {
         setNormConfig={setNormConfig}
         isLocalMode={isLocalMode}
         apiFetchFn={(path, opts) => apiFetch(`${API}${path}`, opts)}
+        jobs={jobs}
+        onRefreshJobs={refreshJobs}
+        onClearJobs={() => setJobs([])}
       />
 
       {/* Pull tab (when panel closed) */}
       {!showSettings && (
         <div onClick={()=>setShowSettings(true)} style={{
           position:'fixed', right:0, top:'50%', transform:'translateY(-50%)', zIndex:140,
-          writingMode:'vertical-rl', background:'rgba(127,119,221,0.1)', border:'1px solid rgba(127,119,221,0.2)',
-          borderRight:'none', borderRadius:'6px 0 0 6px', padding:'8px 5px', fontSize:9, fontWeight:700,
-          color:'rgba(127,119,221,0.6)', cursor:'pointer', letterSpacing:'.06em', userSelect:'none',
+          display:'flex', flexDirection:'column', alignItems:'center', gap:0, cursor:'pointer', userSelect:'none',
         }}>
-          ⚙ SETTINGS
+          {/* Notification badge */}
+          {jobs.length > 0 && (
+            <div style={{
+              position:'absolute', top:-8, left:-8, zIndex:2,
+              width:18, height:18, borderRadius:'50%',
+              background: jobs.some(j=>!['done','error'].includes(j.status)) ? '#ef4444' : '#10b981',
+              color:'#fff', fontSize:9, fontWeight:700,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              boxShadow:'0 0 0 2px #08080e',
+            }}>
+              {jobs.filter(j=>!['done','error'].includes(j.status)).length || jobs.filter(j=>j.status==='done').length}
+            </div>
+          )}
+          <div style={{
+            writingMode:'vertical-rl', background:'rgba(127,119,221,0.1)', border:'1px solid rgba(127,119,221,0.2)',
+            borderRight:'none', borderRadius:'6px 0 0 6px', padding:'8px 5px', fontSize:9, fontWeight:700,
+            color:'rgba(127,119,221,0.6)', letterSpacing:'.06em',
+          }}>
+            {jobs.length > 0 ? '📥 DOWNLOADS' : '⚙ SETTINGS'}
+          </div>
         </div>
       )}
 
       <div style={st.wrap}>
         {/* ── TOPBAR ── */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 0 12px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 0 10px', flexWrap:'wrap', gap:8 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <div style={{ width:28, height:28, borderRadius:7, background:'linear-gradient(135deg,#534AB7,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, color:'#fff' }}>▼</div>
             <span style={{ fontSize:15, fontWeight:600, letterSpacing:'-0.3px' }}>YT Downloader</span>
@@ -870,16 +888,16 @@ export default function App() {
         </div>
 
         {/* ── MAIN ACTIONS — Search YouTube + Download All big ── */}
-        <div style={{ display:'flex', gap:8, marginBottom:8 }}>
+        <div style={{ display:'flex', gap:8, marginBottom:8, flexWrap:'wrap' }}>
           <button onClick={()=>setShowSearch(true)} style={{
-            flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            flex:1, minWidth:160, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
             fontSize:14, fontWeight:600, padding:'12px 18px', borderRadius:11,
-            border:'1px solid rgba(127,119,221,0.35)', background:'rgba(127,119,221,0.14)', color:T.pu2,
+            border:'1px solid rgba(127,119,221,0.35)', background:'rgba(127,119,221,0.14)', color:'#AFA9EC',
             cursor:'pointer', fontFamily:'inherit', transition:'all .15s',
           }}>🔎 Search YouTube</button>
 
           <button onClick={startAll} disabled={dlTotal>0||!items.some(it=>it.info&&it.selectedFormat)} style={{
-            flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:8, position:'relative', overflow:'hidden',
+            flex:1, minWidth:160, display:'flex', alignItems:'center', justifyContent:'center', gap:8, position:'relative', overflow:'hidden',
             fontSize:14, fontWeight:700, padding:'12px 18px', borderRadius:11,
             border:'1px solid rgba(29,158,117,0.4)', cursor:(dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))?'not-allowed':'pointer',
             background:(allReady&&items.some(it=>it.info)&&dlTotal===0)?'rgba(29,158,117,0.16)':'rgba(255,255,255,0.03)',
@@ -912,22 +930,10 @@ export default function App() {
             {fetchingAll ? (parallelFetch?`⏳ Fetching all ${fetchTotal}…`:`⏳ Fetching ${fetchIndex}/${fetchTotal}…`) : `🔍 Fetch All (${items.filter(it=>it.url.trim()&&!it.info).length} pending)`}
           </button>
           <button onClick={()=>setShowSettings(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px solid rgba(127,119,221,0.25)', background:'rgba(127,119,221,0.08)', color:T.pu2, cursor:'pointer', fontFamily:'inherit' }}>⚙ Settings</button>
-          {jobs.length > 0 && <button onClick={refreshJobs} style={{ padding:'8px 12px', borderRadius:8, border:'1px solid rgba(99,102,241,0.25)', background:'rgba(99,102,241,0.07)', color:'#818cf8', fontSize:16, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>↻</button>}
         </div>
 
-        {/* ── JOBS ── */}
-        {jobs.length > 0 && (
-          <div>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-              <div style={{ fontSize:11, color:'#3a3a50', fontWeight:700, letterSpacing:'0.5px', textTransform:'uppercase' }}>Downloads</div>
-              <button onClick={refreshJobs} style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:6, color:'#aaa', fontSize:11, fontWeight:600, padding:'4px 12px', cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:4 }}>↻ Refresh</button>
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>{jobs.map(job => <JobCard key={job.jobId} job={job} />)}</div>
-          </div>
-        )}
-
         {/* ── EMPTY STATE FEATURE CARDS ── */}
-        {jobs.length === 0 && (
+        {(
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:8 }}>
             {[
               { icon:'🔑', color:'#f59e0b', bg:'rgba(245,158,11,0.1)', title:'Google SSO', desc:'Age-restricted videos' },
