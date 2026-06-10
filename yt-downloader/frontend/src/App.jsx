@@ -2,8 +2,10 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import AdminPanel from './AdminPanel.jsx'
 import CookieSetup from './CookieSetup.jsx'
 import SearchPanel from './SearchPanel.jsx'
+import NormSettings from './NormSettings.jsx'
+import LocalNormalizer from './LocalNormalizer.jsx'
 
-// v2.1.0
+// v2.2.0
 const API = import.meta.env.VITE_API_URL || '/api'
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ||
   '406747955382-digauab6tpgo7f9rr7sbl0qoajc01oub.apps.googleusercontent.com'
@@ -287,9 +289,7 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
             borderRadius:8, padding:'10px 12px',
           }}>
             {needsLogin ? (
-              <p style={{ margin:0, color:'#f59e0b', fontSize:12 }}>
-                {error}
-              </p>
+              <p style={{ margin:0, color:'#f59e0b', fontSize:12 }}>{error}</p>
             ) : error?.includes('Failed to fetch') || error?.includes('NetworkError') ? (
               <p style={{ margin:0, color:'#f87171', fontSize:12 }}>
                 🔌 Backend unreachable. Check if your local server and tunnel are running.
@@ -299,13 +299,9 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
                 ⏱ YouTube rate limited. Please wait 1 hour before retrying.
               </p>
             ) : error?.includes('geo-restricted') || error?.includes('not available') ? (
-              <p style={{ margin:0, color:'#f87171', fontSize:12 }}>
-                🌍 {error}
-              </p>
+              <p style={{ margin:0, color:'#f87171', fontSize:12 }}>🌍 {error}</p>
             ) : (
-              <p style={{ margin:0, color:'#f87171', fontSize:12 }}>
-                {error}
-              </p>
+              <p style={{ margin:0, color:'#f87171', fontSize:12 }}>{error}</p>
             )}
           </div>
         )}
@@ -367,15 +363,11 @@ function JobCard({ job }) {
   return (
     <div style={{ ...S.card, padding:'12px 14px' }}>
       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-
-        {/* Status icon */}
         <div style={{ width:32, height:32, borderRadius:'50%', background:`${meta.color}22`,
           border:`1.5px solid ${meta.color}55`, display:'flex', alignItems:'center',
           justifyContent:'center', fontSize:14, color:meta.color, flexShrink:0 }}>
           {meta.icon}
         </div>
-
-        {/* Title + url */}
         <div style={{ flex:1, minWidth:0 }}>
           <p style={{ margin:0, fontSize:13, fontWeight:600, color:'#e8e8f0',
             overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
@@ -392,22 +384,13 @@ function JobCard({ job }) {
             </span>
           </div>
         </div>
-
-        {/* Right side: circles + save button */}
         <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
-          {/* Download circle */}
           {!isQ && !isErr && (
-            <CircleProgress
-              pct={dlPct} color='#8b5cf6' size={44} stroke={3}
-              label="DL" done={dlPct === 100} />
+            <CircleProgress pct={dlPct} color='#8b5cf6' size={44} stroke={3} label="DL" done={dlPct === 100} />
           )}
-          {/* Normalize circle */}
           {!isQ && !isErr && !isDl && (
-            <CircleProgress
-              pct={normPct} color='#3b82f6' size={44} stroke={3}
-              label="NRM" done={normPct === 100} />
+            <CircleProgress pct={normPct} color='#3b82f6' size={44} stroke={3} label="NRM" done={normPct === 100} />
           )}
-          {/* Save button */}
           {isDone && job.downloadUrl && (
             <a href={job.downloadUrl} download style={{
               background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.3)',
@@ -417,8 +400,6 @@ function JobCard({ job }) {
           )}
         </div>
       </div>
-
-      {/* Filename */}
       {isDone && job.outFilename && (
         <div style={{ marginTop:8, fontSize:10, color:'#10b981',
           fontFamily:"'JetBrains Mono',monospace",
@@ -428,8 +409,6 @@ function JobCard({ job }) {
           ✓ {job.outFilename}
         </div>
       )}
-
-      {/* Error */}
       {isErr && job.error && (
         <p style={{ margin:'8px 0 0', fontSize:11, color:'#f87171',
           background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)',
@@ -489,7 +468,6 @@ function parseImportedUrls(text, fileType) {
       const arr = Array.isArray(parsed) ? parsed : Object.values(parsed).flat()
       return arr.map(u => String(u).trim()).filter(u => isValidYT(u))
     }
-    // CSV — find url column or just grab all valid YT urls from any column
     const lines = text.split(/\r?\n/).filter(Boolean)
     const urls = []
     lines.forEach(line => {
@@ -502,27 +480,19 @@ function parseImportedUrls(text, fileType) {
   }
 }
 
-
 // ── Completion Popup ───────────────────────────────────────────────────────
 function CompletionPopup({ jobs, onClose }) {
   const [copied, setCopied] = useState(false)
   const doneJobs = jobs.filter(j => j.status === 'done' && j.outFilename)
-
   const allNames = doneJobs.map(j => j.outFilename).join('\n')
-
   const copyAll = () => {
     navigator.clipboard.writeText(allNames).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
   }
-
-  const copyOne = (name) => {
-    navigator.clipboard.writeText(name)
-  }
-
+  const copyOne = (name) => { navigator.clipboard.writeText(name) }
   if (!doneJobs.length) return null
-
   return (
     <div style={{
       position:'fixed', inset:0, zIndex:300,
@@ -536,21 +506,16 @@ function CompletionPopup({ jobs, onClose }) {
         maxHeight:'80vh', display:'flex', flexDirection:'column', gap:16,
         boxShadow:'0 24px 80px rgba(0,0,0,0.6)',
       }}>
-        {/* Header */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <div style={{ width:36, height:36, borderRadius:10,
               background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.3)',
-              display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>
-              ✓
-            </div>
+              display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>✓</div>
             <div>
               <p style={{ margin:0, fontSize:16, fontWeight:700, color:'#e8e8f0' }}>
                 {doneJobs.length} Video{doneJobs.length > 1 ? 's' : ''} Normalized
               </p>
-              <p style={{ margin:0, fontSize:12, color:'#555' }}>
-                Click any filename to copy it
-              </p>
+              <p style={{ margin:0, fontSize:12, color:'#555' }}>Click any filename to copy it</p>
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -560,70 +525,41 @@ function CompletionPopup({ jobs, onClose }) {
             alignItems:'center', justifyContent:'center',
           }}>✕</button>
         </div>
-
-        {/* File list */}
-        <div style={{
-          overflowY:'auto', display:'flex', flexDirection:'column', gap:6,
-          maxHeight:340,
-        }}>
+        <div style={{ overflowY:'auto', display:'flex', flexDirection:'column', gap:6, maxHeight:340 }}>
           {doneJobs.map((job, i) => (
-            <div
-              key={job.jobId}
-              onClick={() => copyOne(job.outFilename)}
-              title="Click to copy"
+            <div key={job.jobId} onClick={() => copyOne(job.outFilename)} title="Click to copy"
               style={{
                 display:'flex', alignItems:'center', gap:10,
                 padding:'8px 12px', borderRadius:8, cursor:'pointer',
-                background:'rgba(255,255,255,0.03)',
-                border:'1px solid rgba(255,255,255,0.06)',
-                transition:'all 0.15s',
+                background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)',
               }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = 'rgba(16,185,129,0.08)'
-                e.currentTarget.style.borderColor = 'rgba(16,185,129,0.2)'
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'
-              }}
+              onMouseEnter={e => { e.currentTarget.style.background='rgba(16,185,129,0.08)'; e.currentTarget.style.borderColor='rgba(16,185,129,0.2)' }}
+              onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.06)' }}
             >
-              <span style={{ fontSize:11, color:'#555', fontFamily:"'JetBrains Mono',monospace",
-                flexShrink:0, width:20, textAlign:'right' }}>{i+1}.</span>
-              <span style={{ fontSize:12, color:'#10b981',
-                fontFamily:"'JetBrains Mono',monospace",
-                overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
+              <span style={{ fontSize:11, color:'#555', fontFamily:"'JetBrains Mono',monospace", flexShrink:0, width:20, textAlign:'right' }}>{i+1}.</span>
+              <span style={{ fontSize:12, color:'#10b981', fontFamily:"'JetBrains Mono',monospace", overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
                 {job.outFilename}
               </span>
               <span style={{ fontSize:10, color:'#444', flexShrink:0 }}>📋</span>
             </div>
           ))}
         </div>
-
-        {/* Footer */}
         <div style={{ display:'flex', gap:8, borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:12 }}>
-          <button
-            onClick={copyAll}
-            style={{
-              flex:1, padding:'10px', borderRadius:10, fontSize:13, fontWeight:700,
-              cursor:'pointer', fontFamily:'inherit',
-              border: copied ? '1px solid rgba(16,185,129,0.5)' : '1px solid rgba(139,92,246,0.3)',
-              background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(139,92,246,0.12)',
-              color: copied ? '#34d399' : '#a78bfa',
-            }}
-          >
+          <button onClick={copyAll} style={{
+            flex:1, padding:'10px', borderRadius:10, fontSize:13, fontWeight:700,
+            cursor:'pointer', fontFamily:'inherit',
+            border: copied ? '1px solid rgba(16,185,129,0.5)' : '1px solid rgba(139,92,246,0.3)',
+            background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(139,92,246,0.12)',
+            color: copied ? '#34d399' : '#a78bfa',
+          }}>
             {copied ? '✓ Copied all filenames!' : '📋 Copy All Filenames'}
           </button>
-          <button
-            onClick={onClose}
-            style={{
-              padding:'10px 20px', borderRadius:10, fontSize:13, fontWeight:700,
-              cursor:'pointer', fontFamily:'inherit',
-              border:'1px solid rgba(255,255,255,0.1)',
-              background:'rgba(255,255,255,0.04)', color:'#666',
-            }}
-          >
-            Close
-          </button>
+          <button onClick={onClose} style={{
+            padding:'10px 20px', borderRadius:10, fontSize:13, fontWeight:700,
+            cursor:'pointer', fontFamily:'inherit',
+            border:'1px solid rgba(255,255,255,0.1)',
+            background:'rgba(255,255,255,0.04)', color:'#666',
+          }}>Close</button>
         </div>
       </div>
     </div>
@@ -635,12 +571,12 @@ let _id = 1
 const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error:null, fetchStatus:null, fetchPct:0, fetchTime:null, fetchStart:null })
 
 export default function App() {
-  const [items, setItems]           = useState(() => [newItem()])
-  const [showAdmin, setShowAdmin]   = useState(false)
+  const [items, setItems]               = useState(() => [newItem()])
+  const [showAdmin, setShowAdmin]       = useState(false)
   const [showCookieSetup, setShowCookieSetup] = useState(false)
-  const [user, setUser]             = useState(null)
-  const [serverInfo, setServerInfo] = useState(null)
-  const [fetchingAll, setFetchingAll] = useState(false)
+  const [user, setUser]                 = useState(null)
+  const [serverInfo, setServerInfo]     = useState(null)
+  const [fetchingAll, setFetchingAll]   = useState(false)
   const [showCompletion, setShowCompletion] = useState(false)
   const [fetchIndex, setFetchIndex]     = useState(0)
   const [fetchTotal, setFetchTotal]     = useState(0)
@@ -649,9 +585,16 @@ export default function App() {
   const [dlCountdown, setDlCountdown]   = useState(0)
   const [dlIndex, setDlIndex]           = useState(0)
   const [dlTotal, setDlTotal]           = useState(0)
-  const [jobs, setJobs]             = useState([])
-  const pollRef                     = useRef(null)
-  const fileInputRef                = useRef(null)
+  const [jobs, setJobs]                 = useState([])
+  const pollRef                         = useRef(null)
+  const fileInputRef                    = useRef(null)
+
+  // ── NEW: normalization settings ──────────────────────────────────────────
+  const [normConfig, setNormConfig] = useState({
+    presetId: 'hq',
+    flags: '-c:v libx264 -crf 19 -forced-idr 1 -c:a copy -c:s copy',
+  })
+  const [isLocalMode, setIsLocalMode] = useState(false)
 
   const importUrls = (e) => {
     const file = e.target.files?.[0]
@@ -681,32 +624,18 @@ export default function App() {
     const code = params.get('code')
     if (code) {
       window.history.replaceState({}, '', window.location.pathname)
-      console.log('[AUTH] OAuth code received, exchanging...')
-      console.log('[AUTH] API URL:', API)
-      console.log('[AUTH] Redirect URI:', REDIRECT_URI)
       apiFetch(`${API}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }),
       }).then(async r => {
         const data = await r.json()
-        console.log('[AUTH] Response status:', r.status, data)
         if (data.session_id) {
-          const userData = {
-            session_id: data.session_id,
-            name: data.name,
-            email: data.email,
-            picture: data.picture
-          }
+          const userData = { session_id: data.session_id, name: data.name, email: data.email, picture: data.picture }
           setUser(userData)
           localStorage.setItem('yt_session', JSON.stringify(userData))
-          console.log('[AUTH] Login success:', data.email)
-        } else {
-          console.error('[AUTH] No session_id in response:', data)
         }
-      }).catch(err => {
-        console.error('[AUTH] Fetch error:', err)
-      })
+      }).catch(() => {})
     }
     const stored = localStorage.getItem('yt_session')
     if (stored && !code) {
@@ -719,6 +648,12 @@ export default function App() {
       } catch { localStorage.removeItem('yt_session') }
     }
     apiFetch(`${API}/health`).then(r=>r.json()).then(setServerInfo).catch(()=>{})
+
+    // ── Fetch backend config (local mode flag) ───────────────────────────
+    apiFetch(`${API}/config`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setIsLocalMode(!!d.local_mode) })
+      .catch(() => {})
   }, [])
 
   const logout = async () => {
@@ -738,60 +673,31 @@ export default function App() {
   const removeItem = (id) => setItems(prev => prev.filter(it => it.id!==id))
 
   const addUrlFromSearch = (video) => {
-    // video = { url, video_id, title, thumbnail, duration, channel, views }
     const url = typeof video === 'string' ? video : video.url
     if (items.some(it => it.url.trim() === url.trim())) return
-
-    // Build info object directly from search result — skip fetch entirely
     const info = typeof video === 'object' ? {
       title:     video.title,
       thumbnail: video.thumbnail,
       duration:  video.duration_seconds || null,
       uploader:  video.channel,
-      formats: [
-        {
-          format_id: 'bestvideo+bestaudio/best',
-          type:      'video',
-          ext:       'mp4',
-          resolution:'best',
-          filesize:  null,
-          height:    9999,
-          quality:   'Best Available',
-          label:     '⭐ Best Quality (recommended)',
-        }
-      ],
+      formats: [{
+        format_id: 'bestvideo+bestaudio/best', type:'video', ext:'mp4',
+        resolution:'best', filesize:null, height:9999, quality:'Best Available',
+        label:'⭐ Best Quality (recommended)',
+      }],
     } : null
-
     const defaultFormat = info ? info.formats[0] : null
-
     setItems(prev => {
       const hasEmpty = prev.some(it => !it.url.trim())
       if (hasEmpty) {
         return prev.map(it => {
-          if (!it.url.trim()) {
-            return {
-              ...it, url,
-              info:           info,
-              selectedFormat: defaultFormat,
-              fetchStatus:    info ? 'done' : null,
-              fetchPct:       info ? 100 : 0,
-              error:          null,
-            }
-          }
+          if (!it.url.trim()) return { ...it, url, info, selectedFormat:defaultFormat, fetchStatus:info?'done':null, fetchPct:info?100:0, error:null }
           return it
         })
       }
-      return [...prev, {
-        ...newItem(), url,
-        info:           info,
-        selectedFormat: defaultFormat,
-        fetchStatus:    info ? 'done' : null,
-        fetchPct:       info ? 100 : 0,
-        error:          null,
-      }]
+      return [...prev, { ...newItem(), url, info, selectedFormat:defaultFormat, fetchStatus:info?'done':null, fetchPct:info?100:0, error:null }]
     })
-
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    window.scrollTo({ top:0, behavior:'smooth' })
   }
 
   const fetchOne = async (id) => {
@@ -828,35 +734,26 @@ export default function App() {
     }
   }
 
-  // ── fetchAll: sequential or parallel based on parallelFetch flag ────────────
   const fetchAll = async () => {
     const pending = items.filter(it => it.url.trim() && !it.info)
     if (!pending.length) return
     setFetchingAll(true)
     setFetchTotal(pending.length)
-
     if (parallelFetch) {
-      // PARALLEL MODE: send all at once — fast, uses all CPUs
-      // Good for high-CPU machines, may trigger rate limiting
       setFetchIndex(pending.length)
       await Promise.allSettled(pending.map(it => fetchOne(it.id)))
     } else {
-      // SEQUENTIAL MODE: one at a time — safe, no rate limiting
-      // Good for single CPU or when rate limited
       for (let i = 0; i < pending.length; i++) {
         setFetchIndex(i + 1)
         await fetchOne(pending[i].id)
-        if (i < pending.length - 1)
-          await new Promise(r => setTimeout(r, 1000))
+        if (i < pending.length - 1) await new Promise(r => setTimeout(r, 1000))
       }
     }
-
     setFetchingAll(false)
     setFetchIndex(0)
     setFetchTotal(0)
   }
 
-  // ── refreshJobs: manually re-check all job statuses ───────────────────────
   const refreshJobs = async () => {
     if (!jobs.length) return
     const snapshot = [...jobs]
@@ -871,17 +768,9 @@ export default function App() {
         const jobId = snapshot[i].jobId
         updated = updated.map(j => {
           if (j.jobId !== jobId) return j
-          if (d.status === 'done') return {
-            ...j, status:'done', progress:100, normProgress:100,
-            downloadUrl:`${API}/download/file/${jobId}`, outFilename:d.filename,
-          }
+          if (d.status === 'done') return { ...j, status:'done', progress:100, normProgress:100, downloadUrl:`${API}/download/file/${jobId}`, outFilename:d.filename }
           if (d.status === 'error') return { ...j, status:'error', error:d.error }
-          return {
-            ...j, status:d.status,
-            progress:d.progress ?? j.progress,
-            normProgress:d.normalize_progress ?? j.normProgress,
-            title: d.title || j.title,
-          }
+          return { ...j, status:d.status, progress:d.progress??j.progress, normProgress:d.normalize_progress??j.normProgress, title:d.title||j.title }
         })
       })
       return updated
@@ -890,6 +779,7 @@ export default function App() {
 
   const allReady = items.every(it => it.info && it.selectedFormat)
 
+  // ── _dispatchDownload: now sends norm_flags ──────────────────────────────
   const _dispatchDownload = async (it) => {
     const res = await apiFetch(`${API}/download/batch`, {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -898,7 +788,8 @@ export default function App() {
           url:        it.url.trim(),
           format_id:  it.selectedFormat.format_id,
           session_id: user?.session_id || null,
-        }]
+        }],
+        norm_flags: normConfig.flags,
       }),
     })
     const data = await res.json()
@@ -919,28 +810,16 @@ export default function App() {
   const startAll = async () => {
     const readyItems = items.filter(it => it.info && it.selectedFormat)
     if (!readyItems.length) return
-
     setDlTotal(readyItems.length)
     setDlIndex(0)
     setDlCountdown(0)
-
     try {
       if (parallelFetch) {
-        // PARALLEL MODE — send all download requests at once
-        // Backend MAX_WORKERS controls how many normalize simultaneously
         setDlIndex(readyItems.length)
-        const results = await Promise.allSettled(
-          readyItems.map(it => _dispatchDownload(it))
-        )
-        const newJobs = results
-          .filter(r => r.status === 'fulfilled' && r.value)
-          .map(r => r.value)
-        if (newJobs.length) {
-          setJobs(prev => [...newJobs, ...prev])
-          startPolling()
-        }
+        const results = await Promise.allSettled(readyItems.map(it => _dispatchDownload(it)))
+        const newJobs = results.filter(r => r.status==='fulfilled' && r.value).map(r => r.value)
+        if (newJobs.length) { setJobs(prev => [...newJobs, ...prev]); startPolling() }
       } else {
-        // SEQUENTIAL MODE — send one download at a time with countdown
         const DELAY = 4000
         let allNewJobs = []
         for (let i = 0; i < readyItems.length; i++) {
@@ -976,28 +855,21 @@ export default function App() {
   }
 
   const jobsRef = useRef([])
-  // Keep jobsRef in sync with jobs state
   useEffect(() => { jobsRef.current = jobs }, [jobs])
 
   const startPolling = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current)
     pollRef.current = setInterval(async () => {
-      // Use ref to get latest jobs without stale closure
       const allCurrent = jobsRef.current
       const active = allCurrent.filter(j => !['done','error'].includes(j.status))
-
-      // Stop polling when nothing active
       if (!active.length) {
         clearInterval(pollRef.current)
         pollRef.current = null
         return
       }
-
-      // Fetch status for all active jobs
       const results = await Promise.allSettled(
         active.map(j => apiFetch(`${API}/download/status/${j.jobId}`).then(r => r.json()))
       )
-
       setJobs(prev => {
         let updated = [...prev]
         results.forEach((r, i) => {
@@ -1007,22 +879,9 @@ export default function App() {
           if (!jobId) return
           updated = updated.map(j => {
             if (j.jobId !== jobId) return j
-            if (d.status === 'done') return {
-              ...j, status:'done', progress:100, normProgress:100,
-              downloadUrl:`${API}/download/file/${jobId}`,
-              outFilename: d.filename,
-            }
-            if (d.status === 'error') return {
-              ...j, status:'error', error: d.error,
-            }
-            return {
-              ...j,
-              status:         d.status,
-              progress:       d.progress        ?? j.progress,
-              normProgress:   d.normalize_progress ?? j.normProgress,
-              queue_position: d.queue_position  ?? j.queue_position,
-              title:          d.title           || j.title,
-            }
+            if (d.status === 'done') return { ...j, status:'done', progress:100, normProgress:100, downloadUrl:`${API}/download/file/${jobId}`, outFilename:d.filename }
+            if (d.status === 'error') return { ...j, status:'error', error:d.error }
+            return { ...j, status:d.status, progress:d.progress??j.progress, normProgress:d.normalize_progress??j.normProgress, queue_position:d.queue_position??j.queue_position, title:d.title||j.title }
           })
         })
         return updated
@@ -1032,14 +891,12 @@ export default function App() {
 
   useEffect(() => () => pollRef.current && clearInterval(pollRef.current), [])
 
-  // Show completion popup only when ALL jobs are done (no queued/downloading/normalizing)
   const popupShownForCount = useRef(0)
   useEffect(() => {
     if (!jobs.length) return
-    const active  = jobs.filter(j => !['done','error'].includes(j.status)).length
-    const done    = jobs.filter(j => j.status === 'done').length
-    const total   = jobs.length
-    // Only show when ALL jobs finished AND we haven't shown for this batch yet
+    const active = jobs.filter(j => !['done','error'].includes(j.status)).length
+    const done   = jobs.filter(j => j.status === 'done').length
+    const total  = jobs.length
     if (active === 0 && done > 0 && total === done + jobs.filter(j=>j.status==='error').length) {
       if (popupShownForCount.current !== total) {
         popupShownForCount.current = total
@@ -1047,6 +904,16 @@ export default function App() {
       }
     }
   }, [jobs])
+
+  // ── derive active norm label for the header pill ─────────────────────────
+  const PRESET_LABELS = {
+    fast: 'copy (no re-encode)',
+    balanced: 'libx264 · crf 23',
+    hq: 'libx264 · crf 19 · forced-idr 1',
+    hq265: 'libx265 · crf 24',
+    custom: normConfig.flags || 'custom flags',
+  }
+  const normPillLabel = PRESET_LABELS[normConfig.presetId] || normConfig.flags
 
   return (
     <div style={S.app}>
@@ -1112,8 +979,9 @@ export default function App() {
             </div>
           )}
 
+          {/* ── Norm command pill — now shows active preset ── */}
           <div style={{ marginTop:8, display:'inline-flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:100, padding:'4px 14px', fontSize:11, color:'#555', ...S.mono }}>
-            <span style={{ color:'#8b5cf6' }}>yt-dlp</span> → <span style={{ color:'#3b82f6' }}>libx264 · crf 19 · forced-idr 1</span> → <span style={{ color:'#10b981' }}>_normalize.mp4</span>
+            <span style={{ color:'#8b5cf6' }}>yt-dlp</span> → <span style={{ color:'#3b82f6' }}>{normPillLabel}</span> → <span style={{ color:'#10b981' }}>_normalize.mp4</span>
           </div>
         </header>
 
@@ -1127,11 +995,18 @@ export default function App() {
         )}
 
         {showCompletion && (
-          <CompletionPopup
-            jobs={jobs}
-            onClose={() => setShowCompletion(false)}
-          />
+          <CompletionPopup jobs={jobs} onClose={() => setShowCompletion(false)} />
         )}
+
+        {/* ── NormSettings panel ───────────────────────────────────────── */}
+        <NormSettings value={normConfig} onChange={setNormConfig} />
+
+        {/* ── LocalNormalizer panel ────────────────────────────────────── */}
+        <LocalNormalizer
+          apiFetch={(path, opts) => apiFetch(`${API}${path}`, opts)}
+          normConfig={normConfig}
+          isLocalMode={isLocalMode}
+        />
 
         {/* URL inputs */}
         <div style={{ ...S.card, padding:16, display:'flex', flexDirection:'column', gap:12, marginBottom:12 }}>
@@ -1187,18 +1062,13 @@ export default function App() {
             ↑ Import JSON/CSV
           </button>
 
-          {/* Parallel/Sequential toggle */}
           <button
             onClick={() => setParallelFetch(v => !v)}
             title={parallelFetch ? 'Parallel mode — click to switch to Sequential' : 'Sequential mode — click to switch to Parallel'}
             style={{
               flex:'0 0 auto', padding:'11px 14px', borderRadius:10,
-              border: parallelFetch
-                ? '1px solid rgba(245,158,11,0.4)'
-                : '1px solid rgba(99,102,241,0.3)',
-              background: parallelFetch
-                ? 'rgba(245,158,11,0.08)'
-                : 'rgba(99,102,241,0.08)',
+              border: parallelFetch ? '1px solid rgba(245,158,11,0.4)' : '1px solid rgba(99,102,241,0.3)',
+              background: parallelFetch ? 'rgba(245,158,11,0.08)' : 'rgba(99,102,241,0.08)',
               color: parallelFetch ? '#f59e0b' : '#818cf8',
               fontSize:11, fontWeight:700, cursor:'pointer',
               fontFamily:'inherit', whiteSpace:'nowrap',
@@ -1228,13 +1098,10 @@ export default function App() {
           >
             {dlTotal > 0 ? (
               <>
-                {/* Animated fill bar */}
                 <div style={{
                   position:'absolute', inset:0, zIndex:0,
                   background:'rgba(0,0,0,0.25)',
-                  width: dlCountdown > 0
-                    ? `${((4 - dlCountdown) / 4) * 100}%`
-                    : '100%',
+                  width: dlCountdown > 0 ? `${((4 - dlCountdown) / 4) * 100}%` : '100%',
                   transition:'width 1s linear',
                   borderRadius:10,
                 }} />
@@ -1245,19 +1112,15 @@ export default function App() {
                 ) : dlCountdown > 0 ? (
                   <div style={{ position:'relative', zIndex:1, display:'flex', alignItems:'center', gap:8 }}>
                     <svg width={28} height={28} style={{ transform:'rotate(-90deg)', flexShrink:0 }}>
-                      <circle cx={14} cy={14} r={11} fill="none"
-                        stroke="rgba(255,255,255,0.15)" strokeWidth={2.5} />
-                      <circle cx={14} cy={14} r={11} fill="none"
-                        stroke="#fff" strokeWidth={2.5}
+                      <circle cx={14} cy={14} r={11} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={2.5} />
+                      <circle cx={14} cy={14} r={11} fill="none" stroke="#fff" strokeWidth={2.5}
                         strokeDasharray={69.1}
                         strokeDashoffset={69.1 - (69.1 * (4 - dlCountdown) / 4)}
                         strokeLinecap="round"
                         style={{ transition:'stroke-dashoffset 1s linear' }}
                       />
                     </svg>
-                    <span style={{ fontSize:13, fontWeight:700 }}>
-                      Next in {dlCountdown}s · {dlIndex}/{dlTotal}
-                    </span>
+                    <span style={{ fontSize:13, fontWeight:700 }}>Next in {dlCountdown}s · {dlIndex}/{dlTotal}</span>
                   </div>
                 ) : (
                   <span style={{ position:'relative', zIndex:1, fontSize:13, fontWeight:700 }}>
@@ -1276,7 +1139,6 @@ export default function App() {
               border:'1px solid rgba(99,102,241,0.3)',
               background:'rgba(99,102,241,0.08)', color:'#818cf8',
               fontSize:18, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
-              title:'Refresh download statuses',
             }}>↻</button>
           )}
         </div>
@@ -1284,7 +1146,6 @@ export default function App() {
         {/* Jobs */}
         {jobs.length > 0 && (
           <div>
-            {/* Downloads header with Refresh button */}
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
               <div style={{ fontSize:12, color:'#444', fontWeight:600, letterSpacing:'0.5px', textTransform:'uppercase' }}>Downloads</div>
               <button onClick={refreshJobs} style={{
@@ -1306,7 +1167,7 @@ export default function App() {
             {[
               { icon:'🔑', color:'#f59e0b', title:'Google SSO',         desc:'Sign in to download age-restricted videos' },
               { icon:'⚡', color:'#8b5cf6', title:'Parallel downloads', desc:'All URLs process simultaneously' },
-              { icon:'▶', color:'#3b82f6', title:'ffmpeg normalize',    desc:'libx264 · crf 19 · forced-idr 1' },
+              { icon:'🎞️', color:'#3b82f6', title:'ffmpeg normalize',   desc:normPillLabel },
               { icon:'🔒', color:'#10b981', title:'Fully local',        desc:'Files saved on your server' },
             ].map(f => (
               <div key={f.title} style={{ flex:'1 1 180px', ...S.card, padding:'14px' }}>
