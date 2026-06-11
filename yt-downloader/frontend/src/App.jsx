@@ -752,8 +752,7 @@ function CodecAdvisory({ open, onClose }) {
           </div>
           <button onClick={onClose} style={{ width:28, height:28, borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)', color:'#888', fontSize:14, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
         </div>
-        <div style={{ overflow:'auto', flex:1 }}>
-        <div style={{ background:'rgba(59,130,246,0.04)', overflow:'auto' }}>
+        <div style={{ overflow:'auto', flex:1, background:'rgba(59,130,246,0.04)' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
             <thead>
               <tr style={{ background:'rgba(59,130,246,0.1)', borderBottom:'1px solid rgba(59,130,246,0.2)' }}>
@@ -776,7 +775,7 @@ function CodecAdvisory({ open, onClose }) {
             </tbody>
           </table>
         </div>
-      )}
+      </div>
     </div>
   )
 }
