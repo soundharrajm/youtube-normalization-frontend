@@ -464,19 +464,37 @@ function JobCard({ job }) {
 }
 
 // ── QueueBadge ─────────────────────────────────────────────────────────────
-function QueueBadge({ jobs }) {
-  const queued = jobs.filter(j=>j.status==='queued').length
+function QueueBadge({ jobs, queueStatus }) {
   const active = jobs.filter(j=>!['done','error','queued'].includes(j.status)).length
   const done   = jobs.filter(j=>j.status==='done').length
   const failed = jobs.filter(j=>j.status==='error').length
   const total  = jobs.length
-  if (total === 0) return null
+
+  // Use real executor queue depth if available, fall back to UI count
+  const realPending  = queueStatus?.real_pending  ?? jobs.filter(j=>j.status==='queued').length
+  const freeWorkers  = queueStatus?.free_workers  ?? 0
+  const maxWorkers   = queueStatus?.max_workers   ?? 2
+
+  if (total === 0 && !queueStatus) return null
+  if (total === 0 && realPending === 0) return null
+
   return (
-    <div style={{ position:'fixed', top:16, right:16, zIndex:100, background:'rgba(10,10,20,0.92)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:14, padding:'10px 16px', backdropFilter:'blur(12px)', display:'flex', flexDirection:'column', gap:6, minWidth:160, boxShadow:'0 4px 24px rgba(0,0,0,0.4)' }}>
-      <div style={{ fontSize:11, color:'#555', fontWeight:600, letterSpacing:'0.5px', textTransform:'uppercase' }}>Queue</div>
-      {[{label:'Active',val:active,color:'#8b5cf6'},{label:'Waiting',val:queued,color:'#f59e0b'},{label:'Done',val:done,color:'#10b981'},{label:'Failed',val:failed,color:'#ef4444'}].map(r => r.val > 0 && (
+    <div style={{ position:'fixed', top:16, right:16, zIndex:100, background:'rgba(10,10,20,0.92)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:14, padding:'10px 16px', backdropFilter:'blur(12px)', display:'flex', flexDirection:'column', gap:6, minWidth:180, boxShadow:'0 4px 24px rgba(0,0,0,0.4)' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ fontSize:11, color:'#555', fontWeight:600, letterSpacing:'0.5px', textTransform:'uppercase' }}>Queue</div>
+        <div style={{ fontSize:10, color:'#444', ...T.mono }}>{freeWorkers}/{maxWorkers} free</div>
+      </div>
+      {[
+        { label:'Running',  val:active,      color:'#8b5cf6' },
+        { label:'Pending',  val:realPending, color:'#f59e0b', real:true },
+        { label:'Done',     val:done,        color:'#10b981' },
+        { label:'Failed',   val:failed,      color:'#ef4444' },
+      ].map(r => r.val > 0 && (
         <div key={r.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
-          <span style={{ fontSize:12, color:'#8888aa' }}>{r.label}</span>
+          <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+            <span style={{ fontSize:12, color:'#8888aa' }}>{r.label}</span>
+            {r.real && <span style={{ fontSize:9, color:'#f59e0b', background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:3, padding:'1px 4px' }}>REAL</span>}
+          </div>
           <span style={{ ...T.mono, fontSize:13, fontWeight:700, color:r.color, background:`${r.color}18`, border:`1px solid ${r.color}33`, borderRadius:6, padding:'1px 8px' }}>{r.val}</span>
         </div>
       ))}
@@ -1012,6 +1030,7 @@ export default function App() {
   const [showSettings, setShowSettings]     = useState(false)
   const [showLocalPanel, setShowLocalPanel] = useState(false)
   const [showAdvisory, setShowAdvisory]     = useState(false)
+  const [queueStatus, setQueueStatus]       = useState(null)
   const [isLocalMode, setIsLocalMode]       = useState(false)
   const pollRef    = useRef(null)
   const fileInputRef = useRef(null)
@@ -1144,6 +1163,19 @@ export default function App() {
 
   const jobsRef = useRef([])
   useEffect(() => { jobsRef.current = jobs }, [jobs])
+
+  // Poll real queue depth from executor
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const r = await apiFetch(`${API}/queue/status`)
+        if (r.ok) setQueueStatus(await r.json())
+      } catch(_) {}
+    }
+    poll()
+    const t = setInterval(poll, 2000)
+    return () => clearInterval(t)
+  }, [])
 
   const startPolling = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current)
