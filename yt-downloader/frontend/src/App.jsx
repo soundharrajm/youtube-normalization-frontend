@@ -918,14 +918,13 @@ export default function App() {
       {/* ── LEFT TAB ── */}
       {!showLocalPanel && (
         <div onClick={()=>setShowLocalPanel(true)} style={{
-          position:'fixed', left:0, top:'50%', transform:'translateY(-50%)', zIndex:140,
-          writingMode:'vertical-rl', rotate:'180deg',
+          position:'fixed', left:0, top:'50%', transform:'translateY(-50%)',
+          zIndex:140, writingMode:'vertical-rl', rotate:'180deg',
           background:'rgba(186,117,23,0.18)', border:'1px solid rgba(186,117,23,0.4)',
           borderLeft:'none', borderRadius:'0 8px 8px 0',
-          padding:'14px 8px', fontSize:11, fontWeight:700,
+          padding:'12px 7px', fontSize:11, fontWeight:700,
           color:'#FAC775', cursor:'pointer', letterSpacing:'.08em', userSelect:'none',
-          display:'flex', alignItems:'center', gap:6,
-          boxShadow:'2px 0 12px rgba(186,117,23,0.15)',
+          boxShadow:'2px 0 8px rgba(186,117,23,0.12)',
         }}>
           📁 LOCAL FILES
         </div>
@@ -947,27 +946,27 @@ export default function App() {
       {/* ── RIGHT TAB ── */}
       {!showSettings && (
         <div onClick={()=>setShowSettings(true)} style={{
-          position:'fixed', right:0, top:'50%', transform:'translateY(-50%)', zIndex:140,
-          writingMode:'vertical-rl',
+          position:'fixed', right:0, top:'50%', transform:'translateY(-50%)',
+          zIndex:140, writingMode:'vertical-rl',
           background:'rgba(127,119,221,0.18)', border:'1px solid rgba(127,119,221,0.4)',
           borderRight:'none', borderRadius:'8px 0 0 8px',
-          padding:'14px 8px', fontSize:11, fontWeight:700,
+          padding:'12px 7px', fontSize:11, fontWeight:700,
           color:'#c4beff', letterSpacing:'.08em',
           cursor:'pointer', userSelect:'none',
-          boxShadow:'-2px 0 12px rgba(127,119,221,0.15)',
+          boxShadow:'-2px 0 8px rgba(127,119,221,0.12)',
         }}>
+          {jobs.length > 0 ? '📥 DOWNLOADS' : '⚙ SETTINGS'}
           {jobs.length > 0 && (
             <span style={{
               display:'inline-block', writingMode:'horizontal-tb',
               background: jobs.some(j=>!['done','error'].includes(j.status)) ? '#ef4444' : '#10b981',
               color:'#fff', fontSize:9, fontWeight:700, borderRadius:'50%',
               width:16, height:16, lineHeight:'16px', textAlign:'center',
-              marginBottom:6,
+              marginTop:6,
             }}>
               {jobs.filter(j=>!['done','error'].includes(j.status)).length || jobs.filter(j=>j.status==='done').length}
             </span>
           )}
-          {jobs.length > 0 ? '📥 DOWNLOADS' : '⚙ SETTINGS'}
         </div>
       )}
 
