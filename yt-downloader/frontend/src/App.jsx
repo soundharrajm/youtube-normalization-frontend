@@ -275,7 +275,6 @@ function JobCard({ job }) {
           <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:3 }}>
             <span style={{ fontSize:11, color:'#555', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:200, ...T.mono }}>{(job.url||'').replace('https://www.youtube.com/watch?v=','yt:')}</span>
             <span style={{ fontSize:10, color:meta.color, background:`${meta.color}18`, border:`1px solid ${meta.color}33`, borderRadius:100, padding:'1px 7px', fontWeight:600, flexShrink:0 }}>{isQ&&job.queue_position>0?`#${job.queue_position+1} queued`:meta.label}</span>
-          </div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
           {!isQ&&!isErr && <CircleProgress pct={dlPct} color='#8b5cf6' size={44} stroke={3} label="DL" done={dlPct===100} />}
@@ -376,15 +375,14 @@ function CompletionPopup({ jobs, onClose }) {
   )
 }
 
-// ── LocalNormalizerCard ────────────────────────────────────────────────────
-function LocalNormalizerCard({ isLocalMode, normConfig, apiFetchFn }) {
-  const [open, setOpen]           = useState(false)
-  const [paths, setPaths]         = useState('')
-  const [recursive, setRecursive] = useState(false)
-  const [skipDone, setSkipDone]   = useState(true)
+// ── LocalPanel (left slide panel) ─────────────────────────────────────────
+function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
+  const [paths, setPaths]           = useState('')
+  const [recursive, setRecursive]   = useState(false)
+  const [skipDone, setSkipDone]     = useState(true)
   const [scanResult, setScanResult] = useState(null)
-  const [scanning, setScanning]   = useState(false)
-  const [localJobs, setLocalJobs] = useState([])
+  const [scanning, setScanning]     = useState(false)
+  const [localJobs, setLocalJobs]   = useState([])
 
   async function handleScan() {
     const pathList = paths.split('\n').map(p=>p.trim()).filter(Boolean)
@@ -411,75 +409,81 @@ function LocalNormalizerCard({ isLocalMode, normConfig, apiFetchFn }) {
 
   const activeJobs = localJobs.filter(j=>j.status!=='done'&&j.status!=='error').length
 
+  const panelStyle = {
+    position:'fixed', left:0, top:0, height:'100vh', width:'min(280px,90vw)',
+    background:'#0d0c16', borderRight:'1px solid rgba(186,117,23,0.2)',
+    transform:open?'translateX(0)':'translateX(-100%)',
+    transition:'transform .25s ease', zIndex:160,
+    overflowY:'auto', display:'flex', flexDirection:'column',
+  }
+  const lbl = { fontSize:10, color:'#555', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
+  const sdiv = { height:1, background:'rgba(186,117,23,0.12)', margin:'12px 0' }
+
   return (
-    <div style={{ background:'rgba(186,117,23,0.07)', border:'1px solid rgba(186,117,23,0.22)', borderRadius:12, marginBottom:10, overflow:'hidden' }}>
+    <div style={panelStyle}>
       {/* Header */}
-      <div onClick={()=>setOpen(v=>!v)} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'11px 16px', cursor:'pointer' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-          <div style={{ width:30, height:30, borderRadius:8, background:'rgba(186,117,23,0.16)', border:'1px solid rgba(186,117,23,0.28)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>📁</div>
-          <div>
-            <div style={{ fontSize:13, fontWeight:600, color:'#f0f0ff' }}>Local file normalizer</div>
-            <div style={{ fontSize:11, color:'#6b6b88' }}>Normalize files already on this machine</div>
-          </div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 14px 11px', borderBottom:'1px solid rgba(186,117,23,0.15)', position:'sticky', top:0, background:'#0d0c16', zIndex:2 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:600, color:'#f0f0ff' }}>
+          <span style={{ fontSize:18 }}>📁</span> Local Normalizer
+          {activeJobs > 0 && <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:100, padding:'1px 7px' }}>{activeJobs}</span>}
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-          {activeJobs > 0 && <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:100, padding:'1px 7px' }}>{activeJobs}</span>}
-          <span style={{ fontSize:10, color:T.am3, background:'rgba(186,117,23,0.13)', border:'1px solid rgba(186,117,23,0.22)', borderRadius:100, padding:'2px 7px', fontWeight:700 }}>LOCAL</span>
-          <span style={{ fontSize:14, color:'#555', display:'inline-block', transform:open?'rotate(180deg)':'rotate(0)', transition:'transform .2s' }}>▾</span>
+          <span style={{ fontSize:9, color:T.am3, background:'rgba(186,117,23,0.13)', border:'1px solid rgba(186,117,23,0.22)', borderRadius:100, padding:'2px 7px', fontWeight:700 }}>LOCAL</span>
+          <button onClick={onClose} style={{ width:26, height:26, borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.05)', color:'#777', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
         </div>
       </div>
 
       {/* Body */}
-      {open && (
-        <div style={{ padding:'0 16px 14px', borderTop:'1px solid rgba(186,117,23,0.14)' }}>
-          {isLocalMode ? (
-            <>
-              <div style={{ fontSize:12, color:'#6b6b88', margin:'10px 0 5px' }}>File or folder path(s) — one per line</div>
-              <textarea value={paths} onChange={e=>setPaths(e.target.value)}
-                placeholder={'C:\\Videos\\movie.mp4\nC:\\Shows\\Season1\\'}
-                style={{ width:'100%', background:'rgba(0,0,0,0.22)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:8, padding:'9px 12px', fontSize:13, ...T.mono, color:'#c8c8d8', outline:'none', resize:'vertical', minHeight:70, boxSizing:'border-box' }} />
-              <div style={{ display:'flex', gap:16, margin:'8px 0', fontSize:12, color:'#888' }}>
-                <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={recursive} onChange={e=>setRecursive(e.target.checked)} /> Scan subfolders</label>
-                <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={skipDone} onChange={e=>setSkipDone(e.target.checked)} /> Skip already normalized</label>
-              </div>
-              <div style={{ fontSize:11, color:'#444', ...T.mono, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm</div>
-              <div style={{ display:'flex', gap:8, marginBottom:10 }}>
-                <button onClick={handleScan} disabled={scanning||!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:12, fontWeight:500, padding:'8px 14px', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'#999', cursor:'pointer', fontFamily:'inherit' }}>🔍 {scanning?'Scanning…':'Preview files'}</button>
-                <button onClick={handleNormalize} disabled={!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:12, fontWeight:600, padding:'8px 18px', borderRadius:8, border:'1px solid rgba(29,158,117,0.35)', background:'rgba(29,158,117,0.12)', color:T.te2, cursor:'pointer', fontFamily:'inherit' }}>▶ Normalize</button>
-              </div>
-              {scanResult && (
-                <div style={{ background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:8, padding:'10px 12px', marginBottom:8 }}>
-                  <div style={{ fontSize:12, color:'#6b6b88', marginBottom:6 }}>Found {scanResult.count} file{scanResult.count!==1?'s':''} to normalize</div>
-                  {scanResult.files.map((f,i) => (
-                    <div key={i} style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, padding:'3px 0' }}>
-                      <span style={{ color:'#c8c8d8', ...T.mono, fontWeight:500, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.source.split(/[/\\]/).pop()}</span>
-                      <span style={{ color:'#444', fontSize:11 }}>{f.size_mb} MB</span>
-                      <span style={{ color:T.pu3 }}>→</span>
-                      <span style={{ color:T.te3, ...T.mono }}>{f.out.split(/[/\\]/).pop()}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {localJobs.length > 0 && (
-                <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                  {localJobs.map(j => (
-                    <div key={j.job_id} style={{ display:'flex', alignItems:'center', gap:10, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:8, padding:'8px 12px' }}>
-                      <span style={{ fontSize:14, color:j.status==='done'?T.te3:j.status==='error'?'#ef4444':'#f59e0b' }}>{j.status==='done'?'✓':j.status==='error'?'✗':'⏳'}</span>
-                      <span style={{ flex:1, fontSize:12, color:'#c8c8d8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</span>
-                      <span style={{ fontSize:11, color:'#555', ...T.mono }}>{j.status==='done'?'done':j.status==='error'?'error':`${j.normalize_progress||0}%`}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:8, padding:'12px 14px', fontSize:12, color:'#666', marginTop:10 }}>
-              🖥️ Not available — backend is running in server mode.<br/>
-              <span style={{ fontSize:11, color:'#444', marginTop:4, display:'block' }}>Set <code>LOCAL_MODE=true</code> in your backend <code>.env</code> to enable this.</span>
+      <div style={{ padding:'13px 14px', flex:1 }}>
+        {isLocalMode ? (
+          <>
+            <div style={lbl}>File or folder paths</div>
+            <textarea value={paths} onChange={e=>setPaths(e.target.value)}
+              placeholder={'C:\\Videos\\movie.mp4\nC:\\Shows\\Season1\\'}
+              style={{ width:'100%', background:'rgba(0,0,0,0.25)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:8, padding:'9px 11px', fontSize:12, ...T.mono, color:'#c8c8d8', outline:'none', resize:'vertical', minHeight:80, boxSizing:'border-box', marginBottom:8 }} />
+            <div style={{ display:'flex', flexDirection:'column', gap:6, fontSize:11, color:'#888', marginBottom:8 }}>
+              <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={recursive} onChange={e=>setRecursive(e.target.checked)} /> Scan subfolders recursively</label>
+              <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={skipDone} onChange={e=>setSkipDone(e.target.checked)} /> Skip already-normalized files</label>
             </div>
-          )}
-        </div>
-      )}
+            <div style={{ fontSize:10, color:'#333', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
+            <div style={{ display:'flex', gap:6, marginBottom:10 }}>
+              <button onClick={handleScan} disabled={scanning||!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, padding:'7px 12px', borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'#888', cursor:'pointer', fontFamily:'inherit' }}>🔍 {scanning?'Scanning…':'Preview'}</button>
+              <button onClick={handleNormalize} disabled={!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, padding:'7px 14px', borderRadius:7, border:'1px solid rgba(29,158,117,0.35)', background:'rgba(29,158,117,0.12)', color:T.te2, cursor:'pointer', fontFamily:'inherit' }}>▶ Normalize</button>
+            </div>
+            {scanResult && (
+              <div style={{ background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:8, padding:'9px 11px', marginBottom:8 }}>
+                <div style={{ fontSize:11, color:'#6b6b88', marginBottom:5 }}>Found {scanResult.count} file{scanResult.count!==1?'s':''}</div>
+                {scanResult.files.map((f,i) => (
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, padding:'2px 0' }}>
+                    <span style={{ color:'#c0c0d0', ...T.mono, fontWeight:500, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.source.split(/[/\\]/).pop()}</span>
+                    <span style={{ color:'#333', fontSize:10 }}>{f.size_mb}MB</span>
+                    <span style={{ color:T.pu3 }}>→</span>
+                    <span style={{ color:T.te3, ...T.mono, fontSize:11 }}>{f.out.split(/[/\\]/).pop()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {localJobs.length > 0 && (
+              <>
+                <div style={sdiv} />
+                <div style={lbl}>Jobs</div>
+                {localJobs.map(j => (
+                  <div key={j.job_id} style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:7, padding:'7px 10px', marginBottom:5 }}>
+                    <span style={{ fontSize:13, color:j.status==='done'?T.te3:j.status==='error'?'#ef4444':'#f59e0b' }}>{j.status==='done'?'✓':j.status==='error'?'✗':'⏳'}</span>
+                    <span style={{ flex:1, fontSize:11, color:'#c0c0d0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</span>
+                    <span style={{ fontSize:10, color:'#555', ...T.mono }}>{j.status==='done'?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </>
+        ) : (
+          <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:8, padding:'12px 14px', fontSize:12, color:'#666' }}>
+            🖥️ Not available — backend is in server mode.<br/>
+            <span style={{ fontSize:11, color:'#444', marginTop:4, display:'block' }}>Set <code>LOCAL_MODE=true</code> in backend <code>.env</code></span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -497,22 +501,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
 
   return (
     <>
-      {/* Overlay */}
-      {open && <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:150 }} />}
-
-      {/* Pull tab — always visible when closed */}
-      {!open && (
-        <div onClick={onClose} style={{ position:'fixed', right:0, top:'50%', transform:'translateY(-50%)', zIndex:160,
-          writingMode:'vertical-rl', background:'rgba(127,119,221,0.16)', border:'1px solid rgba(127,119,221,0.28)',
-          borderRight:'none', borderRadius:'8px 0 0 8px', padding:'14px 7px', fontSize:10, fontWeight:700,
-          color:T.pu2, cursor:'pointer', letterSpacing:'.07em', display:'flex', alignItems:'center', gap:7,
-          transition:'all .2s',
-        }} onClick={()=>{ /* handled by parent */ }}>
-          ⚙ SETTINGS
-        </div>
-      )}
-
-      {/* Panel */}
+      {/* Settings Panel */}
       <div style={{
         position:'fixed', right:0, top:0, height:'100vh', width:'min(300px, 90vw)',
         background:'#0d0d1c', borderLeft:'1px solid rgba(127,119,221,0.18)',
@@ -574,6 +563,29 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
 
 
 
+          {/* ── DOWNLOADS ── */}
+          {jobs && jobs.length > 0 && (
+            <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:12, marginTop:4 }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                  <span style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700 }}>Downloads</span>
+                  <span style={{ fontSize:10, fontWeight:700, color:'#fff',
+                    background: jobs.some(j=>!['done','error'].includes(j.status)) ? '#ef4444' : '#10b981',
+                    borderRadius:100, padding:'1px 7px' }}>
+                    {jobs.filter(j=>!['done','error'].includes(j.status)).length || jobs.filter(j=>j.status==='done').length}
+                  </span>
+                </div>
+                <div style={{ display:'flex', gap:5 }}>
+                  <button onClick={onRefreshJobs} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>↻</button>
+                  <button onClick={onClearJobs} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>✕ Clear</button>
+                </div>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+                {jobs.map(job => <JobCard key={job.jobId} job={job} />)}
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </>
@@ -600,6 +612,7 @@ export default function App() {
   const [dlTotal, setDlTotal]               = useState(0)
   const [jobs, setJobs]                     = useState([])
   const [showSettings, setShowSettings]     = useState(false)
+  const [showLocalPanel, setShowLocalPanel] = useState(false)
   const [isLocalMode, setIsLocalMode]       = useState(false)
   const pollRef    = useRef(null)
   const fileInputRef = useRef(null)
@@ -775,7 +788,36 @@ export default function App() {
 
       {showCompletion && <CompletionPopup jobs={jobs} onClose={()=>setShowCompletion(false)} />}
 
-      {/* Settings side panel */}
+      {/* ── OVERLAY for both panels ── */}
+      {(showLocalPanel || showSettings) && (
+        <div onClick={()=>{setShowLocalPanel(false);setShowSettings(false)}}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:150 }} />
+      )}
+
+      {/* ── LEFT PANEL — Local Normalizer ── */}
+      <LocalPanel
+        open={showLocalPanel}
+        onClose={() => setShowLocalPanel(false)}
+        isLocalMode={isLocalMode}
+        normConfig={normConfig}
+        apiFetchFn={(path, opts) => apiFetch(`${API}${path}`, opts)}
+      />
+
+      {/* ── LEFT TAB ── */}
+      {!showLocalPanel && (
+        <div onClick={()=>setShowLocalPanel(true)} style={{
+          position:'fixed', left:0, top:'50%', transform:'translateY(-50%)', zIndex:140,
+          writingMode:'vertical-rl', rotate:'180deg',
+          background:'rgba(186,117,23,0.12)', border:'1px solid rgba(186,117,23,0.25)',
+          borderLeft:'none', borderRadius:'0 6px 6px 0',
+          padding:'10px 6px', fontSize:9, fontWeight:700,
+          color:'rgba(186,117,23,0.8)', cursor:'pointer', letterSpacing:'.07em', userSelect:'none',
+        }}>
+          📁 LOCAL FILES
+        </div>
+      )}
+
+      {/* ── RIGHT PANEL — Settings ── */}
       <SettingsPanel
         open={showSettings}
         onClose={() => setShowSettings(v => !v)}
@@ -788,13 +830,12 @@ export default function App() {
         onClearJobs={() => setJobs([])}
       />
 
-      {/* Pull tab (when panel closed) */}
+      {/* ── RIGHT TAB ── */}
       {!showSettings && (
         <div onClick={()=>setShowSettings(true)} style={{
           position:'fixed', right:0, top:'50%', transform:'translateY(-50%)', zIndex:140,
-          display:'flex', flexDirection:'column', alignItems:'center', gap:0, cursor:'pointer', userSelect:'none',
+          display:'flex', flexDirection:'column', alignItems:'center', gap:0, cursor:'pointer', userSelect:'none', position:'fixed',
         }}>
-          {/* Notification badge */}
           {jobs.length > 0 && (
             <div style={{
               position:'absolute', top:-8, left:-8, zIndex:2,
@@ -891,91 +932,88 @@ export default function App() {
           </button>
         </div>
 
-        {/* ── TWO COLUMN LAYOUT ── */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:32, alignItems:'start' }}>
+        {/* ── TOP ROW: Local Normalizer top-right ── */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 340px', gap:12, marginBottom:12, alignItems:'start' }}>
 
-          {/* LEFT — Local Normalizer */}
+          {/* CENTRE — URL input */}
+          <div style={{ ...T.card, padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+            {items.map((item, i) => (
+              <div key={item.id}>
+                {i > 0 && <div style={{ height:1, background:'rgba(255,255,255,0.05)', marginBottom:12 }} />}
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
+                  <span style={{ fontSize:10, color:'#5555aa', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:5, padding:'1px 7px', ...T.mono }}>#{i+1}</span>
+                </div>
+                <UrlRow item={item} onChange={(key,val)=>updateItem(item.id,key,val)} onRemove={()=>removeItem(item.id)} canRemove={items.length>1} />
+              </div>
+            ))}
+          </div>
+
+          {/* TOP RIGHT — Local Normalizer */}
           <LocalNormalizerCard
             isLocalMode={isLocalMode}
             normConfig={normConfig}
             apiFetchFn={(path, opts) => apiFetch(`${API}${path}`, opts)}
           />
+        </div>
 
-          {/* RIGHT — URL input + actions */}
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            {/* URL INPUTS */}
-            <div style={{ ...T.card, padding:16, display:'flex', flexDirection:'column', gap:12 }}>
-              {items.map((item, i) => (
-                <div key={item.id}>
-                  {i > 0 && <div style={{ height:1, background:'rgba(255,255,255,0.05)', marginBottom:12 }} />}
-                  <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-                    <span style={{ fontSize:10, color:'#5555aa', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:5, padding:'1px 7px', ...T.mono }}>#{i+1}</span>
-                  </div>
-                  <UrlRow item={item} onChange={(key,val)=>updateItem(item.id,key,val)} onRemove={()=>removeItem(item.id)} canRemove={items.length>1} />
-                </div>
-              ))}
-            </div>
+        {/* ── MAIN ACTIONS — full width centre ── */}
+        <div style={{ display:'flex', gap:8, marginBottom:8, flexWrap:'wrap' }}>
+          <button onClick={()=>setShowSearch(true)} style={{
+            flex:1, minWidth:160, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            fontSize:14, fontWeight:600, padding:'13px 18px', borderRadius:11,
+            border:'1px solid rgba(127,119,221,0.35)', background:'rgba(127,119,221,0.14)', color:'#AFA9EC',
+            cursor:'pointer', fontFamily:'inherit',
+          }}>🔎 Search YouTube</button>
+          <button onClick={startAll} disabled={dlTotal>0||!items.some(it=>it.info&&it.selectedFormat)} style={{
+            flex:1, minWidth:160, display:'flex', alignItems:'center', justifyContent:'center', gap:8, position:'relative', overflow:'hidden',
+            fontSize:14, fontWeight:700, padding:'13px 18px', borderRadius:11,
+            border:'1px solid rgba(29,158,117,0.4)',
+            background:(allReady&&items.some(it=>it.info)&&dlTotal===0)?'rgba(29,158,117,0.16)':'rgba(255,255,255,0.03)',
+            color:(allReady&&items.some(it=>it.info)&&dlTotal===0)?T.te2:'#444',
+            cursor:(dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))?'not-allowed':'pointer',
+            fontFamily:'inherit', opacity:(dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))?0.5:1,
+          }}>
+            {dlTotal > 0 ? (
+              <>
+                <div style={{ position:'absolute', inset:0, zIndex:0, background:'rgba(0,0,0,0.2)', width:dlCountdown>0?`${((4-dlCountdown)/4)*100}%`:'100%', transition:'width 1s linear', borderRadius:11 }} />
+                {parallelFetch ? <span style={{ position:'relative', zIndex:1 }}>⚡ Sending {dlTotal} in parallel…</span>
+                  : dlCountdown > 0 ? <span style={{ position:'relative', zIndex:1 }}>⏱ Next in {dlCountdown}s · {dlIndex}/{dlTotal}</span>
+                  : <span style={{ position:'relative', zIndex:1 }}>↓ Sending {dlIndex}/{dlTotal}…</span>}
+              </>
+            ) : <>⚡ Download All ({items.filter(it=>it.info&&it.selectedFormat).length})</>}
+          </button>
+        </div>
 
-            {/* MAIN ACTIONS */}
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <button onClick={()=>setShowSearch(true)} style={{
-                flex:1, minWidth:130, display:'flex', alignItems:'center', justifyContent:'center', gap:7,
-                fontSize:14, fontWeight:600, padding:'13px 14px', borderRadius:11,
-                border:'1px solid rgba(127,119,221,0.35)', background:'rgba(127,119,221,0.14)', color:'#AFA9EC',
-                cursor:'pointer', fontFamily:'inherit',
-              }}>🔎 Search YouTube</button>
-              <button onClick={startAll} disabled={dlTotal>0||!items.some(it=>it.info&&it.selectedFormat)} style={{
-                flex:1, minWidth:130, display:'flex', alignItems:'center', justifyContent:'center', gap:7, position:'relative', overflow:'hidden',
-                fontSize:14, fontWeight:700, padding:'13px 14px', borderRadius:11,
-                border:'1px solid rgba(29,158,117,0.4)',
-                background:(allReady&&items.some(it=>it.info)&&dlTotal===0)?'rgba(29,158,117,0.16)':'rgba(255,255,255,0.03)',
-                color:(allReady&&items.some(it=>it.info)&&dlTotal===0)?T.te2:'#444',
-                cursor:(dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))?'not-allowed':'pointer',
-                fontFamily:'inherit', opacity:(dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))?0.5:1,
-              }}>
-                {dlTotal > 0 ? (
-                  <>
-                    <div style={{ position:'absolute', inset:0, zIndex:0, background:'rgba(0,0,0,0.2)', width:dlCountdown>0?`${((4-dlCountdown)/4)*100}%`:'100%', transition:'width 1s linear', borderRadius:11 }} />
-                    {parallelFetch ? <span style={{ position:'relative', zIndex:1 }}>⚡ {dlTotal} in parallel…</span>
-                      : dlCountdown > 0 ? <span style={{ position:'relative', zIndex:1 }}>⏱ Next in {dlCountdown}s</span>
-                      : <span style={{ position:'relative', zIndex:1 }}>↓ Sending {dlIndex}/{dlTotal}…</span>}
-                  </>
-                ) : <>⚡ Download All ({items.filter(it=>it.info&&it.selectedFormat).length})</>}
-              </button>
-            </div>
+        {/* ── SECONDARY ACTIONS ── */}
+        <div style={{ display:'flex', gap:6, marginBottom:24, flexWrap:'wrap' }}>
+          <input ref={fileInputRef} type="file" accept=".json,.csv" onChange={importUrls} style={{ display:'none' }} />
+          {showSearch && <SearchPanel onAddUrl={addUrlFromSearch} onClose={()=>setShowSearch(false)} />}
+          <button onClick={addItem} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px dashed rgba(255,255,255,0.18)', background:'rgba(255,255,255,0.04)', color:'#999', cursor:'pointer', fontFamily:'inherit' }}>+ Add URL</button>
+          <button onClick={()=>fileInputRef.current?.click()} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px dashed rgba(99,102,241,0.28)', background:'rgba(99,102,241,0.05)', color:'#818cf8', cursor:'pointer', fontFamily:'inherit' }}>↑ Import JSON/CSV</button>
+          <button onClick={fetchAll} disabled={fetchingAll||!items.some(it=>it.url.trim()&&!it.info)} style={{
+            flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 13px', borderRadius:8, cursor:'pointer', fontFamily:'inherit',
+            border:'1px solid rgba(127,119,221,0.3)', background:'rgba(127,119,221,0.09)', color:'#c4beff',
+            opacity:(fetchingAll||!items.some(it=>it.url.trim()&&!it.info))?0.5:1,
+          }}>
+            {fetchingAll ? (parallelFetch?`⏳ Fetching all ${fetchTotal}…`:`⏳ Fetching ${fetchIndex}/${fetchTotal}…`) : `🔍 Fetch All (${items.filter(it=>it.url.trim()&&!it.info).length} pending)`}
+          </button>
+          <button onClick={()=>setShowSettings(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px solid rgba(127,119,221,0.25)', background:'rgba(127,119,221,0.08)', color:T.pu2, cursor:'pointer', fontFamily:'inherit' }}>⚙ Settings</button>
+        </div>
 
-            {/* SECONDARY ACTIONS */}
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-              <input ref={fileInputRef} type="file" accept=".json,.csv" onChange={importUrls} style={{ display:'none' }} />
-              {showSearch && <SearchPanel onAddUrl={addUrlFromSearch} onClose={()=>setShowSearch(false)} />}
-              <button onClick={addItem} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 12px', borderRadius:8, border:'1px dashed rgba(255,255,255,0.18)', background:'rgba(255,255,255,0.04)', color:'#999', cursor:'pointer', fontFamily:'inherit' }}>+ Add URL</button>
-              <button onClick={()=>fileInputRef.current?.click()} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 12px', borderRadius:8, border:'1px dashed rgba(99,102,241,0.28)', background:'rgba(99,102,241,0.05)', color:'#818cf8', cursor:'pointer', fontFamily:'inherit' }}>↑ Import</button>
-              <button onClick={fetchAll} disabled={fetchingAll||!items.some(it=>it.url.trim()&&!it.info)} style={{
-                flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 12px', borderRadius:8, cursor:'pointer', fontFamily:'inherit',
-                border:'1px solid rgba(127,119,221,0.3)', background:'rgba(127,119,221,0.09)', color:'#c4beff',
-                opacity:(fetchingAll||!items.some(it=>it.url.trim()&&!it.info))?0.5:1,
-              }}>
-                {fetchingAll ? `⏳ ${fetchIndex}/${fetchTotal}…` : `🔍 Fetch All (${items.filter(it=>it.url.trim()&&!it.info).length})`}
-              </button>
-              <button onClick={()=>setShowSettings(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 12px', borderRadius:8, border:'1px solid rgba(127,119,221,0.25)', background:'rgba(127,119,221,0.08)', color:T.pu2, cursor:'pointer', fontFamily:'inherit' }}>⚙ Settings</button>
+        {/* ── FEATURE CARDS — 4 columns full width ── */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:32 }}>
+          {[
+            { icon:'🔑', bg:'rgba(245,158,11,0.1)',  title:'Google SSO',        desc:'Age-restricted videos' },
+            { icon:'⚡', bg:'rgba(127,119,221,0.1)', title:'Parallel downloads', desc:'All URLs simultaneously' },
+            { icon:'🎞️', bg:'rgba(29,158,117,0.1)', title:'ffmpeg normalize',   desc:normPillLabel },
+            { icon:'🔒', bg:'rgba(186,117,23,0.1)',  title:'Fully local',        desc:'Saved on your machine' },
+          ].map(f => (
+            <div key={f.title} style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, padding:'12px 14px' }}>
+              <div style={{ width:28, height:28, borderRadius:7, background:f.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, marginBottom:7 }}>{f.icon}</div>
+              <p style={{ margin:'0 0 2px', fontWeight:600, fontSize:13, color:'#f0f0ff' }}>{f.title}</p>
+              <p style={{ margin:0, fontSize:12, color:'#6b6b88' }}>{f.desc}</p>
             </div>
-
-            {/* FEATURE CARDS */}
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-              {[
-                { icon:'🔑', bg:'rgba(245,158,11,0.1)',  title:'Google SSO',         desc:'Age-restricted videos' },
-                { icon:'⚡', bg:'rgba(127,119,221,0.1)', title:'Parallel downloads',  desc:'All URLs simultaneously' },
-                { icon:'🎞️', bg:'rgba(29,158,117,0.1)', title:'ffmpeg normalize',    desc:normPillLabel },
-                { icon:'🔒', bg:'rgba(186,117,23,0.1)',  title:'Fully local',         desc:'Saved on your machine' },
-              ].map(f => (
-                <div key={f.title} style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, padding:'12px 14px' }}>
-                  <div style={{ width:28, height:28, borderRadius:7, background:f.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, marginBottom:7 }}>{f.icon}</div>
-                  <p style={{ margin:'0 0 2px', fontWeight:600, fontSize:13, color:'#f0f0ff' }}>{f.title}</p>
-                  <p style={{ margin:0, fontSize:12, color:'#6b6b88' }}>{f.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
