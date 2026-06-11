@@ -413,7 +413,7 @@ function QueueBadge({ jobs }) {
       <div style={{ fontSize:11, color:'#555', fontWeight:600, letterSpacing:'0.5px', textTransform:'uppercase' }}>Queue</div>
       {[{label:'Active',val:active,color:'#8b5cf6'},{label:'Waiting',val:queued,color:'#f59e0b'},{label:'Done',val:done,color:'#10b981'},{label:'Failed',val:failed,color:'#ef4444'}].map(r => r.val > 0 && (
         <div key={r.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
-          <span style={{ fontSize:12, color:'#666' }}>{r.label}</span>
+          <span style={{ fontSize:12, color:'#8888aa' }}>{r.label}</span>
           <span style={{ ...T.mono, fontSize:13, fontWeight:700, color:r.color, background:`${r.color}18`, border:`1px solid ${r.color}33`, borderRadius:6, padding:'1px 8px' }}>{r.val}</span>
         </div>
       ))}
@@ -495,6 +495,34 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
   const [scanResult, setScanResult] = useState(null)
   const [scanning, setScanning]     = useState(false)
   const [localJobs, setLocalJobs]   = useState([])
+  const localPollRef = useRef(null)
+
+  // Poll local job statuses every second while any are active
+  useEffect(() => {
+    const active = localJobs.filter(j => j.status !== 'done' && j.status !== 'error')
+    if (!active.length) { clearInterval(localPollRef.current); return }
+    clearInterval(localPollRef.current)
+    localPollRef.current = setInterval(async () => {
+      const ids = localJobs.filter(j=>j.status!=='done'&&j.status!=='error').map(j=>j.job_id)
+      if (!ids.length) { clearInterval(localPollRef.current); return }
+      try {
+        const results = await Promise.allSettled(
+          ids.map(id => apiFetchFn(`/download/status/${id}`).then(r=>r.json()))
+        )
+        setLocalJobs(prev => prev.map(j => {
+          const idx = ids.indexOf(j.job_id)
+          if (idx === -1) return j
+          const r = results[idx]
+          if (r.status !== 'fulfilled') return j
+          const d = r.value
+          if (d.status === 'done') return {...j, status:'done', normalize_progress:100, title:d.filename||j.title}
+          if (d.status === 'error') return {...j, status:'error', error:d.error}
+          return {...j, status:d.status, normalize_progress:d.normalize_progress??j.normalize_progress}
+        }))
+      } catch(_) {}
+    }, 1000)
+    return () => clearInterval(localPollRef.current)
+  }, [localJobs])
 
   async function handleScan() {
     const pathList = paths.split('\n').map(p=>p.trim().replace(/^["']+|["']+$/g,'')).filter(Boolean)
@@ -523,19 +551,19 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
 
   const panelStyle = {
     position:'fixed', left:0, top:0, height:'100vh', width:'min(280px,90vw)',
-    background:'#0d0c16', borderRight:'1px solid rgba(186,117,23,0.2)',
+    background:'#13121f', borderRight:'1px solid rgba(186,117,23,0.35)',
     transform:open?'translateX(0)':'translateX(-100%)',
     transition:'transform .25s ease', zIndex:160,
     overflowY:'auto', display:'flex', flexDirection:'column',
   }
-  const lbl = { fontSize:10, color:'#555', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
+  const lbl = { fontSize:10, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
   const sdiv = { height:1, background:'rgba(186,117,23,0.12)', margin:'12px 0' }
 
   return (
     <div style={panelStyle}>
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 14px 11px', borderBottom:'1px solid rgba(186,117,23,0.15)', position:'sticky', top:0, background:'#0d0c16', zIndex:2 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:600, color:'#f0f0ff' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 14px 11px', borderBottom:'1px solid rgba(186,117,23,0.3)', position:'sticky', top:0, background:'#13121f', zIndex:2 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:600, color:'#ffffff' }}>
           <span style={{ fontSize:18 }}>📁</span> Local Normalizer
           {activeJobs > 0 && <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:100, padding:'1px 7px' }}>{activeJobs}</span>}
         </div>
@@ -552,23 +580,23 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
             <div style={lbl}>File or folder paths</div>
             <textarea value={paths} onChange={e=>setPaths(e.target.value)}
               placeholder={'C:\\Videos\\movie.mp4\nC:\\Shows\\Season1\\'}
-              style={{ width:'100%', background:'rgba(0,0,0,0.25)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:8, padding:'9px 11px', fontSize:12, ...T.mono, color:'#c8c8d8', outline:'none', resize:'vertical', minHeight:80, boxSizing:'border-box', marginBottom:8 }} />
-            <div style={{ display:'flex', flexDirection:'column', gap:6, fontSize:11, color:'#888', marginBottom:8 }}>
+              style={{ width:'100%', background:'rgba(0,0,0,0.25)', border:'1px solid rgba(255,255,255,0.18)', borderRadius:8, padding:'9px 11px', fontSize:12, ...T.mono, color:'#e0e0f0', outline:'none', resize:'vertical', minHeight:80, boxSizing:'border-box', marginBottom:8 }} />
+            <div style={{ display:'flex', flexDirection:'column', gap:6, fontSize:11, color:'#b0b0c8', marginBottom:8 }}>
               <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={recursive} onChange={e=>setRecursive(e.target.checked)} /> Scan subfolders recursively</label>
               <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={skipDone} onChange={e=>setSkipDone(e.target.checked)} /> Skip already-normalized files</label>
             </div>
-            <div style={{ fontSize:10, color:'#333', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
+            <div style={{ fontSize:10, color:'#9090b8', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
             <div style={{ display:'flex', gap:6, marginBottom:10 }}>
-              <button onClick={handleScan} disabled={scanning||!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, padding:'7px 12px', borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'#888', cursor:'pointer', fontFamily:'inherit' }}>🔍 {scanning?'Scanning…':'Preview'}</button>
+              <button onClick={handleScan} disabled={scanning||!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, padding:'7px 12px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.07)', color:'#c0c0e0', cursor:'pointer', fontFamily:'inherit' }}>🔍 {scanning?'Scanning…':'Preview'}</button>
               <button onClick={handleNormalize} disabled={!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, padding:'7px 14px', borderRadius:7, border:'1px solid rgba(29,158,117,0.35)', background:'rgba(29,158,117,0.12)', color:T.te2, cursor:'pointer', fontFamily:'inherit' }}>▶ Normalize</button>
             </div>
             {scanResult && (
               <div style={{ background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:8, padding:'9px 11px', marginBottom:8 }}>
-                <div style={{ fontSize:11, color:'#6b6b88', marginBottom:5 }}>Found {scanResult.count} file{scanResult.count!==1?'s':''}</div>
+                <div style={{ fontSize:11, color:'#9090b8', marginBottom:5 }}>Found {scanResult.count} file{scanResult.count!==1?'s':''}</div>
                 {scanResult.files.map((f,i) => (
                   <div key={i} style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, padding:'2px 0' }}>
-                    <span style={{ color:'#c0c0d0', ...T.mono, fontWeight:500, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.source.split(/[/\\]/).pop()}</span>
-                    <span style={{ color:'#333', fontSize:10 }}>{f.size_mb}MB</span>
+                    <span style={{ color:'#e0e0f0', ...T.mono, fontWeight:500, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.source.split(/[/\\]/).pop()}</span>
+                    <span style={{ color:'#6666aa', fontSize:10 }}>{f.size_mb}MB</span>
                     <span style={{ color:T.pu3 }}>→</span>
                     <span style={{ color:T.te3, ...T.mono, fontSize:11 }}>{f.out.split(/[/\\]/).pop()}</span>
                   </div>
@@ -580,17 +608,17 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
                 <div style={sdiv} />
                 <div style={lbl}>Jobs</div>
                 {localJobs.map(j => (
-                  <div key={j.job_id} style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:7, padding:'7px 10px', marginBottom:5 }}>
+                  <div key={j.job_id} style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'7px 10px', marginBottom:5 }}>
                     <span style={{ fontSize:13, color:j.status==='done'?T.te3:j.status==='error'?'#ef4444':'#f59e0b' }}>{j.status==='done'?'✓':j.status==='error'?'✗':'⏳'}</span>
-                    <span style={{ flex:1, fontSize:11, color:'#c0c0d0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</span>
-                    <span style={{ fontSize:10, color:'#555', ...T.mono }}>{j.status==='done'?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}</span>
+                    <span style={{ flex:1, fontSize:11, color:'#e0e0f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</span>
+                    <span style={{ fontSize:10, color:'#9090b8', ...T.mono }}>{j.status==='done'?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}</span>
                   </div>
                 ))}
               </>
             )}
           </>
         ) : (
-          <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:8, padding:'12px 14px', fontSize:12, color:'#666' }}>
+          <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:8, padding:'12px 14px', fontSize:12, color:'#8888aa' }}>
             🖥️ Not available — backend is in server mode.<br/>
             <span style={{ fontSize:11, color:'#444', marginTop:4, display:'block' }}>Set <code>LOCAL_MODE=true</code> in backend <code>.env</code></span>
           </div>
