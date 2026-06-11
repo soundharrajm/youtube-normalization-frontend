@@ -349,23 +349,43 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
 }
 
 // ── CircleProgress ─────────────────────────────────────────────────────────
-function CircleProgress({ pct, color, size=44, stroke=3, label, done }) {
+function CircleProgress({ pct, color, size=44, stroke=3, label, done, cancelled, onCancel }) {
+  const [hovered, setHovered] = useState(false)
   const r = (size - stroke * 2) / 2
   const circ = 2 * Math.PI * r
-  const offset = circ - (pct / 100) * circ
+  const offset = cancelled ? circ : circ - (pct / 100) * circ
+  const ringColor = cancelled ? '#ef4444' : done ? '#10b981' : color
+
+  // Show cancel X on hover when active (not done/cancelled/error)
+  const showCancel = onCancel && !done && !cancelled && hovered
+
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, flexShrink:0 }}>
-      <div style={{ position:'relative', width:size, height:size }}>
+      <div
+        style={{ position:'relative', width:size, height:size, cursor: onCancel && !done && !cancelled ? 'pointer' : 'default' }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onClick={() => { if (showCancel && onCancel) onCancel() }}
+        title={showCancel ? 'Click to cancel' : undefined}
+      >
         <svg width={size} height={size} style={{ transform:'rotate(-90deg)' }}>
           <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
-          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={done?'#10b981':color} strokeWidth={stroke}
-            strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" style={{ transition:'stroke-dashoffset 0.4s ease' }} />
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={showCancel ? '#ef4444' : ringColor} strokeWidth={stroke}
+            strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+            style={{ transition:'stroke-dashoffset 0.4s ease, stroke 0.15s' }} />
         </svg>
-        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:700, color:done?'#10b981':color, ...T.mono }}>
-          {done ? '✓' : `${pct}%`}
+        <div style={{
+          position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize: showCancel ? 13 : 10, fontWeight:700,
+          color: showCancel ? '#ef4444' : cancelled ? '#ef4444' : done ? '#10b981' : color,
+          ...T.mono, transition:'color 0.15s',
+        }}>
+          {showCancel ? '✕' : cancelled ? '−' : done ? '✓' : `${pct}%`}
         </div>
       </div>
-      <span style={{ fontSize:9, color:'#555', fontWeight:600, letterSpacing:'0.3px', textTransform:'uppercase' }}>{label}</span>
+      <span style={{ fontSize:9, color: cancelled ? '#ef4444' : '#555', fontWeight:600, letterSpacing:'0.3px', textTransform:'uppercase' }}>
+        {cancelled ? 'CANCEL' : label}
+      </span>
     </div>
   )
 }
@@ -373,10 +393,20 @@ function CircleProgress({ pct, color, size=44, stroke=3, label, done }) {
 // ── JobCard ────────────────────────────────────────────────────────────────
 function JobCard({ job }) {
   const meta = PHASE[job.status] || PHASE.queued
-  const isQ = job.status==='queued', isDl = job.status==='downloading'||job.status==='processing'
-  const isNorm = job.status==='normalizing', isDone = job.status==='done', isErr = job.status==='error'
-  const dlPct = isDl ? job.progress : (isDone||isNorm) ? 100 : 0
+  const isQ   = job.status==='queued'
+  const isDl  = job.status==='downloading'||job.status==='processing'
+  const isNorm= job.status==='normalizing'
+  const isDone= job.status==='done'
+  const isErr = job.status==='error'
+  const isCancelled = isErr && job.error==='Cancelled by user'
+  const isActive = !isQ && !isDone && !isErr
+
+  const dlPct   = isDl ? job.progress : (isDone||isNorm) ? 100 : 0
   const normPct = isNorm ? job.normProgress : isDone ? 100 : 0
+
+  // Cancel handler — passed to both rings so either can cancel
+  const handleCancel = job.onCancel ? () => job.onCancel(job.jobId) : null
+
   return (
     <div style={{ ...T.card, padding:'12px 14px' }}>
       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -388,14 +418,47 @@ function JobCard({ job }) {
             <span style={{ fontSize:10, color:meta.color, background:`${meta.color}18`, border:`1px solid ${meta.color}33`, borderRadius:100, padding:'1px 7px', fontWeight:600, flexShrink:0 }}>{isQ&&job.queue_position>0?`#${job.queue_position+1} queued`:meta.label}</span>
           </div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
-          {!isQ&&!isErr && <CircleProgress pct={dlPct} color='#8b5cf6' size={44} stroke={3} label="DL" done={dlPct===100} />}
-          {!isQ&&!isErr&&!isDl && <CircleProgress pct={normPct} color='#3b82f6' size={44} stroke={3} label="NRM" done={normPct===100} />}
-          {isDone&&job.downloadUrl && <a href={job.downloadUrl} download style={{ background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.3)', borderRadius:8, color:'#34d399', fontSize:12, fontWeight:700, padding:'6px 14px', textDecoration:'none' }}>↓ Save</a>}
+
+        {/* Progress rings — cancel on hover */}
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+          {!isQ && !isErr && (
+            <CircleProgress
+              pct={dlPct} color='#8b5cf6' size={44} stroke={3} label="DL"
+              done={dlPct===100} cancelled={isCancelled}
+              onCancel={isActive ? handleCancel : null}
+            />
+          )}
+          {!isQ && !isErr && !isDl && (
+            <CircleProgress
+              pct={normPct} color='#3b82f6' size={44} stroke={3} label="NRM"
+              done={normPct===100} cancelled={isCancelled}
+              onCancel={isNorm ? handleCancel : null}
+            />
+          )}
+          {isDone&&job.downloadUrl && (
+            <a href={job.downloadUrl} download style={{ background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.3)', borderRadius:8, color:'#34d399', fontSize:12, fontWeight:700, padding:'6px 14px', textDecoration:'none' }}>↓ Save</a>
+          )}
         </div>
       </div>
-      {isDone&&job.outFilename && <div style={{ marginTop:8, fontSize:10, color:'#10b981', ...T.mono, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:5, padding:'3px 8px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>✓ {job.outFilename}</div>}
-      {isErr&&job.error && <p style={{ margin:'8px 0 0', fontSize:11, color:'#f87171', background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:6, padding:'6px 10px' }}>{job.error}</p>}
+
+      {isDone&&job.outFilename && (
+        <div style={{ marginTop:8, fontSize:10, color:'#10b981', ...T.mono, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:5, padding:'3px 8px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>✓ {job.outFilename}</div>
+      )}
+      {isErr&&job.error && (
+        <p style={{ margin:'8px 0 0', fontSize:11, color:'#f87171', background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:6, padding:'6px 10px' }}>{job.error}</p>
+      )}
+
+      {/* Actions after completion */}
+      {(isErr && !isCancelled) && (
+        <div style={{ display:'flex', gap:5, marginTop:6 }}>
+          <button onClick={()=>job.onDelete&&job.onDelete(job.jobId,false)} style={{ fontSize:10, padding:'3px 9px', borderRadius:5, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'#888', cursor:'pointer', fontFamily:'inherit' }}>✕ Remove</button>
+        </div>
+      )}
+      {isDone && job.outFilename && (
+        <div style={{ display:'flex', gap:5, marginTop:6 }}>
+          <button onClick={()=>job.onDelete&&job.onDelete(job.jobId,true)} style={{ fontSize:10, padding:'3px 9px', borderRadius:5, border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>🗑 Delete file</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -901,7 +964,22 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                 </div>
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-                {jobs.map(job => <JobCard key={job.jobId} job={job} />)}
+                {jobs.map(job => <JobCard key={job.jobId} job={{
+                  ...job,
+                  onCancel: async (id) => {
+                    try {
+                      await apiFetchFn('/job/cancel', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:id})})
+                      onRefreshJobs()
+                    } catch(_) {}
+                  },
+                  onDelete: async (id, deleteFile) => {
+                    try {
+                      await apiFetchFn('/job/delete', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:id,delete_file:deleteFile})})
+                      onClearJobs()
+                      onRefreshJobs()
+                    } catch(_) {}
+                  },
+                }} />)}
               </div>
             </div>
           )}
