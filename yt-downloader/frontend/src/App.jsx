@@ -275,6 +275,7 @@ function JobCard({ job }) {
           <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:3 }}>
             <span style={{ fontSize:11, color:'#555', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:200, ...T.mono }}>{(job.url||'').replace('https://www.youtube.com/watch?v=','yt:')}</span>
             <span style={{ fontSize:10, color:meta.color, background:`${meta.color}18`, border:`1px solid ${meta.color}33`, borderRadius:100, padding:'1px 7px', fontWeight:600, flexShrink:0 }}>{isQ&&job.queue_position>0?`#${job.queue_position+1} queued`:meta.label}</span>
+          </div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
           {!isQ&&!isErr && <CircleProgress pct={dlPct} color='#8b5cf6' size={44} stroke={3} label="DL" done={dlPct===100} />}
