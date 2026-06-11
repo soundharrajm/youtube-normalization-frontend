@@ -917,16 +917,20 @@ export default function App() {
 
       {/* ── LEFT TAB ── */}
       {!showLocalPanel && (
-        <div onClick={()=>setShowLocalPanel(true)} style={{
-          position:'fixed', left:0, top:'50%', transform:'translateY(-50%)',
-          zIndex:140, writingMode:'vertical-rl', rotate:'180deg',
-          background:'rgba(186,117,23,0.18)', border:'1px solid rgba(186,117,23,0.4)',
-          borderLeft:'none', borderRadius:'0 8px 8px 0',
-          padding:'12px 7px', fontSize:11, fontWeight:700,
-          color:'#FAC775', cursor:'pointer', letterSpacing:'.08em', userSelect:'none',
-          boxShadow:'2px 0 8px rgba(186,117,23,0.12)',
+        <div style={{
+          position:'fixed', left:0, top:0, bottom:0,
+          zIndex:140, display:'flex', alignItems:'center', pointerEvents:'none',
         }}>
-          📁 LOCAL FILES
+          <div onClick={()=>setShowLocalPanel(true)} style={{
+            writingMode:'vertical-rl', rotate:'180deg',
+            background:'rgba(186,117,23,0.18)', border:'1px solid rgba(186,117,23,0.4)',
+            borderLeft:'none', borderRadius:'0 8px 8px 0',
+            padding:'12px 7px', fontSize:11, fontWeight:700,
+            color:'#FAC775', cursor:'pointer', letterSpacing:'.08em', userSelect:'none',
+            boxShadow:'2px 0 8px rgba(186,117,23,0.12)', pointerEvents:'all',
+          }}>
+            📁 LOCAL FILES
+          </div>
         </div>
       )}
 
@@ -945,28 +949,32 @@ export default function App() {
 
       {/* ── RIGHT TAB ── */}
       {!showSettings && (
-        <div onClick={()=>setShowSettings(true)} style={{
-          position:'fixed', right:0, top:'50%', transform:'translateY(-50%)',
-          zIndex:140, writingMode:'vertical-rl',
-          background:'rgba(127,119,221,0.18)', border:'1px solid rgba(127,119,221,0.4)',
-          borderRight:'none', borderRadius:'8px 0 0 8px',
-          padding:'12px 7px', fontSize:11, fontWeight:700,
-          color:'#c4beff', letterSpacing:'.08em',
-          cursor:'pointer', userSelect:'none',
-          boxShadow:'-2px 0 8px rgba(127,119,221,0.12)',
+        <div style={{
+          position:'fixed', right:0, top:0, bottom:0,
+          zIndex:140, display:'flex', alignItems:'center', pointerEvents:'none',
         }}>
-          {jobs.length > 0 ? '📥 DOWNLOADS' : '⚙ SETTINGS'}
-          {jobs.length > 0 && (
-            <span style={{
-              display:'inline-block', writingMode:'horizontal-tb',
-              background: jobs.some(j=>!['done','error'].includes(j.status)) ? '#ef4444' : '#10b981',
-              color:'#fff', fontSize:9, fontWeight:700, borderRadius:'50%',
-              width:16, height:16, lineHeight:'16px', textAlign:'center',
-              marginTop:6,
-            }}>
-              {jobs.filter(j=>!['done','error'].includes(j.status)).length || jobs.filter(j=>j.status==='done').length}
-            </span>
-          )}
+          <div onClick={()=>setShowSettings(true)} style={{
+            writingMode:'vertical-rl',
+            background:'rgba(127,119,221,0.18)', border:'1px solid rgba(127,119,221,0.4)',
+            borderRight:'none', borderRadius:'8px 0 0 8px',
+            padding:'12px 7px', fontSize:11, fontWeight:700,
+            color:'#c4beff', letterSpacing:'.08em',
+            cursor:'pointer', userSelect:'none',
+            boxShadow:'-2px 0 8px rgba(127,119,221,0.12)', pointerEvents:'all',
+            display:'flex', flexDirection:'column', alignItems:'center', gap:6,
+          }}>
+            {jobs.length > 0 && (
+              <span style={{
+                writingMode:'horizontal-tb',
+                background: jobs.some(j=>!['done','error'].includes(j.status)) ? '#ef4444' : '#10b981',
+                color:'#fff', fontSize:9, fontWeight:700, borderRadius:'50%',
+                width:16, height:16, lineHeight:'16px', textAlign:'center', display:'block',
+              }}>
+                {jobs.filter(j=>!['done','error'].includes(j.status)).length || jobs.filter(j=>j.status==='done').length}
+              </span>
+            )}
+            {jobs.length > 0 ? '📥 DOWNLOADS' : '⚙ SETTINGS'}
+          </div>
         </div>
       )}
 
