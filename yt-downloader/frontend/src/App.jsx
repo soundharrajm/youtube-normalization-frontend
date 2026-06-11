@@ -177,7 +177,8 @@ function FormatDropdown({ value, onChange }) {
             })}
           </div>
         </div>
-      )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -732,26 +733,28 @@ const CODEC_ADVISORY = [
   },
 ]
 
-function CodecAdvisory() {
-  const [open, setOpen] = useState(false)
+function CodecAdvisory({ open, onClose }) {
+  if (!open) return null
   return (
-    <div style={{ marginBottom:'.65rem' }}>
-      <button onClick={()=>setOpen(v=>!v)} style={{
-        width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
-        background:'rgba(59,130,246,0.07)', border:'1px solid rgba(59,130,246,0.2)',
-        borderRadius: open ? '10px 10px 0 0' : 10,
-        padding:'8px 14px', cursor:'pointer', fontFamily:'inherit',
-        transition:'border-radius .15s',
+    <div onClick={e=>{if(e.target===e.currentTarget)onClose()}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:300,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:24,
+    }}>
+      <div style={{
+        background:'#0f0f1e', border:'1px solid rgba(59,130,246,0.3)',
+        borderRadius:14, width:'100%', maxWidth:1100, maxHeight:'85vh',
+        display:'flex', flexDirection:'column', boxShadow:'0 24px 80px rgba(0,0,0,0.6)',
       }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span style={{ fontSize:15 }}>📋</span>
-          <span style={{ fontSize:12, fontWeight:600, color:'#93c5fd' }}>Codec Advisory</span>
-          <span style={{ fontSize:10, color:'#555', fontWeight:400 }}>— container compatibility reference</span>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontSize:18 }}>📋</span>
+            <span style={{ fontSize:14, fontWeight:600, color:'#93c5fd' }}>Codec Advisory</span>
+            <span style={{ fontSize:11, color:'#555' }}>— container compatibility reference</span>
+          </div>
+          <button onClick={onClose} style={{ width:28, height:28, borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)', color:'#888', fontSize:14, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
         </div>
-        <span style={{ fontSize:12, color:'#555', transform:open?'rotate(180deg)':'rotate(0)', transition:'transform .2s', display:'inline-block' }}>▾</span>
-      </button>
-      {open && (
-        <div style={{ background:'rgba(59,130,246,0.04)', border:'1px solid rgba(59,130,246,0.2)', borderTop:'none', borderRadius:'0 0 10px 10px', overflow:'auto' }}>
+        <div style={{ overflow:'auto', flex:1 }}>
+        <div style={{ background:'rgba(59,130,246,0.04)', overflow:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
             <thead>
               <tr style={{ background:'rgba(59,130,246,0.1)', borderBottom:'1px solid rgba(59,130,246,0.2)' }}>
@@ -904,6 +907,7 @@ export default function App() {
   const [jobs, setJobs]                     = useState([])
   const [showSettings, setShowSettings]     = useState(false)
   const [showLocalPanel, setShowLocalPanel] = useState(false)
+  const [showAdvisory, setShowAdvisory]     = useState(false)
   const [isLocalMode, setIsLocalMode]       = useState(false)
   const pollRef    = useRef(null)
   const fileInputRef = useRef(null)
@@ -1166,6 +1170,7 @@ export default function App() {
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <button onClick={()=>setShowAdmin(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>🔧 Admin</button>
+            <button onClick={()=>setShowAdvisory(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(59,130,246,0.3)', background:'rgba(59,130,246,0.08)', color:'#93c5fd', cursor:'pointer', fontFamily:'inherit' }}>📋 Advisory</button>
             {user ? <UserAvatar user={user} onLogout={logout} /> : (
               <button onClick={()=>{const p=new URLSearchParams({client_id:GOOGLE_CLIENT_ID,redirect_uri:REDIRECT_URI,response_type:'code',scope:'openid email profile https://www.googleapis.com/auth/youtube.readonly',access_type:'offline',prompt:'consent'});window.location.href=`https://accounts.google.com/o/oauth2/v2/auth?${p}`}} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 14px', background:'#fff', border:'none', borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:600, color:'#333', fontFamily:'inherit', boxShadow:'0 2px 8px rgba(0,0,0,0.3)' }}>
                 <GoogleSVG /> Sign in with Google
@@ -1208,8 +1213,8 @@ export default function App() {
 
         {user && showCookieSetup && <CookieSetup sessionId={user.session_id} onDone={()=>setShowCookieSetup(false)} onClose={()=>setShowCookieSetup(false)} />}
 
-        {/* ── CODEC ADVISORY ── */}
-        <CodecAdvisory />
+        {/* ── CODEC ADVISORY MODAL ── */}
+        <CodecAdvisory open={showAdvisory} onClose={()=>setShowAdvisory(false)} />
 
         {/* ── OUTPUT FORMAT DROPDOWN — always visible ── */}
         <div style={{ background:'rgba(83,74,183,0.08)', border:'1px solid rgba(127,119,221,0.22)', borderRadius:12, padding:'10px 14px', marginBottom:'.65rem', display:'flex', alignItems:'center', gap:12 }}>
