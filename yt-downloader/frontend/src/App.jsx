@@ -497,7 +497,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
   const [localJobs, setLocalJobs]   = useState([])
 
   async function handleScan() {
-    const pathList = paths.split('\n').map(p=>p.trim()).filter(Boolean)
+    const pathList = paths.split('\n').map(p=>p.trim().replace(/^["']+|["']+$/g,'')).filter(Boolean)
     if (!pathList.length) return
     setScanning(true); setScanResult(null)
     try {
@@ -507,7 +507,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
   }
 
   async function handleNormalize() {
-    const pathList = paths.split('\n').map(p=>p.trim()).filter(Boolean)
+    const pathList = paths.split('\n').map(p=>p.trim().replace(/^["']+|["']+$/g,'')).filter(Boolean)
     if (!pathList.length) return
     try {
       const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList,norm_flags:normConfig.flags,output_ext:normConfig.outputExt||'same',recursive,skip_already_normalized:skipDone}) })
