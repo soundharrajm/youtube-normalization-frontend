@@ -948,28 +948,26 @@ export default function App() {
       {!showSettings && (
         <div onClick={()=>setShowSettings(true)} style={{
           position:'fixed', right:0, top:'50%', transform:'translateY(-50%)', zIndex:140,
-          display:'flex', flexDirection:'column', alignItems:'center', gap:0, cursor:'pointer', userSelect:'none', position:'fixed',
+          writingMode:'vertical-rl',
+          background:'rgba(127,119,221,0.18)', border:'1px solid rgba(127,119,221,0.4)',
+          borderRight:'none', borderRadius:'8px 0 0 8px',
+          padding:'14px 8px', fontSize:11, fontWeight:700,
+          color:'#c4beff', letterSpacing:'.08em',
+          cursor:'pointer', userSelect:'none',
+          boxShadow:'-2px 0 12px rgba(127,119,221,0.15)',
         }}>
           {jobs.length > 0 && (
-            <div style={{
-              position:'absolute', top:-8, left:-8, zIndex:2,
-              width:18, height:18, borderRadius:'50%',
+            <span style={{
+              display:'inline-block', writingMode:'horizontal-tb',
               background: jobs.some(j=>!['done','error'].includes(j.status)) ? '#ef4444' : '#10b981',
-              color:'#fff', fontSize:9, fontWeight:700,
-              display:'flex', alignItems:'center', justifyContent:'center',
-              boxShadow:'0 0 0 2px #08080e',
+              color:'#fff', fontSize:9, fontWeight:700, borderRadius:'50%',
+              width:16, height:16, lineHeight:'16px', textAlign:'center',
+              marginBottom:6,
             }}>
               {jobs.filter(j=>!['done','error'].includes(j.status)).length || jobs.filter(j=>j.status==='done').length}
-            </div>
+            </span>
           )}
-          <div style={{
-            writingMode:'vertical-rl', background:'rgba(127,119,221,0.18)', border:'1px solid rgba(127,119,221,0.4)',
-            borderRight:'none', borderRadius:'8px 0 0 8px', padding:'14px 8px', fontSize:11, fontWeight:700,
-            color:'#c4beff', letterSpacing:'.08em', display:'flex', alignItems:'center', gap:6,
-            boxShadow:'-2px 0 12px rgba(127,119,221,0.15)',
-          }}>
-            {jobs.length > 0 ? '📥 DOWNLOADS' : '⚙ SETTINGS'}
-          </div>
+          {jobs.length > 0 ? '📥 DOWNLOADS' : '⚙ SETTINGS'}
         </div>
       )}
 
