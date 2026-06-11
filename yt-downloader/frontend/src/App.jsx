@@ -177,8 +177,7 @@ function FormatDropdown({ value, onChange }) {
             })}
           </div>
         </div>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
