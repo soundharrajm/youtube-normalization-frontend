@@ -199,7 +199,7 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
         <div style={{ ...T.card, display:'flex', alignItems:'center', gap:8, padding:'6px 6px 6px 14px', borderColor:error?'rgba(239,68,68,0.35)':info?'rgba(16,185,129,0.35)':valid?'rgba(139,92,246,0.25)':'rgba(255,255,255,0.08)' }}>
           <span style={{ fontSize:15, flexShrink:0 }}>🔗</span>
           <input value={url} onChange={e => onChange('url', e.target.value)} placeholder="https://youtube.com/watch?v=..."
-            style={{ flex:1, background:'none', border:'none', outline:'none', fontSize:14, color:'#f0f0ff', fontFamily:'inherit', padding:'8px 0' }} />
+            style={{ flex:1, background:'none', border:'none', outline:'none', fontSize:15, color:'#f0f0ff', fontFamily:'inherit', padding:'9px 0' }} />
           {isFetching && <span style={{ ...T.pill('#8b5cf6'), flexShrink:0 }}>fetching…</span>}
           {fetchStatus==='done' && !error && <span style={{ ...T.pill('#10b981'), flexShrink:0 }}>✓ ready</span>}
           {fetchStatus==='error' && needsLogin && <span style={{ ...T.pill('#f59e0b'), flexShrink:0 }}>🔒 login required</span>}
@@ -271,7 +271,7 @@ function JobCard({ job }) {
       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
         <div style={{ width:32, height:32, borderRadius:'50%', background:`${meta.color}22`, border:`1.5px solid ${meta.color}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:meta.color, flexShrink:0 }}>{meta.icon}</div>
         <div style={{ flex:1, minWidth:0 }}>
-          <p style={{ margin:0, fontSize:13, fontWeight:600, color:'#e8e8f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{job.title||job.url||'…'}</p>
+          <p style={{ margin:0, fontSize:14, fontWeight:600, color:'#e8e8f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{job.title||job.url||'…'}</p>
           <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:3 }}>
             <span style={{ fontSize:11, color:'#555', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:200, ...T.mono }}>{(job.url||'').replace('https://www.youtube.com/watch?v=','yt:')}</span>
             <span style={{ fontSize:10, color:meta.color, background:`${meta.color}18`, border:`1px solid ${meta.color}33`, borderRadius:100, padding:'1px 7px', fontWeight:600, flexShrink:0 }}>{isQ&&job.queue_position>0?`#${job.queue_position+1} queued`:meta.label}</span>
@@ -747,12 +747,13 @@ export default function App() {
 
   // ── Styles ─────────────────────────────────────────────────────────────
   const st = {
-    app:     { minHeight:'100vh', background:T.bg, fontFamily:"'Space Grotesk',sans-serif", color:'#e8e8f0', overflowX:'hidden' },
+    app:     { minHeight:'100vh', background:T.bg, fontFamily:"'Space Grotesk',sans-serif", color:'#e8e8f0', overflowX:'hidden', overflowY:'auto' },
     wrap:    { maxWidth:860, margin:'0 auto', padding:'0 24px 80px' },
   }
 
   return (
     <div style={st.app}>
+      <style>{`html,body{scrollbar-width:none;-ms-overflow-style:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}`}</style>
       {/* Radial glow */}
       <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:0, background:'radial-gradient(ellipse 70% 40% at 50% -5%, rgba(127,119,221,0.16) 0%, transparent 70%)' }} />
 
@@ -821,12 +822,12 @@ export default function App() {
         {/* ── HERO ── */}
         <div style={{ textAlign:'center', padding:'24px 0 20px', position:'relative' }}>
           <div style={{ position:'absolute', top:0, left:'50%', transform:'translateX(-50%)', width:500, height:200, background:'radial-gradient(ellipse at 50% 0%,rgba(127,119,221,0.13) 0%,transparent 70%)', pointerEvents:'none' }} />
-          <h1 style={{ fontSize:28, fontWeight:700, margin:'0 0 8px', letterSpacing:'-1px', lineHeight:1.15, position:'relative', zIndex:1 }}>
+          <h1 style={{ fontSize:32, fontWeight:700, margin:'0 0 8px', letterSpacing:'-1px', lineHeight:1.15, position:'relative', zIndex:1 }}>
             Batch Download &amp; Normalize<br />
             <span style={{ background:'linear-gradient(90deg,#7F77DD,#ec4899)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>YouTube Videos in Parallel</span>
           </h1>
-          <p style={{ fontSize:13, color:'#6b6b80', margin:'0 0 12px', position:'relative', zIndex:1 }}>Add URLs → Fetch All → Download simultaneously → ffmpeg normalize</p>
-          <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:100, padding:'5px 16px', fontSize:11, ...T.mono, position:'relative', zIndex:1 }}>
+          <p style={{ fontSize:14, color:'#6b6b80', margin:'0 0 12px', position:'relative', zIndex:1 }}>Add URLs → Fetch All → Download simultaneously → ffmpeg normalize</p>
+          <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:100, padding:'5px 16px', fontSize:12, ...T.mono, position:'relative', zIndex:1 }}>
             <span style={{ color:T.pu3 }}>yt-dlp</span>
             <span style={{ color:'#222' }}>→</span>
             <span style={{ color:T.pu3 }}>{normPillLabel}</span>
@@ -844,7 +845,7 @@ export default function App() {
             </button>
           </div>
         ) : (
-          <div style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(245,158,11,0.05)', border:'1px solid rgba(245,158,11,0.14)', borderRadius:10, padding:'.6rem 1rem', marginBottom:'.65rem', fontSize:12, color:'#d97706' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(245,158,11,0.05)', border:'1px solid rgba(245,158,11,0.14)', borderRadius:10, padding:'.6rem 1rem', marginBottom:'.65rem', fontSize:13, color:'#d97706' }}>
             🔒 Sign in with Google to download age-restricted videos
           </div>
         )}
@@ -853,7 +854,7 @@ export default function App() {
 
         {/* ── OUTPUT FORMAT — always visible ── */}
         <div style={{ background:'rgba(83,74,183,0.1)', border:'1px solid rgba(127,119,221,0.25)', borderRadius:12, padding:'.85rem 1.1rem', marginBottom:'.65rem', display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, fontWeight:600, color:'#c4beff', textTransform:'uppercase', letterSpacing:'.07em', whiteSpace:'nowrap', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:600, color:'#c4beff', textTransform:'uppercase', letterSpacing:'.07em', whiteSpace:'nowrap', flexShrink:0 }}>
             📤 Output format
           </div>
           <div style={{ display:'flex', gap:5, flexWrap:'wrap', flex:1 }}>
@@ -861,7 +862,7 @@ export default function App() {
               const active = (normConfig.outputExt||'same') === f.ext
               return (
                 <button key={f.ext} onClick={()=>setNormConfig(v=>({...v,outputExt:f.ext}))} style={{
-                  fontSize:11, ...T.mono, fontWeight:600, padding:'5px 12px', borderRadius:7, cursor:'pointer', transition:'all .15s',
+                  fontSize:12, ...T.mono, fontWeight:600, padding:'6px 13px', borderRadius:7, cursor:'pointer', transition:'all .15s',
                   border: active ? (f.ext==='same'?'1px solid rgba(127,119,221,0.4)':'1px solid rgba(29,158,117,0.35)') : '1px solid rgba(255,255,255,0.08)',
                   background: active ? (f.ext==='same'?'rgba(127,119,221,0.18)':'rgba(29,158,117,0.15)') : 'rgba(255,255,255,0.04)',
                   color: active ? (f.ext==='same'?T.pu2:T.te2) : '#555',
@@ -891,14 +892,14 @@ export default function App() {
         <div style={{ display:'flex', gap:8, marginBottom:8, flexWrap:'wrap' }}>
           <button onClick={()=>setShowSearch(true)} style={{
             flex:1, minWidth:160, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-            fontSize:14, fontWeight:600, padding:'12px 18px', borderRadius:11,
+            fontSize:15, fontWeight:600, padding:'14px 18px', borderRadius:11,
             border:'1px solid rgba(127,119,221,0.35)', background:'rgba(127,119,221,0.14)', color:'#AFA9EC',
             cursor:'pointer', fontFamily:'inherit', transition:'all .15s',
           }}>🔎 Search YouTube</button>
 
           <button onClick={startAll} disabled={dlTotal>0||!items.some(it=>it.info&&it.selectedFormat)} style={{
             flex:1, minWidth:160, display:'flex', alignItems:'center', justifyContent:'center', gap:8, position:'relative', overflow:'hidden',
-            fontSize:14, fontWeight:700, padding:'12px 18px', borderRadius:11,
+            fontSize:15, fontWeight:700, padding:'14px 18px', borderRadius:11,
             border:'1px solid rgba(29,158,117,0.4)', cursor:(dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))?'not-allowed':'pointer',
             background:(allReady&&items.some(it=>it.info)&&dlTotal===0)?'rgba(29,158,117,0.16)':'rgba(255,255,255,0.03)',
             color:(allReady&&items.some(it=>it.info)&&dlTotal===0)?T.te2:'#444',
@@ -920,16 +921,16 @@ export default function App() {
           <input ref={fileInputRef} type="file" accept=".json,.csv" onChange={importUrls} style={{ display:'none' }} />
           {showSearch && <SearchPanel onAddUrl={addUrlFromSearch} onClose={()=>setShowSearch(false)} />}
 
-          <button onClick={addItem} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px dashed rgba(255,255,255,0.18)', background:'rgba(255,255,255,0.04)', color:'#999', cursor:'pointer', fontFamily:'inherit' }}>+ Add URL</button>
-          <button onClick={()=>fileInputRef.current?.click()} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px dashed rgba(99,102,241,0.28)', background:'rgba(99,102,241,0.05)', color:'#818cf8', cursor:'pointer', fontFamily:'inherit' }}>↑ Import JSON/CSV</button>
+          <button onClick={addItem} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'9px 14px', borderRadius:8, border:'1px dashed rgba(255,255,255,0.18)', background:'rgba(255,255,255,0.04)', color:'#999', cursor:'pointer', fontFamily:'inherit' }}>+ Add URL</button>
+          <button onClick={()=>fileInputRef.current?.click()} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'9px 14px', borderRadius:8, border:'1px dashed rgba(99,102,241,0.28)', background:'rgba(99,102,241,0.05)', color:'#818cf8', cursor:'pointer', fontFamily:'inherit' }}>↑ Import JSON/CSV</button>
           <button onClick={fetchAll} disabled={fetchingAll||!items.some(it=>it.url.trim()&&!it.info)} style={{
-            flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontSize:11, fontWeight:500, padding:'8px 13px', borderRadius:8, cursor:(fetchingAll||!items.some(it=>it.url.trim()&&!it.info))?'not-allowed':'pointer', fontFamily:'inherit',
+            flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontSize:12, fontWeight:500, padding:'9px 14px', borderRadius:8, cursor:(fetchingAll||!items.some(it=>it.url.trim()&&!it.info))?'not-allowed':'pointer', fontFamily:'inherit',
             border:'1px solid rgba(127,119,221,0.3)', background:'rgba(127,119,221,0.09)', color:'#c4beff',
             opacity:(fetchingAll||!items.some(it=>it.url.trim()&&!it.info))?0.5:1,
           }}>
             {fetchingAll ? (parallelFetch?`⏳ Fetching all ${fetchTotal}…`:`⏳ Fetching ${fetchIndex}/${fetchTotal}…`) : `🔍 Fetch All (${items.filter(it=>it.url.trim()&&!it.info).length} pending)`}
           </button>
-          <button onClick={()=>setShowSettings(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px solid rgba(127,119,221,0.25)', background:'rgba(127,119,221,0.08)', color:T.pu2, cursor:'pointer', fontFamily:'inherit' }}>⚙ Settings</button>
+          <button onClick={()=>setShowSettings(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'9px 14px', borderRadius:8, border:'1px solid rgba(127,119,221,0.25)', background:'rgba(127,119,221,0.08)', color:T.pu2, cursor:'pointer', fontFamily:'inherit' }}>⚙ Settings</button>
         </div>
 
         {/* ── EMPTY STATE FEATURE CARDS ── */}
@@ -943,8 +944,8 @@ export default function App() {
             ].map(f => (
               <div key={f.title} style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, padding:'.875rem 1rem' }}>
                 <div style={{ width:32, height:32, borderRadius:8, background:f.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, marginBottom:8 }}>{f.icon}</div>
-                <p style={{ margin:'0 0 3px', fontWeight:600, fontSize:13, color:'#f0f0ff' }}>{f.title}</p>
-                <p style={{ margin:0, fontSize:12, color:'#6b6b88' }}>{f.desc}</p>
+                <p style={{ margin:'0 0 3px', fontWeight:600, fontSize:14, color:'#f0f0ff' }}>{f.title}</p>
+                <p style={{ margin:0, fontSize:13, color:'#6b6b88' }}>{f.desc}</p>
               </div>
             ))}
           </div>
