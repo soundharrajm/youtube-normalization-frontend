@@ -949,12 +949,6 @@ export default function App() {
             ))}
           </div>
 
-          {/* TOP RIGHT — Local Normalizer */}
-          <LocalNormalizerCard
-            isLocalMode={isLocalMode}
-            normConfig={normConfig}
-            apiFetchFn={(path, opts) => apiFetch(`${API}${path}`, opts)}
-          />
         </div>
 
         {/* ── MAIN ACTIONS — full width centre ── */}
