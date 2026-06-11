@@ -199,7 +199,7 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
         <div style={{ ...T.card, display:'flex', alignItems:'center', gap:8, padding:'6px 6px 6px 14px', borderColor:error?'rgba(239,68,68,0.35)':info?'rgba(16,185,129,0.35)':valid?'rgba(139,92,246,0.25)':'rgba(255,255,255,0.08)' }}>
           <span style={{ fontSize:15, flexShrink:0 }}>🔗</span>
           <input value={url} onChange={e => onChange('url', e.target.value)} placeholder="https://youtube.com/watch?v=..."
-            style={{ flex:1, background:'none', border:'none', outline:'none', fontSize:14, color:'#e8e8f0', fontFamily:'inherit', padding:'8px 0' }} />
+            style={{ flex:1, background:'none', border:'none', outline:'none', fontSize:14, color:'#f0f0ff', fontFamily:'inherit', padding:'8px 0' }} />
           {isFetching && <span style={{ ...T.pill('#8b5cf6'), flexShrink:0 }}>fetching…</span>}
           {fetchStatus==='done' && !error && <span style={{ ...T.pill('#10b981'), flexShrink:0 }}>✓ ready</span>}
           {fetchStatus==='error' && needsLogin && <span style={{ ...T.pill('#f59e0b'), flexShrink:0 }}>🔒 login required</span>}
@@ -748,7 +748,7 @@ export default function App() {
   // ── Styles ─────────────────────────────────────────────────────────────
   const st = {
     app:     { minHeight:'100vh', background:T.bg, fontFamily:"'Space Grotesk',sans-serif", color:'#e8e8f0', overflowX:'hidden' },
-    wrap:    { maxWidth:'100%', margin:'0 auto', padding:'0 16px 80px' },
+    wrap:    { maxWidth:860, margin:'0 auto', padding:'0 24px 80px' },
   }
 
   return (
@@ -821,11 +821,11 @@ export default function App() {
         {/* ── HERO ── */}
         <div style={{ textAlign:'center', padding:'24px 0 20px', position:'relative' }}>
           <div style={{ position:'absolute', top:0, left:'50%', transform:'translateX(-50%)', width:500, height:200, background:'radial-gradient(ellipse at 50% 0%,rgba(127,119,221,0.13) 0%,transparent 70%)', pointerEvents:'none' }} />
-          <h1 style={{ fontSize:28, fontWeight:600, margin:'0 0 8px', letterSpacing:'-1px', lineHeight:1.15, position:'relative', zIndex:1 }}>
+          <h1 style={{ fontSize:28, fontWeight:700, margin:'0 0 8px', letterSpacing:'-1px', lineHeight:1.15, position:'relative', zIndex:1 }}>
             Batch Download &amp; Normalize<br />
             <span style={{ background:'linear-gradient(90deg,#7F77DD,#ec4899)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>YouTube Videos in Parallel</span>
           </h1>
-          <p style={{ fontSize:13, color:'#3a3a50', margin:'0 0 12px', position:'relative', zIndex:1 }}>Add URLs → Fetch All → Download simultaneously → ffmpeg normalize</p>
+          <p style={{ fontSize:13, color:'#6b6b80', margin:'0 0 12px', position:'relative', zIndex:1 }}>Add URLs → Fetch All → Download simultaneously → ffmpeg normalize</p>
           <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:100, padding:'5px 16px', fontSize:11, ...T.mono, position:'relative', zIndex:1 }}>
             <span style={{ color:T.pu3 }}>yt-dlp</span>
             <span style={{ color:'#222' }}>→</span>
@@ -844,7 +844,7 @@ export default function App() {
             </button>
           </div>
         ) : (
-          <div style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(245,158,11,0.05)', border:'1px solid rgba(245,158,11,0.14)', borderRadius:10, padding:'.6rem 1rem', marginBottom:'.65rem', fontSize:11, color:'#b97a0a' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(245,158,11,0.05)', border:'1px solid rgba(245,158,11,0.14)', borderRadius:10, padding:'.6rem 1rem', marginBottom:'.65rem', fontSize:12, color:'#d97706' }}>
             🔒 Sign in with Google to download age-restricted videos
           </div>
         )}
@@ -853,7 +853,7 @@ export default function App() {
 
         {/* ── OUTPUT FORMAT — always visible ── */}
         <div style={{ background:'rgba(83,74,183,0.1)', border:'1px solid rgba(127,119,221,0.25)', borderRadius:12, padding:'.85rem 1.1rem', marginBottom:'.65rem', display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:600, color:T.pu2, textTransform:'uppercase', letterSpacing:'.07em', whiteSpace:'nowrap', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, fontWeight:600, color:'#c4beff', textTransform:'uppercase', letterSpacing:'.07em', whiteSpace:'nowrap', flexShrink:0 }}>
             📤 Output format
           </div>
           <div style={{ display:'flex', gap:5, flexWrap:'wrap', flex:1 }}>
@@ -880,7 +880,7 @@ export default function App() {
             <div key={item.id}>
               {i > 0 && <div style={{ height:1, background:'rgba(255,255,255,0.05)', marginBottom:12 }} />}
               <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-                <span style={{ fontSize:10, color:'#2e2e40', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:5, padding:'1px 7px', ...T.mono }}>#{i+1}</span>
+                <span style={{ fontSize:10, color:'#5555aa', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:5, padding:'1px 7px', ...T.mono }}>#{i+1}</span>
               </div>
               <UrlRow item={item} onChange={(key,val)=>updateItem(item.id,key,val)} onRemove={()=>removeItem(item.id)} canRemove={items.length>1} />
             </div>
@@ -920,11 +920,11 @@ export default function App() {
           <input ref={fileInputRef} type="file" accept=".json,.csv" onChange={importUrls} style={{ display:'none' }} />
           {showSearch && <SearchPanel onAddUrl={addUrlFromSearch} onClose={()=>setShowSearch(false)} />}
 
-          <button onClick={addItem} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px dashed rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.03)', color:'#666', cursor:'pointer', fontFamily:'inherit' }}>+ Add URL</button>
+          <button onClick={addItem} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px dashed rgba(255,255,255,0.18)', background:'rgba(255,255,255,0.04)', color:'#999', cursor:'pointer', fontFamily:'inherit' }}>+ Add URL</button>
           <button onClick={()=>fileInputRef.current?.click()} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px dashed rgba(99,102,241,0.28)', background:'rgba(99,102,241,0.05)', color:'#818cf8', cursor:'pointer', fontFamily:'inherit' }}>↑ Import JSON/CSV</button>
           <button onClick={fetchAll} disabled={fetchingAll||!items.some(it=>it.url.trim()&&!it.info)} style={{
             flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontSize:11, fontWeight:500, padding:'8px 13px', borderRadius:8, cursor:(fetchingAll||!items.some(it=>it.url.trim()&&!it.info))?'not-allowed':'pointer', fontFamily:'inherit',
-            border:'1px solid rgba(127,119,221,0.2)', background:'rgba(127,119,221,0.07)', color:T.pu2,
+            border:'1px solid rgba(127,119,221,0.3)', background:'rgba(127,119,221,0.09)', color:'#c4beff',
             opacity:(fetchingAll||!items.some(it=>it.url.trim()&&!it.info))?0.5:1,
           }}>
             {fetchingAll ? (parallelFetch?`⏳ Fetching all ${fetchTotal}…`:`⏳ Fetching ${fetchIndex}/${fetchTotal}…`) : `🔍 Fetch All (${items.filter(it=>it.url.trim()&&!it.info).length} pending)`}
@@ -943,8 +943,8 @@ export default function App() {
             ].map(f => (
               <div key={f.title} style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, padding:'.875rem 1rem' }}>
                 <div style={{ width:32, height:32, borderRadius:8, background:f.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, marginBottom:8 }}>{f.icon}</div>
-                <p style={{ margin:'0 0 3px', fontWeight:600, fontSize:12, color:'#e2e2f0' }}>{f.title}</p>
-                <p style={{ margin:0, fontSize:11, color:'#3a3a50' }}>{f.desc}</p>
+                <p style={{ margin:'0 0 3px', fontWeight:600, fontSize:13, color:'#f0f0ff' }}>{f.title}</p>
+                <p style={{ margin:0, fontSize:12, color:'#6b6b88' }}>{f.desc}</p>
               </div>
             ))}
           </div>
