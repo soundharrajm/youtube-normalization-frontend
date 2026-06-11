@@ -63,13 +63,124 @@ const PRESETS = [
   { id:'hq265',    label:'💎 H.265',        desc:'HEVC CRF 24 — smaller',     flags:'-c:v libx265 -crf 24 -preset medium -c:a copy -c:s copy',  pill:'libx265 · crf 24' },
   { id:'custom',   label:'✏️ Custom',       desc:'Your own ffmpeg flags',      flags:'',                                                          pill:'custom' },
 ]
-const OUTPUT_FORMATS = [
-  { ext:'same', label:'Same as source' },
-  { ext:'mp4',  label:'.mp4' },
-  { ext:'ts',   label:'.ts' },
-  { ext:'mkv',  label:'.mkv' },
-  { ext:'mov',  label:'.mov' },
-]
+// ── OUTPUT FORMAT ENUM ─────────────────────────────────────────────────────
+// To add more formats in future: just add a new entry here. It auto-appears in the dropdown.
+const OUTPUT_FORMAT_ENUM = {
+  same: { label:'Same as source', desc:'Output matches input extension' },
+  mp4:  { label:'.mp4',           desc:'H.264/HEVC — most compatible' },
+  ts:   { label:'.ts',            desc:'MPEG Transport Stream' },
+  mkv:  { label:'.mkv',           desc:'Matroska — best subtitle support' },
+  mov:  { label:'.mov',           desc:'Apple QuickTime' },
+  mxf:  { label:'.mxf',           desc:'Material Exchange Format (broadcast)' },
+  mts:  { label:'.mts',           desc:'AVCHD Transport Stream' },
+  m2ts: { label:'.m2ts',          desc:'Blu-ray Transport Stream' },
+  avi:  { label:'.avi',           desc:'Audio Video Interleave (legacy)' },
+  wmv:  { label:'.wmv',           desc:'Windows Media Video' },
+  flv:  { label:'.flv',           desc:'Flash Video' },
+  webm: { label:'.webm',          desc:'Open web format (VP8/VP9)' },
+  mpg:  { label:'.mpg',           desc:'MPEG-1/2 Program Stream' },
+  '3gp':{ label:'.3gp',           desc:'Mobile video (3GPP)' },
+  ogv:  { label:'.ogv',           desc:'Ogg Video' },
+  divx: { label:'.divx',          desc:'DivX container' },
+  f4v:  { label:'.f4v',           desc:'Flash MP4 Video' },
+  rm:   { label:'.rm',            desc:'RealMedia' },
+  asf:  { label:'.asf',           desc:'Advanced Systems Format' },
+  dv:   { label:'.dv',            desc:'Digital Video (DV camcorder)' },
+  qt:   { label:'.qt',            desc:'QuickTime (alias for .mov)' },
+}
+// Derived array for rendering — do NOT edit this line
+const OUTPUT_FORMATS = Object.entries(OUTPUT_FORMAT_ENUM).map(([ext, v]) => ({ ext, ...v }))
+
+// ── FormatDropdown ─────────────────────────────────────────────────────────
+function FormatDropdown({ value, onChange }) {
+  const [open, setOpen]     = useState(false)
+  const [search, setSearch] = useState('')
+  const ref = useRef(null)
+
+  const selected = OUTPUT_FORMAT_ENUM[value] || OUTPUT_FORMAT_ENUM['same']
+  const filtered = OUTPUT_FORMATS.filter(f =>
+    f.label.toLowerCase().includes(search.toLowerCase()) ||
+    f.ext.toLowerCase().includes(search.toLowerCase()) ||
+    f.desc.toLowerCase().includes(search.toLowerCase())
+  )
+
+  useEffect(() => {
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const isSame = value === 'same' || !value
+
+  return (
+    <div ref={ref} style={{ position:'relative', minWidth:200 }}>
+      {/* Trigger */}
+      <button onClick={() => { setOpen(v=>!v); setSearch('') }} style={{
+        display:'flex', alignItems:'center', gap:8, width:'100%',
+        background: isSame ? 'rgba(127,119,221,0.15)' : 'rgba(29,158,117,0.15)',
+        border: isSame ? '1px solid rgba(127,119,221,0.4)' : '1px solid rgba(29,158,117,0.4)',
+        borderRadius:9, padding:'8px 12px', cursor:'pointer', fontFamily:'inherit',
+        transition:'all .15s',
+      }}>
+        <span style={{ fontSize:13, fontWeight:700, color: isSame ? T.pu2 : T.te2, ...T.mono, flex:1, textAlign:'left' }}>
+          {selected.label}
+        </span>
+        <span style={{ fontSize:11, color: isSame ? T.pu2 : T.te2, opacity:0.7 }}>{selected.desc}</span>
+        <span style={{ fontSize:12, color: isSame ? T.pu2 : T.te2, marginLeft:4, transform:open?'rotate(180deg)':'rotate(0)', transition:'transform .2s', display:'inline-block' }}>▾</span>
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 6px)', left:0, right:0, zIndex:200,
+          background:'#0f0f1e', border:'1px solid rgba(127,119,221,0.3)',
+          borderRadius:10, boxShadow:'0 8px 32px rgba(0,0,0,0.5)',
+          overflow:'hidden',
+        }}>
+          {/* Search */}
+          <div style={{ padding:'8px 10px', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search format… (mp4, mxf, ts…)"
+              style={{
+                width:'100%', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)',
+                borderRadius:7, padding:'7px 10px', fontSize:12, color:'#e8e8f0',
+                outline:'none', fontFamily:'inherit', boxSizing:'border-box',
+              }}
+            />
+          </div>
+          {/* Options */}
+          <div style={{ maxHeight:220, overflowY:'auto' }}>
+            {filtered.length === 0 && (
+              <div style={{ padding:'12px 14px', fontSize:12, color:'#555', textAlign:'center' }}>No formats found</div>
+            )}
+            {filtered.map(f => {
+              const active = value === f.ext || (!value && f.ext === 'same')
+              const isSameOpt = f.ext === 'same'
+              return (
+                <div key={f.ext} onClick={() => { onChange(f.ext); setOpen(false); setSearch('') }} style={{
+                  display:'flex', alignItems:'center', gap:10, padding:'9px 12px', cursor:'pointer',
+                  background: active ? (isSameOpt?'rgba(127,119,221,0.15)':'rgba(29,158,117,0.12)') : 'transparent',
+                  borderLeft: active ? `3px solid ${isSameOpt?T.pu3:T.te3}` : '3px solid transparent',
+                  transition:'background .1s',
+                }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.background='rgba(255,255,255,0.05)' }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.background='transparent' }}
+                >
+                  <span style={{ fontSize:12, fontWeight:700, color: active?(isSameOpt?T.pu2:T.te2):'#e2e2f0', ...T.mono, minWidth:52 }}>{f.label}</span>
+                  <span style={{ fontSize:11, color:'#555', flex:1 }}>{f.desc}</span>
+                  {active && <span style={{ fontSize:11, color:isSameOpt?T.pu2:T.te2 }}>✓</span>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ── Google SVG ─────────────────────────────────────────────────────────────
 const GoogleSVG = () => (
@@ -809,10 +920,12 @@ export default function App() {
         <div onClick={()=>setShowLocalPanel(true)} style={{
           position:'fixed', left:0, top:'50%', transform:'translateY(-50%)', zIndex:140,
           writingMode:'vertical-rl', rotate:'180deg',
-          background:'rgba(186,117,23,0.12)', border:'1px solid rgba(186,117,23,0.25)',
-          borderLeft:'none', borderRadius:'0 6px 6px 0',
-          padding:'10px 6px', fontSize:9, fontWeight:700,
-          color:'rgba(186,117,23,0.8)', cursor:'pointer', letterSpacing:'.07em', userSelect:'none',
+          background:'rgba(186,117,23,0.18)', border:'1px solid rgba(186,117,23,0.4)',
+          borderLeft:'none', borderRadius:'0 8px 8px 0',
+          padding:'14px 8px', fontSize:11, fontWeight:700,
+          color:'#FAC775', cursor:'pointer', letterSpacing:'.08em', userSelect:'none',
+          display:'flex', alignItems:'center', gap:6,
+          boxShadow:'2px 0 12px rgba(186,117,23,0.15)',
         }}>
           📁 LOCAL FILES
         </div>
@@ -850,9 +963,10 @@ export default function App() {
             </div>
           )}
           <div style={{
-            writingMode:'vertical-rl', background:'rgba(127,119,221,0.1)', border:'1px solid rgba(127,119,221,0.2)',
-            borderRight:'none', borderRadius:'6px 0 0 6px', padding:'8px 5px', fontSize:9, fontWeight:700,
-            color:'rgba(127,119,221,0.6)', letterSpacing:'.06em',
+            writingMode:'vertical-rl', background:'rgba(127,119,221,0.18)', border:'1px solid rgba(127,119,221,0.4)',
+            borderRight:'none', borderRadius:'8px 0 0 8px', padding:'14px 8px', fontSize:11, fontWeight:700,
+            color:'#c4beff', letterSpacing:'.08em', display:'flex', alignItems:'center', gap:6,
+            boxShadow:'-2px 0 12px rgba(127,119,221,0.15)',
           }}>
             {jobs.length > 0 ? '📥 DOWNLOADS' : '⚙ SETTINGS'}
           </div>
@@ -910,25 +1024,18 @@ export default function App() {
 
         {user && showCookieSetup && <CookieSetup sessionId={user.session_id} onDone={()=>setShowCookieSetup(false)} onClose={()=>setShowCookieSetup(false)} />}
 
-        {/* ── OUTPUT FORMAT — always visible ── */}
-        <div style={{ background:'rgba(83,74,183,0.1)', border:'1px solid rgba(127,119,221,0.25)', borderRadius:12, padding:'.85rem 1.1rem', marginBottom:'.65rem', display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:600, color:'#c4beff', textTransform:'uppercase', letterSpacing:'.07em', whiteSpace:'nowrap', flexShrink:0 }}>
+        {/* ── OUTPUT FORMAT DROPDOWN — always visible ── */}
+        <div style={{ background:'rgba(83,74,183,0.08)', border:'1px solid rgba(127,119,221,0.22)', borderRadius:12, padding:'10px 14px', marginBottom:'.65rem', display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#c4beff', textTransform:'uppercase', letterSpacing:'.07em', whiteSpace:'nowrap', flexShrink:0 }}>
             📤 Output format
           </div>
-          <div style={{ display:'flex', gap:5, flexWrap:'wrap', flex:1 }}>
-            {OUTPUT_FORMATS.map(f => {
-              const active = (normConfig.outputExt||'same') === f.ext
-              return (
-                <button key={f.ext} onClick={()=>setNormConfig(v=>({...v,outputExt:f.ext}))} style={{
-                  fontSize:12, ...T.mono, fontWeight:600, padding:'6px 13px', borderRadius:7, cursor:'pointer', transition:'all .15s',
-                  border: active ? (f.ext==='same'?'1px solid rgba(127,119,221,0.4)':'1px solid rgba(29,158,117,0.35)') : '1px solid rgba(255,255,255,0.08)',
-                  background: active ? (f.ext==='same'?'rgba(127,119,221,0.18)':'rgba(29,158,117,0.15)') : 'rgba(255,255,255,0.04)',
-                  color: active ? (f.ext==='same'?T.pu2:T.te2) : '#555',
-                }}>{f.label}</button>
-              )
-            })}
+          <div style={{ flex:1 }}>
+            <FormatDropdown
+              value={normConfig.outputExt||'same'}
+              onChange={(ext) => setNormConfig(v=>({...v,outputExt:ext}))}
+            />
           </div>
-          <button onClick={()=>setShowSettings(true)} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:500, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(127,119,221,0.28)', background:'rgba(127,119,221,0.09)', color:T.pu2, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap', flexShrink:0 }}>
+          <button onClick={()=>setShowSettings(true)} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:500, padding:'8px 12px', borderRadius:8, border:'1px solid rgba(127,119,221,0.28)', background:'rgba(127,119,221,0.09)', color:T.pu2, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap', flexShrink:0 }}>
             ⚙ Preset &amp; More
           </button>
         </div>
