@@ -600,6 +600,185 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
   )
 }
 
+// ── CodecAdvisory ──────────────────────────────────────────────────────────
+const CODEC_ADVISORY = [
+  {
+    container:'.mp4 / .m4v',
+    videoCodec:'libx264, libx265, av1',
+    audioCodec:'aac, mp3, opus',
+    note:'✅ Most compatible container. Recommended default.',
+    recommended:'Use libx264 -crf 19 for best quality/size balance.',
+    disadvantage:'None — this is the safest choice for any workflow.',
+  },
+  {
+    container:'.mkv',
+    videoCodec:'any codec',
+    audioCodec:'any codec',
+    note:'✅ Matroska — supports virtually any codec + multiple subtitle tracks.',
+    recommended:'Ideal when preserving original codec or embedding subtitles.',
+    disadvantage:'Not natively supported on some older devices/players.',
+  },
+  {
+    container:'.mov',
+    videoCodec:'libx264, prores, hevc',
+    audioCodec:'aac, pcm',
+    note:'✅ Apple QuickTime. Best for macOS / Final Cut Pro workflows.',
+    recommended:'Use ProRes for lossless editing. Use H.264 for delivery.',
+    disadvantage:'Large file size with ProRes. Poor support on Windows without QuickTime.',
+  },
+  {
+    container:'.ts / .mts / .m2ts',
+    videoCodec:'libx264, libx265',
+    audioCodec:'aac, ac3, mp2',
+    note:'⚠️ Auto-strips subtitles. Auto-adds -f mpegts. No -forced-idr.',
+    recommended:'Use for broadcast ingest or IPTV delivery pipelines.',
+    disadvantage:'Forced: subtitles are dropped. -forced-idr removed — some players may have seek issues.',
+  },
+  {
+    container:'.mxf',
+    videoCodec:'libx264, libx265',
+    audioCodec:'⚠️ pcm_s16le (forced)',
+    note:'🔴 MXF requires PCM audio. AAC/copy auto-replaced with pcm_s16le.',
+    recommended:'Use for broadcast ingest (Avid, Adobe Premiere, Harmonic).',
+    disadvantage:'Forced: audio re-encoded to PCM — larger file size (~10× audio track). Quality unchanged but processing time increases.',
+  },
+  {
+    container:'.gxf / .lxf',
+    videoCodec:'libx264, libx265',
+    audioCodec:'⚠️ pcm_s16le (forced)',
+    note:'🔴 Grass Valley/Harris broadcast formats require PCM audio.',
+    recommended:'Use only for Grass Valley/Harris playout systems.',
+    disadvantage:'Forced: audio re-encoded to PCM. Same file size penalty as MXF.',
+  },
+  {
+    container:'.webm',
+    videoCodec:'⚠️ libvpx-vp9 (forced)',
+    audioCodec:'⚠️ libopus (forced)',
+    note:'🔴 WebM only accepts VP8/VP9/AV1 + Opus. Codecs auto-replaced.',
+    recommended:'Use for web streaming (YouTube, HTML5 video).',
+    disadvantage:'Forced: full video re-encode to VP9 — very slow (5-10× slower than H.264). Quality slightly lower at same bitrate.',
+  },
+  {
+    container:'.ogv',
+    videoCodec:'⚠️ libtheora (forced)',
+    audioCodec:'⚠️ libvorbis (forced)',
+    note:'🔴 OGV only accepts Theora + Vorbis. Auto-converts both streams.',
+    recommended:'Use only for open-source/Linux platforms requiring OGG.',
+    disadvantage:'Forced: Theora quality is noticeably lower than H.264 at same bitrate. Avoid for professional delivery.',
+  },
+  {
+    container:'.vob',
+    videoCodec:'⚠️ mpeg2video (forced)',
+    audioCodec:'⚠️ ac3 (forced)',
+    note:'🔴 DVD format — requires MPEG-2 + AC3. H.264 is invalid here.',
+    recommended:'Use only for DVD authoring workflows.',
+    disadvantage:'Forced: MPEG-2 quality is lower than H.264 at same bitrate. File sizes ~3× larger than equivalent H.264.',
+  },
+  {
+    container:'.mpg / .mpeg',
+    videoCodec:'⚠️ mpeg2video (forced)',
+    audioCodec:'⚠️ mp2 (forced)',
+    note:'🔴 MPEG-PS requires MPEG-1/2 video. H.264 is not valid.',
+    recommended:'Use only for legacy broadcast or DVD-compatible output.',
+    disadvantage:'Forced: MPEG-2 + MP2 gives noticeably lower quality than modern codecs. Avoid unless required by downstream system.',
+  },
+  {
+    container:'.wmv / .asf',
+    videoCodec:'⚠️ wmv2 (forced)',
+    audioCodec:'⚠️ wmav2 (forced)',
+    note:'🔴 Windows Media requires WMV2 + WMA. Auto-converts both streams.',
+    recommended:'Use only for Windows Media Player compatibility.',
+    disadvantage:'Forced: WMV2 quality is poor compared to H.264. Avoid for any modern delivery.',
+  },
+  {
+    container:'.flv',
+    videoCodec:'libx264',
+    audioCodec:'aac, mp3',
+    note:'⚠️ Flash legacy format. Auto-strips subtitle streams.',
+    recommended:'Avoid if possible — Flash is deprecated. Use .mp4 instead.',
+    disadvantage:'Subtitles dropped. No modern platform supports FLV natively.',
+  },
+  {
+    container:'.avi',
+    videoCodec:'libx264, mpeg4',
+    audioCodec:'mp3, pcm, aac',
+    note:'⚠️ Legacy container. Auto-strips subtitle streams.',
+    recommended:'Use only when target player requires AVI (legacy hardware).',
+    disadvantage:'Subtitles dropped. No B-frames support in some players. Worse seeking than MP4/MKV.',
+  },
+  {
+    container:'.3gp / .3g2',
+    videoCodec:'libx264 (Baseline)',
+    audioCodec:'aac, amr',
+    note:'⚠️ Mobile legacy format. Auto-strips subtitles.',
+    recommended:'Use only for very old mobile devices (pre-2012).',
+    disadvantage:'Subtitles dropped. Low resolution/bitrate support. Obsolete — use .mp4 for modern mobile.',
+  },
+  {
+    container:'.dv',
+    videoCodec:'⚠️ dvvideo (forced)',
+    audioCodec:'⚠️ pcm_s16le (forced)',
+    note:'🔴 DV camcorder format — fixed codec, PCM audio, resolution locked to 720x576.',
+    recommended:'Use only for DV tape capture/edit workflows.',
+    disadvantage:'Forced: resolution locked to 720x576 — any HD input is downscaled. Very large file size (13GB/hour). Avoid for modern content.',
+  },
+  {
+    container:'.rm / .rmvb',
+    videoCodec:'libx264',
+    audioCodec:'aac',
+    note:'⚠️ RealMedia legacy format.',
+    recommended:'Avoid — use .mp4. RealMedia is obsolete.',
+    disadvantage:'Very limited modern player support. RealPlayer required on most systems.',
+  },
+]
+
+function CodecAdvisory() {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ marginBottom:'.65rem' }}>
+      <button onClick={()=>setOpen(v=>!v)} style={{
+        width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
+        background:'rgba(59,130,246,0.07)', border:'1px solid rgba(59,130,246,0.2)',
+        borderRadius: open ? '10px 10px 0 0' : 10,
+        padding:'8px 14px', cursor:'pointer', fontFamily:'inherit',
+        transition:'border-radius .15s',
+      }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontSize:15 }}>📋</span>
+          <span style={{ fontSize:12, fontWeight:600, color:'#93c5fd' }}>Codec Advisory</span>
+          <span style={{ fontSize:10, color:'#555', fontWeight:400 }}>— container compatibility reference</span>
+        </div>
+        <span style={{ fontSize:12, color:'#555', transform:open?'rotate(180deg)':'rotate(0)', transition:'transform .2s', display:'inline-block' }}>▾</span>
+      </button>
+      {open && (
+        <div style={{ background:'rgba(59,130,246,0.04)', border:'1px solid rgba(59,130,246,0.2)', borderTop:'none', borderRadius:'0 0 10px 10px', overflow:'auto' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+            <thead>
+              <tr style={{ background:'rgba(59,130,246,0.1)', borderBottom:'1px solid rgba(59,130,246,0.2)' }}>
+                {['Container','Video codec','Audio codec','Status / Notes','Recommended use','If forced: disadvantage'].map(h => (
+                  <th key={h} style={{ padding:'8px 12px', textAlign:'left', color:'#93c5fd', fontWeight:600, whiteSpace:'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {CODEC_ADVISORY.map((row, i) => (
+                <tr key={i} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)', background: i%2===0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+                  <td style={{ padding:'7px 12px', color:'#6ee7b7', fontFamily:'monospace', fontWeight:600, whiteSpace:'nowrap' }}>{row.container}</td>
+                  <td style={{ padding:'7px 12px', color:'#c4beff', fontFamily:'monospace', fontSize:10 }}>{row.videoCodec}</td>
+                  <td style={{ padding:'7px 12px', color:'#fbbf24', fontFamily:'monospace', fontSize:10 }}>{row.audioCodec}</td>
+                  <td style={{ padding:'7px 12px', color:'#aaa', lineHeight:1.5, minWidth:200 }}>{row.note}</td>
+                  <td style={{ padding:'7px 12px', color:'#6ee7b7', lineHeight:1.5, minWidth:180, fontSize:10 }}>{row.recommended}</td>
+                  <td style={{ padding:'7px 12px', color:'#f87171', lineHeight:1.5, minWidth:220, fontSize:10 }}>{row.disadvantage}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── SettingsPanel (right slide panel) ─────────────────────────────────────
 function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs }) {
   const activePreset = PRESETS.find(p => p.id === normConfig.presetId) || PRESETS[2]
@@ -1028,6 +1207,9 @@ export default function App() {
         )}
 
         {user && showCookieSetup && <CookieSetup sessionId={user.session_id} onDone={()=>setShowCookieSetup(false)} onClose={()=>setShowCookieSetup(false)} />}
+
+        {/* ── CODEC ADVISORY ── */}
+        <CodecAdvisory />
 
         {/* ── OUTPUT FORMAT DROPDOWN — always visible ── */}
         <div style={{ background:'rgba(83,74,183,0.08)', border:'1px solid rgba(127,119,221,0.22)', borderRadius:12, padding:'10px 14px', marginBottom:'.65rem', display:'flex', alignItems:'center', gap:12 }}>
