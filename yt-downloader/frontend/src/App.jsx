@@ -1175,13 +1175,13 @@ export default function App() {
 
   // ── Styles ─────────────────────────────────────────────────────────────
   const st = {
-    app:     { minHeight:'100vh', background:T.bg, fontFamily:"'Space Grotesk',sans-serif", color:'#e8e8f0', overflowX:'hidden', overflowY:'auto' },
-    wrap:    { maxWidth:860, margin:'0 auto', padding:'0 24px 80px' },
+    app:     { height:'100vh', background:T.bg, fontFamily:"'Space Grotesk',sans-serif", color:'#e8e8f0', overflow:'hidden', display:'flex', flexDirection:'column' },
+    wrap:    { maxWidth:860, margin:'0 auto', padding:'0 24px 40px', flex:1, overflowY:'auto', scrollbarWidth:'none' },
   }
 
   return (
     <div style={st.app}>
-      <style>{`html,body{scrollbar-width:none;-ms-overflow-style:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}`}</style>
+      <style>{`html,body{margin:0;padding:0;height:100%;overflow:hidden;scrollbar-width:none;-ms-overflow-style:none}html::-webkit-scrollbar,body::-webkit-scrollbar,div::-webkit-scrollbar{display:none}`}</style>
       {/* Radial glow */}
       <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:0, background:'radial-gradient(ellipse 70% 40% at 50% -5%, rgba(127,119,221,0.16) 0%, transparent 70%)' }} />
 
