@@ -1021,6 +1021,86 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
   )
 }
 
+// ── BgButton ───────────────────────────────────────────────────────────────
+function BgButton({ bgImage, bgBrightness, onUpload, onRemove, onBrightness }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <div ref={ref} style={{ position:'relative' }}>
+      <button onClick={()=>setOpen(v=>!v)} style={{
+        display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px',
+        borderRadius:7, cursor:'pointer', fontFamily:'inherit',
+        border: bgImage ? '1px solid rgba(127,119,221,0.4)' : '1px solid rgba(255,255,255,0.09)',
+        background: bgImage ? 'rgba(127,119,221,0.14)' : 'rgba(255,255,255,0.04)',
+        color: bgImage ? '#c4beff' : '#999',
+      }}>
+        🖼 {bgImage ? 'BG ●' : 'BG'}
+      </button>
+
+      {open && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:300,
+          background:'#0f0f1e', border:'1px solid rgba(127,119,221,0.25)',
+          borderRadius:12, padding:14, width:220,
+          boxShadow:'0 8px 32px rgba(0,0,0,0.5)',
+        }}>
+          {/* Preview */}
+          {bgImage && (
+            <div style={{ marginBottom:10, borderRadius:8, overflow:'hidden', height:80, position:'relative' }}>
+              <img src={bgImage} alt="bg" style={{ width:'100%', height:'100%', objectFit:'cover', filter:`brightness(${bgBrightness/100})` }} />
+              <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.3)', opacity:0, transition:'opacity .2s' }}
+                onMouseEnter={e=>e.currentTarget.style.opacity=1}
+                onMouseLeave={e=>e.currentTarget.style.opacity=0}>
+                <span style={{ fontSize:11, color:'#fff' }}>current background</span>
+              </div>
+            </div>
+          )}
+
+          {/* Upload */}
+          <button onClick={()=>{ onUpload(); setOpen(false) }} style={{
+            width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+            fontSize:12, fontWeight:600, padding:'8px', borderRadius:8, cursor:'pointer', fontFamily:'inherit',
+            border:'1px solid rgba(127,119,221,0.3)', background:'rgba(127,119,221,0.1)', color:'#c4beff', marginBottom:6,
+          }}>
+            ↑ {bgImage ? 'Change image' : 'Upload image'}
+          </button>
+
+          {/* Brightness slider */}
+          {bgImage && (
+            <div style={{ marginBottom:8 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                <span style={{ fontSize:10, color:'#555', textTransform:'uppercase', letterSpacing:'.06em', fontWeight:700 }}>Brightness</span>
+                <span style={{ fontSize:10, color:'#c4beff', ...T.mono }}>{bgBrightness}%</span>
+              </div>
+              <input type="range" min={5} max={80} value={bgBrightness}
+                onChange={e=>onBrightness(Number(e.target.value))}
+                style={{ width:'100%', accentColor:'#7F77DD' }} />
+            </div>
+          )}
+
+          {/* Remove */}
+          {bgImage && (
+            <button onClick={()=>{ onRemove(); setOpen(false) }} style={{
+              width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+              fontSize:12, padding:'7px', borderRadius:8, cursor:'pointer', fontFamily:'inherit',
+              border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#f87171',
+            }}>
+              ✕ Remove background
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main App ───────────────────────────────────────────────────────────────
 let _id = 1
 const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error:null, fetchStatus:null, fetchPct:0, fetchTime:null, fetchStart:null })
@@ -1350,8 +1430,13 @@ export default function App() {
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <button onClick={()=>setShowAdmin(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>🔧 Admin</button>
             <button onClick={()=>setShowAdvisory(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(59,130,246,0.3)', background:'rgba(59,130,246,0.08)', color:'#93c5fd', cursor:'pointer', fontFamily:'inherit' }}>📋 Advisory</button>
-            <button onClick={()=>bgFileRef.current?.click()} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#999', cursor:'pointer', fontFamily:'inherit' }}>🖼 BG</button>
-            {bgImage && <button onClick={()=>{ setBgImage(null); localStorage.removeItem('yt_bg_image') }} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>✕ BG</button>}
+            <BgButton
+              bgImage={bgImage}
+              bgBrightness={bgBrightness}
+              onUpload={()=>bgFileRef.current?.click()}
+              onRemove={()=>{ setBgImage(null); localStorage.removeItem('yt_bg_image') }}
+              onBrightness={v=>{ setBgBrightness(v); localStorage.setItem('yt_bg_brightness',v) }}
+            />
             {user ? <UserAvatar user={user} onLogout={logout} /> : (
               <button onClick={()=>{const p=new URLSearchParams({client_id:GOOGLE_CLIENT_ID,redirect_uri:REDIRECT_URI,response_type:'code',scope:'openid email profile https://www.googleapis.com/auth/youtube.readonly',access_type:'offline',prompt:'consent'});window.location.href=`https://accounts.google.com/o/oauth2/v2/auth?${p}`}} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 14px', background:'#fff', border:'none', borderRadius:9, cursor:'pointer', fontSize:12, fontWeight:600, color:'#333', fontFamily:'inherit', boxShadow:'0 2px 8px rgba(0,0,0,0.3)' }}>
                 <GoogleSVG /> Sign in with Google
