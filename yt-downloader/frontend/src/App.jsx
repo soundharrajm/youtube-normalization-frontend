@@ -310,7 +310,7 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
         <div style={{ ...T.card, display:'flex', alignItems:'center', gap:8, padding:'6px 6px 6px 14px', borderColor:error?'rgba(239,68,68,0.35)':info?'rgba(16,185,129,0.35)':valid?'rgba(139,92,246,0.25)':'rgba(255,255,255,0.08)' }}>
           <span style={{ fontSize:15, flexShrink:0 }}>🔗</span>
           <input value={url} onChange={e => onChange('url', e.target.value)} placeholder="https://youtube.com/watch?v=..."
-            style={{ flex:1, background:'none', border:'none', outline:'none', fontSize:15, color:'#f0f0ff', fontFamily:'inherit', padding:'9px 0' }} />
+            style={{ flex:1, background:'none', border:'none', outline:'none', fontSize:16, color:'#f0f0ff', fontFamily:'inherit', padding:'11px 0' }} />
           {isFetching && <span style={{ ...T.pill('#8b5cf6'), flexShrink:0 }}>fetching…</span>}
           {fetchStatus==='done' && !error && <span style={{ ...T.pill('#10b981'), flexShrink:0 }}>✓ ready</span>}
           {fetchStatus==='error' && needsLogin && <span style={{ ...T.pill('#f59e0b'), flexShrink:0 }}>🔒 login required</span>}
@@ -1208,7 +1208,7 @@ export default function App() {
   // ── Styles ─────────────────────────────────────────────────────────────
   const st = {
     app:     { height:'100vh', background:T.bg, fontFamily:"'Space Grotesk',sans-serif", color:'#e8e8f0', overflow:'hidden', display:'flex', flexDirection:'column' },
-    wrap:    { maxWidth:860, margin:'0 auto', padding:'0 24px 40px', flex:1, overflowY:'auto', scrollbarWidth:'none' },
+    wrap:    { maxWidth:1200, margin:'0 auto', padding:'0 32px 40px', flex:1, overflowY:'auto', scrollbarWidth:'none' },
   }
 
   return (
@@ -1302,7 +1302,7 @@ export default function App() {
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 0 10px', flexWrap:'wrap', gap:8 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <div style={{ width:28, height:28, borderRadius:7, background:'linear-gradient(135deg,#534AB7,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, color:'#fff' }}>▼</div>
-            <span style={{ fontSize:15, fontWeight:600, letterSpacing:'-0.3px' }}>YT Downloader</span>
+            <span style={{ fontSize:17, fontWeight:600, letterSpacing:'-0.3px' }}>YT Downloader</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <button onClick={()=>setShowAdmin(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>🔧 Admin</button>
@@ -1319,11 +1319,11 @@ export default function App() {
         {/* ── HERO ── */}
         <div style={{ textAlign:'center', padding:'24px 0 20px', position:'relative' }}>
           <div style={{ position:'absolute', top:0, left:'50%', transform:'translateX(-50%)', width:500, height:200, background:'radial-gradient(ellipse at 50% 0%,rgba(127,119,221,0.13) 0%,transparent 70%)', pointerEvents:'none' }} />
-          <h1 style={{ fontSize:32, fontWeight:700, margin:'0 0 8px', letterSpacing:'-1px', lineHeight:1.15, position:'relative', zIndex:1 }}>
+          <h1 style={{ fontSize:36, fontWeight:700, margin:'0 0 8px', letterSpacing:'-1px', lineHeight:1.15, position:'relative', zIndex:1 }}>
             Batch Download &amp; Normalize<br />
             <span style={{ background:'linear-gradient(90deg,#7F77DD,#ec4899)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>YouTube Videos in Parallel</span>
           </h1>
-          <p style={{ fontSize:14, color:'#6b6b80', margin:'0 0 12px', position:'relative', zIndex:1 }}>Add URLs → Fetch All → Download simultaneously → ffmpeg normalize</p>
+          <p style={{ fontSize:15, color:'#6b6b80', margin:'0 0 14px', position:'relative', zIndex:1 }}>Add URLs → Fetch All → Download simultaneously → ffmpeg normalize</p>
           <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:100, padding:'5px 16px', fontSize:12, ...T.mono, position:'relative', zIndex:1 }}>
             <span style={{ color:T.pu3 }}>yt-dlp</span>
             <span style={{ color:'#222' }}>→</span>
@@ -1342,7 +1342,7 @@ export default function App() {
             </button>
           </div>
         ) : (
-          <div style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(245,158,11,0.05)', border:'1px solid rgba(245,158,11,0.14)', borderRadius:10, padding:'.6rem 1rem', marginBottom:'.65rem', fontSize:13, color:'#d97706' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(245,158,11,0.05)', border:'1px solid rgba(245,158,11,0.14)', borderRadius:10, padding:'.6rem 1rem', marginBottom:'.65rem', fontSize:14, color:'#d97706' }}>
             🔒 Sign in with Google to download age-restricted videos
           </div>
         )}
@@ -1354,7 +1354,7 @@ export default function App() {
 
         {/* ── OUTPUT FORMAT DROPDOWN — always visible ── */}
         <div style={{ background:'rgba(83,74,183,0.08)', border:'1px solid rgba(127,119,221,0.22)', borderRadius:12, padding:'10px 14px', marginBottom:'.65rem', display:'flex', alignItems:'center', gap:12 }}>
-          <div style={{ fontSize:11, fontWeight:700, color:'#c4beff', textTransform:'uppercase', letterSpacing:'.07em', whiteSpace:'nowrap', flexShrink:0 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:'#c4beff', textTransform:'uppercase', letterSpacing:'.07em', whiteSpace:'nowrap', flexShrink:0 }}>
             📤 Output format
           </div>
           <div style={{ flex:1 }}>
@@ -1440,8 +1440,8 @@ export default function App() {
           ].map(f => (
             <div key={f.title} style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, padding:'12px 14px' }}>
               <div style={{ width:28, height:28, borderRadius:7, background:f.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, marginBottom:7 }}>{f.icon}</div>
-              <p style={{ margin:'0 0 2px', fontWeight:600, fontSize:13, color:'#f0f0ff' }}>{f.title}</p>
-              <p style={{ margin:0, fontSize:12, color:'#6b6b88' }}>{f.desc}</p>
+              <p style={{ margin:'0 0 3px', fontWeight:600, fontSize:14, color:'#f0f0ff' }}>{f.title}</p>
+              <p style={{ margin:0, fontSize:13, color:'#6b6b88' }}>{f.desc}</p>
             </div>
           ))}
         </div>
