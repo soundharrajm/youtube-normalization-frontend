@@ -1365,11 +1365,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* ── TOP ROW: Local Normalizer top-right ── */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 340px', gap:12, marginBottom:12, alignItems:'start' }}>
-
-          {/* CENTRE — URL input */}
-          <div style={{ ...T.card, padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+        {/* ── URL INPUTS — full width ── */}
+        <div style={{ ...T.card, padding:16, display:'flex', flexDirection:'column', gap:12, marginBottom:12 }}>
             {items.map((item, i) => (
               <div key={item.id}>
                 {i > 0 && <div style={{ height:1, background:'rgba(255,255,255,0.05)', marginBottom:12 }} />}
@@ -1379,8 +1376,6 @@ export default function App() {
                 <UrlRow item={item} onChange={(key,val)=>updateItem(item.id,key,val)} onRemove={()=>removeItem(item.id)} canRemove={items.length>1} />
               </div>
             ))}
-          </div>
-
         </div>
 
         {/* ── MAIN ACTIONS — full width centre ── */}
