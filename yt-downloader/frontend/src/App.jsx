@@ -1427,7 +1427,6 @@ export default function App() {
           }}>
             {fetchingAll ? (parallelFetch?`⏳ Fetching all ${fetchTotal}…`:`⏳ Fetching ${fetchIndex}/${fetchTotal}…`) : `🔍 Fetch All (${items.filter(it=>it.url.trim()&&!it.info).length} pending)`}
           </button>
-          <button onClick={()=>setShowSettings(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px solid rgba(127,119,221,0.25)', background:'rgba(127,119,221,0.08)', color:T.pu2, cursor:'pointer', fontFamily:'inherit' }}>⚙ Settings</button>
         </div>
 
         {/* ── FEATURE CARDS — 4 columns full width ── */}
