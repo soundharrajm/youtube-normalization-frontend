@@ -1363,9 +1363,6 @@ export default function App() {
               onChange={(ext) => setNormConfig(v=>({...v,outputExt:ext}))}
             />
           </div>
-          <button onClick={()=>setShowSettings(true)} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:500, padding:'8px 12px', borderRadius:8, border:'1px solid rgba(127,119,221,0.28)', background:'rgba(127,119,221,0.09)', color:T.pu2, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap', flexShrink:0 }}>
-            ⚙ Preset &amp; More
-          </button>
         </div>
 
         {/* ── TOP ROW: Local Normalizer top-right ── */}
