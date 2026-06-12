@@ -49,7 +49,7 @@ const T = {
   pu3:'#7F77DD', pu2:'#AFA9EC', pu4:'#534AB7',
   te3:'#1D9E75', te2:'#5DCAA5',
   am3:'#BA7517',
-  bg: '#08080e',
+  bg: '#141420',
   card: { background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14 },
   mono: { fontFamily:"'JetBrains Mono',monospace" },
   pill: (c) => ({ fontSize:11, color:c, background:`${c}22`, border:`1px solid ${c}44`, borderRadius:100, padding:'2px 9px', fontWeight:600 }),
@@ -890,7 +890,7 @@ function CodecAdvisory({ open, onClose }) {
 }
 
 // ── SettingsPanel (right slide panel) ─────────────────────────────────────
-function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs }) {
+function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs, bgImage, bgBrightness, setBgBrightness }) {
   const activePreset = PRESETS.find(p => p.id === normConfig.presetId) || PRESETS[2]
   const [customFlags, setCustomFlags] = useState(normConfig.presetId==='custom' ? normConfig.flags : '')
   const [parallelFetch, setParallelFetch] = useState(false)
@@ -919,6 +919,19 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
         </div>
 
         <div style={{ padding:'.9rem 1.1rem', flex:1 }}>
+
+          {/* Background brightness slider — only when bg image is set */}
+          {bgImage && (
+            <div style={{ marginBottom:'1rem' }}>
+              <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:8 }}>Background brightness</div>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <input type="range" min={5} max={80} value={bgBrightness}
+                  onChange={e=>{ const v=Number(e.target.value); setBgBrightness(v); localStorage.setItem('yt_bg_brightness',v) }}
+                  style={{ flex:1, accentColor:'#7F77DD' }} />
+                <span style={{ fontSize:12, color:T.pu2, ...T.mono, minWidth:32 }}>{bgBrightness}%</span>
+              </div>
+            </div>
+          )}
 
           {/* Sequential toggle */}
           <div style={{ marginBottom:'1rem' }}>
@@ -1031,6 +1044,9 @@ export default function App() {
   const [showLocalPanel, setShowLocalPanel] = useState(false)
   const [showAdvisory, setShowAdvisory]     = useState(false)
   const [queueStatus, setQueueStatus]       = useState(null)
+  const [bgImage, setBgImage]               = useState(() => localStorage.getItem('yt_bg_image') || null)
+  const [bgBrightness, setBgBrightness]     = useState(() => Number(localStorage.getItem('yt_bg_brightness') || 30))
+  const bgFileRef = useRef(null)
   const [isLocalMode, setIsLocalMode]       = useState(false)
   const pollRef    = useRef(null)
   const fileInputRef = useRef(null)
@@ -1207,13 +1223,37 @@ export default function App() {
 
   // ── Styles ─────────────────────────────────────────────────────────────
   const st = {
-    app:     { height:'100vh', background:T.bg, fontFamily:"'Space Grotesk',sans-serif", color:'#e8e8f0', overflow:'hidden', display:'flex', flexDirection:'column' },
-    wrap:    { maxWidth:1200, margin:'0 auto', padding:'0 32px 40px', flex:1, overflowY:'auto', scrollbarWidth:'none' },
+    app:     { height:'100vh', background: bgImage ? 'transparent' : '#141420', fontFamily:"'Space Grotesk',sans-serif", color:'#e8e8f0', overflow:'hidden', display:'flex', flexDirection:'column', position:'relative' },
+    wrap:    { maxWidth:1200, margin:'0 auto', padding:'0 32px 40px', flex:1, overflowY:'auto', scrollbarWidth:'none', position:'relative', zIndex:1 },
   }
 
   return (
     <div style={st.app}>
       <style>{`html,body{margin:0;padding:0;height:100%;overflow:hidden;scrollbar-width:none;-ms-overflow-style:none}html::-webkit-scrollbar,body::-webkit-scrollbar,div::-webkit-scrollbar{display:none}`}</style>
+
+      {/* ── BACKGROUND IMAGE LAYER ── */}
+      {bgImage && (
+        <div style={{
+          position:'fixed', inset:0, zIndex:0, pointerEvents:'none',
+          backgroundImage:`url(${bgImage})`,
+          backgroundSize:'cover', backgroundPosition:'center', backgroundRepeat:'no-repeat',
+          filter:`brightness(${bgBrightness/100})`,
+        }} />
+      )}
+      {/* Dark overlay when no bg image — lighter than before */}
+      {!bgImage && (
+        <div style={{ position:'fixed', inset:0, zIndex:0, pointerEvents:'none', background:'linear-gradient(135deg,#141420 0%,#1a1a2e 100%)' }} />
+      )}
+
+      {/* Hidden file input for bg image */}
+      <input ref={bgFileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={e => {
+        const file = e.target.files?.[0]; if (!file) return
+        const reader = new FileReader()
+        reader.onload = ev => { setBgImage(ev.target.result); localStorage.setItem('yt_bg_image', ev.target.result) }
+        reader.readAsDataURL(file)
+        e.target.value = ''
+      }} />
+
       {/* Radial glow */}
       <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:0, background:'radial-gradient(ellipse 70% 40% at 50% -5%, rgba(127,119,221,0.16) 0%, transparent 70%)' }} />
 
@@ -1264,6 +1304,9 @@ export default function App() {
         jobs={jobs}
         onRefreshJobs={refreshJobs}
         onClearJobs={() => setJobs([])}
+        bgImage={bgImage}
+        bgBrightness={bgBrightness}
+        setBgBrightness={setBgBrightness}
       />
 
       {/* ── RIGHT TAB ── */}
@@ -1324,13 +1367,7 @@ export default function App() {
             <span style={{ background:'linear-gradient(90deg,#7F77DD,#ec4899)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>YouTube Videos in Parallel</span>
           </h1>
           <p style={{ fontSize:15, color:'#6b6b80', margin:'0 0 14px', position:'relative', zIndex:1 }}>Add URLs → Fetch All → Download simultaneously → ffmpeg normalize</p>
-          <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:100, padding:'5px 16px', fontSize:12, ...T.mono, position:'relative', zIndex:1 }}>
-            <span style={{ color:T.pu3 }}>yt-dlp</span>
-            <span style={{ color:'#222' }}>→</span>
-            <span style={{ color:T.pu3 }}>{normPillLabel}</span>
-            <span style={{ color:'#222' }}>→</span>
-            <span style={{ color:T.te3 }}>_normalize.{extLabel}</span>
-          </div>
+
         </div>
 
         {/* ── AUTH NOTICE ── */}
