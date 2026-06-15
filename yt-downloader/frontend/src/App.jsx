@@ -310,7 +310,7 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
         <div style={{ ...T.card, display:'flex', alignItems:'center', gap:8, padding:'6px 6px 6px 14px', borderColor:error?'rgba(239,68,68,0.35)':info?'rgba(16,185,129,0.35)':valid?'rgba(139,92,246,0.25)':'rgba(255,255,255,0.08)' }}>
           <span style={{ fontSize:15, flexShrink:0 }}>🔗</span>
           <input value={url} onChange={e => onChange('url', e.target.value)} placeholder="https://youtube.com/watch?v=..."
-            style={{ flex:1, background:'none', border:'none', outline:'none', fontSize:16, color:tx, fontFamily:'inherit', padding:'11px 0' }} />
+            style={{ flex:1, background:'none', border:'none', outline:'none', fontSize:16, color:'#f0f0ff', fontFamily:'inherit', padding:'11px 0' }} />
           {isFetching && <span style={{ ...T.pill('#8b5cf6'), flexShrink:0 }}>fetching…</span>}
           {fetchStatus==='done' && !error && <span style={{ ...T.pill('#10b981'), flexShrink:0 }}>✓ ready</span>}
           {fetchStatus==='error' && needsLogin && <span style={{ ...T.pill('#f59e0b'), flexShrink:0 }}>🔒 login required</span>}
@@ -1338,7 +1338,7 @@ export default function App() {
 
   return (
     <div style={st.app}>
-      <style>{`html,body{margin:0;padding:0;height:100%;overflow:hidden;scrollbar-width:none;-ms-overflow-style:none}html::-webkit-scrollbar,body::-webkit-scrollbar,div::-webkit-scrollbar{display:none}input::placeholder{color:${bgImage && !bgDark ? 'rgba(0,0,0,0.35)' : 'rgba(150,150,180,0.6)'}!important}`}</style>
+      <style>{`html,body{margin:0;padding:0;height:100%;overflow:hidden;scrollbar-width:none;-ms-overflow-style:none}html::-webkit-scrollbar,body::-webkit-scrollbar,div::-webkit-scrollbar{display:none}`}</style>
 
       {/* ── BACKGROUND IMAGE LAYER ── */}
       {bgImage && (
