@@ -241,23 +241,51 @@ function BackendConfig({ onClose }) {
       <div style={{ background:'#1a1a2e', border:'1px solid rgba(255,255,255,0.1)', borderRadius:14, padding:28, width:400, boxShadow:'0 8px 40px rgba(0,0,0,0.5)' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <div style={{ width:34, height:34, borderRadius:9, background:'rgba(139,92,246,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:17 }}>🔒</div>
+            <div style={{ width:34, height:34, borderRadius:9, background:'rgba(139,92,246,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:17 }}>{adminToken ? '🔒' : '🔑'}</div>
             <div>
               <div style={{ fontSize:14, fontWeight:700, color:'#e8e8f0' }}>Backend URL</div>
-              <div style={{ fontSize:11, color:'#666' }}>Enter admin secret to continue</div>
+              <div style={{ fontSize:11, color:'#666' }}>{adminToken ? 'Enter admin secret to continue' : 'First time — set your admin secret'}</div>
             </div>
           </div>
           <button onClick={onClose} style={{ width:28, height:28, borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)', color:'#666', fontSize:14, cursor:'pointer' }}>✕</button>
         </div>
+
+        {!adminToken && (
+          <div style={{ padding:'8px 12px', background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:8, fontSize:11, color:'#a78bfa', marginBottom:12 }}>
+            No admin secret set yet. Enter one below to create it — you'll need it every time.
+          </div>
+        )}
+
         <input autoFocus value={gateInput} onChange={e => setGateInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { if (gateInput === adminToken) { setAuthed(true); setGateError(null) } else setGateError('Invalid admin secret') } }}
-          type="password" placeholder="Admin secret..."
-          style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:9, padding:'10px 14px', fontSize:13, color:'#e8e8f0', outline:'none', fontFamily:'monospace', boxSizing:'border-box', marginBottom:8 }}
+          onKeyDown={e => { if (e.key !== 'Enter') return
+            if (!adminToken) {
+              if (!gateInput.trim()) { setGateError('Enter a secret'); return }
+              // Save new token to backend + localStorage
+              apiFetch(API + '/admin-token', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: gateInput }) }).catch(()=>{})
+              localStorage.setItem('yt_admin_token', gateInput)
+              setAuthed(true); setGateError(null)
+            } else {
+              if (gateInput === adminToken) { setAuthed(true); setGateError(null) }
+              else setGateError('Invalid admin secret')
+            }
+          }}
+          type="password" placeholder={adminToken ? 'Admin secret...' : 'Create your admin secret...'}
+          style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:`1px solid ${gateError ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius:9, padding:'10px 14px', fontSize:13, color:'#e8e8f0', outline:'none', fontFamily:'monospace', boxSizing:'border-box', marginBottom:8 }}
         />
-        {gateError && <div style={{ fontSize:11, color:'#ef4444', marginBottom:8 }}>{gateError}</div>}
-        <button onClick={() => { if (gateInput === adminToken) { setAuthed(true); setGateError(null) } else setGateError('Invalid admin secret') }}
+        {gateError && <div style={{ fontSize:11, color:'#ef4444', marginBottom:8 }}>⚠ {gateError}</div>}
+        <button onClick={() => {
+            if (!adminToken) {
+              if (!gateInput.trim()) { setGateError('Enter a secret'); return }
+              apiFetch(API + '/admin-token', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: gateInput }) }).catch(()=>{})
+              localStorage.setItem('yt_admin_token', gateInput)
+              setAuthed(true); setGateError(null)
+            } else {
+              if (gateInput === adminToken) { setAuthed(true); setGateError(null) }
+              else setGateError('Invalid admin secret')
+            }
+          }}
           style={{ width:'100%', padding:'10px', borderRadius:9, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', border:'none', background:'#8b5cf6', color:'#fff' }}>
-          Unlock
+          {adminToken ? 'Unlock' : 'Set Secret & Continue'}
         </button>
       </div>
     </div>
@@ -1159,10 +1187,15 @@ export default function App() {
 
   useEffect(() => () => pollRef.current && clearInterval(pollRef.current), [])
 
-  // Load admin token from backend on mount → store in localStorage
+  // Load admin token from backend on mount → sync with localStorage
   useEffect(() => {
     apiFetch(API + '/admin-token').then(r => r.json()).then(d => {
-      if (d.token) localStorage.setItem('yt_admin_token', d.token)
+      if (d.token) {
+        localStorage.setItem('yt_admin_token', d.token)
+      } else {
+        // Backend has no token — clear localStorage so first-time setup shows
+        localStorage.removeItem('yt_admin_token')
+      }
     }).catch(() => {})
   }, [])
 
