@@ -219,14 +219,50 @@ function FormatPicker({ info, selected, onSelect }) {
 
 // ── BackendConfig ─────────────────────────────────────────────────────────
 function BackendConfig({ onClose }) {
-  const saved   = localStorage.getItem('yt_backend_url') || ''
-  const locked  = localStorage.getItem('yt_backend_locked') === 'true'
-  const [url,    setUrl]    = useState(saved || import.meta.env.VITE_API_URL || '')
-  const [isLocked,    setIsLocked]    = useState(locked)
-  const [tokenInput,  setTokenInput]  = useState('')
-  const [tokenError,  setTokenError]  = useState(null)
-  const [status, setStatus] = useState(null)
-  const [testing, setTesting] = useState(false)
+  const saved      = localStorage.getItem('yt_backend_url') || ''
+  const locked     = localStorage.getItem('yt_backend_locked') === 'true'
+  const adminToken = localStorage.getItem('yt_admin_token') || ''
+
+  // Gate: require admin secret before showing config (skip if no token set yet)
+  const [authed,     setAuthed]     = useState(!adminToken)
+  const [gateInput,  setGateInput]  = useState('')
+  const [gateError,  setGateError]  = useState(null)
+
+  const [url,        setUrl]        = useState(saved || import.meta.env.VITE_API_URL || '')
+  const [isLocked,   setIsLocked]   = useState(locked)
+  const [tokenInput, setTokenInput] = useState('')
+  const [tokenError, setTokenError] = useState(null)
+  const [status,     setStatus]     = useState(null)
+  const [testing,    setTesting]    = useState(false)
+
+  // ── Gate screen ────────────────────────────────────────────────────────
+  if (!authed) return (
+    <div style={{ position:'fixed', inset:0, zIndex:300, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background:'#1a1a2e', border:'1px solid rgba(255,255,255,0.1)', borderRadius:14, padding:28, width:400, boxShadow:'0 8px 40px rgba(0,0,0,0.5)' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ width:34, height:34, borderRadius:9, background:'rgba(139,92,246,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:17 }}>🔒</div>
+            <div>
+              <div style={{ fontSize:14, fontWeight:700, color:'#e8e8f0' }}>Backend URL</div>
+              <div style={{ fontSize:11, color:'#666' }}>Enter admin secret to continue</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ width:28, height:28, borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)', color:'#666', fontSize:14, cursor:'pointer' }}>✕</button>
+        </div>
+        <input autoFocus value={gateInput} onChange={e => setGateInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { if (gateInput === adminToken) { setAuthed(true); setGateError(null) } else setGateError('Invalid admin secret') } }}
+          type="password" placeholder="Admin secret..."
+          style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:9, padding:'10px 14px', fontSize:13, color:'#e8e8f0', outline:'none', fontFamily:'monospace', boxSizing:'border-box', marginBottom:8 }}
+        />
+        {gateError && <div style={{ fontSize:11, color:'#ef4444', marginBottom:8 }}>{gateError}</div>}
+        <button onClick={() => { if (gateInput === adminToken) { setAuthed(true); setGateError(null) } else setGateError('Invalid admin secret') }}
+          style={{ width:'100%', padding:'10px', borderRadius:9, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', border:'none', background:'#8b5cf6', color:'#fff' }}>
+          Unlock
+        </button>
+      </div>
+    </div>
+  )
 
   const test = async () => {
     setTesting(true); setStatus(null)
