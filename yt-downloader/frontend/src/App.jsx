@@ -1159,6 +1159,13 @@ export default function App() {
 
   useEffect(() => () => pollRef.current && clearInterval(pollRef.current), [])
 
+  // Load admin token from backend on mount → store in localStorage
+  useEffect(() => {
+    apiFetch(API + '/admin-token').then(r => r.json()).then(d => {
+      if (d.token) localStorage.setItem('yt_admin_token', d.token)
+    }).catch(() => {})
+  }, [])
+
   // Load BG from backend on mount
   useEffect(() => {
     apiFetch(API + '/bg').then(r => r.json()).then(d => {
