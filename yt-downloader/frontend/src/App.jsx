@@ -223,10 +223,9 @@ function BackendConfig({ onClose }) {
   const locked     = localStorage.getItem('yt_backend_locked') === 'true'
   const adminToken = localStorage.getItem('yt_admin_token') || ''
 
-  // Gate: require admin secret before showing config (skip if no token set yet)
-  const [authed,     setAuthed]     = useState(!adminToken)
-  const [gateInput,  setGateInput]  = useState('')
-  const [gateError,  setGateError]  = useState(null)
+  const [authed,    setAuthed]   = useState(false)
+  const [gateInput, setGateInput] = useState('')
+  const [gateError, setGateError] = useState(null)
 
   const [url,        setUrl]        = useState(saved || import.meta.env.VITE_API_URL || '')
   const [isLocked,   setIsLocked]   = useState(locked)
@@ -312,47 +311,16 @@ function BackendConfig({ onClose }) {
           </div>
         )}
 
-        {/* Admin token protected lock */}
-        <div style={{ marginBottom:16 }}>
-          {isLocked ? (
-            <div>
-              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:9, marginBottom:8 }}>
-                <span style={{ fontSize:14 }}>🔒</span>
-                <span style={{ fontSize:12, color:'#a78bfa', fontWeight:600 }}>URL is locked — enter admin token to unlock</span>
-              </div>
-              <input value={tokenInput} onChange={e => setTokenInput(e.target.value)}
-                type="password" placeholder="Enter admin token to unlock"
-                style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'8px 12px', fontSize:13, color:'#e8e8f0', outline:'none', fontFamily:'monospace', boxSizing:'border-box', marginBottom:6 }}
-              />
-              <button onClick={() => {
-                const stored = localStorage.getItem('yt_admin_token')
-                if (tokenInput && tokenInput === stored) { setIsLocked(false); setTokenInput(''); setTokenError(null) }
-                else setTokenError('Invalid admin token')
-              }} style={{ width:'100%', padding:'8px', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit', border:'none', background:'rgba(139,92,246,0.8)', color:'#fff' }}>
-                Unlock with Admin Token
-              </button>
-              {tokenError && <div style={{ fontSize:11, color:'#ef4444', marginTop:4 }}>{tokenError}</div>}
-            </div>
-          ) : (
-            <div>
-              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:9, marginBottom:8 }}>
-                <span style={{ fontSize:14 }}>🔓</span>
-                <span style={{ fontSize:12, color:'#888' }}>URL unlocked — set admin token and lock to protect</span>
-              </div>
-              <input value={tokenInput} onChange={e => setTokenInput(e.target.value)}
-                type="password" placeholder="Set admin token (required to unlock later)"
-                style={{ width:'100%', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'8px 12px', fontSize:13, color:'#e8e8f0', outline:'none', fontFamily:'monospace', boxSizing:'border-box', marginBottom:6 }}
-              />
-              <button onClick={() => {
-                if (!tokenInput.trim()) { setTokenError('Enter a token to lock'); return }
-                localStorage.setItem('yt_admin_token', tokenInput)
-                setIsLocked(true); setTokenInput(''); setTokenError(null)
-              }} style={{ width:'100%', padding:'8px', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit', border:'none', background:'rgba(239,68,68,0.8)', color:'#fff' }}>
-                🔒 Lock with this Token
-              </button>
-              {tokenError && <div style={{ fontSize:11, color:'#ef4444', marginTop:4 }}>{tokenError}</div>}
-            </div>
-          )}
+        {/* Simple lock toggle — already authenticated via gate */}
+        <div onClick={() => setIsLocked(v => !v)}
+          style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:9, cursor:'pointer', marginBottom:16, userSelect:'none' }}>
+          <div style={{ width:36, height:20, borderRadius:100, background: isLocked ? '#8b5cf6' : 'rgba(255,255,255,0.1)', transition:'background .2s', position:'relative', flexShrink:0 }}>
+            <div style={{ width:16, height:16, borderRadius:'50%', background:'#fff', position:'absolute', top:2, left: isLocked ? 18 : 2, transition:'left .2s' }} />
+          </div>
+          <div>
+            <div style={{ fontSize:12, fontWeight:600, color: isLocked ? '#a78bfa' : '#888' }}>{isLocked ? '🔒 URL Locked' : '🔓 URL Unlocked'}</div>
+            <div style={{ fontSize:11, color:'#555' }}>{isLocked ? 'Requires admin secret to edit' : 'Toggle to lock from accidental changes'}</div>
+          </div>
         </div>
 
         <div style={{ display:'flex', gap:8 }}>
