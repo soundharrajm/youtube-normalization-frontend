@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 
-const API = import.meta.env.VITE_API_URL || '/api'
+const API = localStorage.getItem('yt_backend_url') || import.meta.env.VITE_API_URL || '/api'
 
 function apiFetch(url, options = {}) {
   return fetch(url, {
     ...options,
-    headers: { 'bypass-tunnel-reminder': 'true', ...options.headers },
+    headers: { 'bypass-tunnel-reminder': 'true', 'ngrok-skip-browser-warning': 'true', ...options.headers },
   })
 }
 
@@ -15,12 +15,22 @@ const S = {
 }
 
 export default function AdminPanel({ onClose }) {
-  const [secret, setSecret]         = useState('')
-  const [authed, setAuthed]         = useState(false)
-  const [status, setStatus]         = useState(null)
-  const [cookies, setCookies]       = useState('')
-  const [uploading, setUploading]   = useState(false)
-  const [msg, setMsg]               = useState(null)
+  const [secret,    setSecret]    = useState('')
+  const [authed,    setAuthed]    = useState(false)
+  const [firstTime, setFirstTime] = useState(false) // no token in backend yet
+  const [status,    setStatus]    = useState(null)
+  const [cookies,   setCookies]   = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [msg,       setMsg]       = useState(null)
+
+  // On mount: check if token exists in backend
+  useEffect(() => {
+    apiFetch(`${API}/admin-token`).then(r => r.json()).then(d => {
+      if (!d.token) {
+        setFirstTime(true) // no token set yet — allow setting one
+      }
+    }).catch(() => {})
+  }, [])
 
   const checkStatus = async (s) => {
     try {
@@ -33,9 +43,25 @@ export default function AdminPanel({ onClose }) {
   }
 
   const login = async () => {
+    if (firstTime) {
+      // First time — save token to backend then proceed
+      if (!secret.trim()) { setMsg({ type:'error', text:'Enter a secret' }); return }
+      await apiFetch(`${API}/admin-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: secret })
+      })
+      localStorage.setItem('yt_admin_token', secret)
+      setFirstTime(false)
+      setAuthed(true)
+      await checkStatus(secret)
+      return
+    }
     const ok = await checkStatus(secret)
-    if (ok) setAuthed(true)
-    else setMsg({ type:'error', text:'Invalid admin secret' })
+    if (ok) {
+      localStorage.setItem('yt_admin_token', secret)
+      setAuthed(true)
+    } else setMsg({ type:'error', text:'Invalid admin secret' })
   }
 
   const upload = async () => {
@@ -92,20 +118,32 @@ export default function AdminPanel({ onClose }) {
         {!authed ? (
           /* Login */
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-            <p style={{ margin:0, fontSize:14, color:'#888' }}>Enter admin secret to continue</p>
+            {firstTime ? (
+              <div style={{ padding:'10px 14px', background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:8, fontSize:13, color:'#a78bfa' }}>
+                🔑 First time setup — create your admin secret below. You'll need it every time.
+              </div>
+            ) : (
+              <p style={{ margin:0, fontSize:14, color:'#888' }}>Enter admin secret to continue</p>
+            )}
+            {msg && (
+              <div style={{ padding:'8px 12px', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, fontSize:13, color:'#f87171' }}>
+                ✗ {msg.text}
+              </div>
+            )}
             <input
+              autoFocus
               type="password"
               value={secret}
-              onChange={e => setSecret(e.target.value)}
+              onChange={e => { setSecret(e.target.value); setMsg(null) }}
               onKeyDown={e => e.key === 'Enter' && login()}
-              placeholder="Admin secret..."
+              placeholder={firstTime ? 'Create your admin secret...' : 'Admin secret...'}
               style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'10px 14px', fontSize:14, color:'#e8e8f0', fontFamily:'inherit', outline:'none' }}
             />
             <button onClick={login} style={{
               background:'linear-gradient(135deg,#8b5cf6,#7c3aed)', border:'none',
               borderRadius:8, color:'#fff', fontSize:14, fontWeight:600,
               padding:'10px', cursor:'pointer', fontFamily:'inherit',
-            }}>Unlock</button>
+            }}>{firstTime ? 'Set Secret & Continue' : 'Unlock'}</button>
           </div>
         ) : (
           /* Admin content */
