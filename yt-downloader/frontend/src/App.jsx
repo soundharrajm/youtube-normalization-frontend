@@ -757,6 +757,11 @@ const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error
 export default function App() {
   const [items, setItems]           = useState(() => [newItem()])
   const [showAdmin,         setShowAdmin]         = useState(false)
+  const [bgUrl,        setBgUrl]        = useState('')
+  const [bgBrightness, setBgBrightness] = useState(30)
+  const [showBgPanel,  setShowBgPanel]  = useState(false)
+  const [bgSaving,     setBgSaving]     = useState(false)
+  const bgInputRef = useRef(null)
   const [showBackendConfig, setShowBackendConfig] = useState(false)
   const [backendOk,         setBackendOk]         = useState(null)
   const [showCookieSetup, setShowCookieSetup] = useState(false)
@@ -1154,6 +1159,13 @@ export default function App() {
 
   useEffect(() => () => pollRef.current && clearInterval(pollRef.current), [])
 
+  // Load BG from backend on mount
+  useEffect(() => {
+    apiFetch(API + '/bg').then(r => r.json()).then(d => {
+      if (d.image) { setBgUrl(d.image); setBgBrightness(d.brightness || 30) }
+    }).catch(() => {})
+  }, [])
+
   // Backend health check
   useEffect(() => {
     const check = async () => {
@@ -1185,6 +1197,8 @@ export default function App() {
 
   return (
     <div style={S.app}>
+      {/* Background image layer */}
+      {bgUrl && <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:0, backgroundImage:`url(${bgUrl})`, backgroundSize:'cover', backgroundPosition:'center', opacity: bgBrightness/100 }} />}
       <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:0,
         background:'radial-gradient(ellipse 70% 40% at 50% -5%, rgba(139,92,246,0.18) 0%, transparent 70%)' }} />
 
@@ -1192,8 +1206,8 @@ export default function App() {
 
       <div style={S.wrap}>
         {/* Header */}
-        <header style={{ textAlign:'center', padding:'48px 0 28px', position:'relative' }}>
-          <div style={{ position:'absolute', top:48, right:0, display:'flex', gap:8, alignItems:'center' }}>
+        <header style={{ textAlign:'center', padding:'60px 0 28px', position:'relative' }}>
+          <div style={{ position:'absolute', top:12, right:0, display:'flex', gap:8, alignItems:'center' }}>
             <button onClick={() => setShowBackendConfig(true)} style={{
               background: backendOk ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
               border: `1px solid ${backendOk ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
@@ -1203,6 +1217,12 @@ export default function App() {
               <span style={{ width:7, height:7, borderRadius:'50%', background: backendOk ? '#10b981' : '#ef4444', display:'inline-block' }} />
               {localStorage.getItem('yt_backend_locked') === 'true' ? '🔒' : '🔌'} Backend
             </button>
+            <button onClick={() => setShowBgPanel(v => !v)} style={{
+              background: bgUrl ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.05)',
+              border: bgUrl ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(255,255,255,0.1)',
+              borderRadius:8, color: bgUrl ? '#a78bfa' : '#666', fontSize:12, fontWeight:600,
+              padding:'7px 12px', cursor:'pointer', fontFamily:'inherit',
+            }}>🖼 BG</button>
             <button onClick={() => setShowAdmin(true)} style={{
               background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)',
               borderRadius:8, color:'#666', fontSize:12, fontWeight:600,
@@ -1217,6 +1237,46 @@ export default function App() {
             )}
           </div>
           {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+
+          {/* BG Image Panel */}
+          {showBgPanel && (
+            <div style={{ position:'fixed', top:60, right:16, zIndex:300, background:'rgba(15,15,25,0.97)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, padding:16, width:280, boxShadow:'0 8px 32px rgba(0,0,0,0.5)' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                <span style={{ fontSize:13, fontWeight:700, color:'#e8e8f0' }}>🖼 Background Image</span>
+                <button onClick={() => setShowBgPanel(false)} style={{ background:'none', border:'none', color:'#666', cursor:'pointer', fontSize:14 }}>✕</button>
+              </div>
+              <input ref={bgInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={e => {
+                const file = e.target.files?.[0]; if (!file) return
+                const reader = new FileReader()
+                reader.onload = async ev => {
+                  const dataUrl = ev.target.result
+                  setBgUrl(dataUrl); setBgSaving(true)
+                  try {
+                    await apiFetch(API + '/bg', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ image: dataUrl, brightness: bgBrightness }) })
+                  } catch {}
+                  setBgSaving(false)
+                }
+                reader.readAsDataURL(file); e.target.value = ''
+              }} />
+              <button onClick={() => bgInputRef.current?.click()} style={{ width:'100%', padding:'8px', borderRadius:8, border:'1px dashed rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.03)', color:'#888', fontSize:12, cursor:'pointer', fontFamily:'inherit', marginBottom:12 }}>
+                {bgSaving ? '💾 Saving…' : bgUrl ? '📁 Change image' : '📁 Upload image'}
+              </button>
+              <div style={{ marginBottom:8 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                  <span style={{ fontSize:11, color:'#666' }}>Brightness / Opacity</span>
+                  <span style={{ fontSize:11, color:'#a78bfa', fontFamily:'monospace' }}>{bgBrightness}%</span>
+                </div>
+                <input type="range" min={5} max={100} value={bgBrightness} onChange={e => {
+                  const v = Number(e.target.value); setBgBrightness(v)
+                  if (bgUrl) apiFetch(API + '/bg', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ image: bgUrl, brightness: v }) }).catch(()=>{})
+                }} style={{ width:'100%', accentColor:'#8b5cf6' }} />
+              </div>
+              {bgUrl && <button onClick={async () => { setBgUrl(''); setBgBrightness(30); try { await apiFetch(API + '/bg', { method:'DELETE' }) } catch {} }}
+                style={{ width:'100%', padding:'6px', borderRadius:7, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.08)', color:'#ef4444', fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>
+                ✕ Remove background
+              </button>}
+            </div>
+          )}
           {showBackendConfig && <BackendConfig onClose={() => setShowBackendConfig(false)} />}
 
           <div style={{ display:'inline-flex', alignItems:'center', gap:10, marginBottom:12 }}>
