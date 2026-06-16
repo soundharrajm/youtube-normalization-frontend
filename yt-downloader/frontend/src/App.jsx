@@ -752,7 +752,9 @@ const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error
 
 export default function App() {
   const [items, setItems]           = useState(() => [newItem()])
-  const [showAdmin, setShowAdmin]   = useState(false)
+  const [showAdmin,         setShowAdmin]         = useState(false)
+  const [showBackendConfig, setShowBackendConfig] = useState(false)
+  const [backendOk,         setBackendOk]         = useState(null)
   const [showCookieSetup, setShowCookieSetup] = useState(false)
   const [user, setUser]             = useState(null)
   const [serverInfo, setServerInfo] = useState(null)
