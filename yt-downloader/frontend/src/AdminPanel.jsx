@@ -17,11 +17,14 @@ const S = {
 export default function AdminPanel({ onClose }) {
   const [secret,    setSecret]    = useState('')
   const [authed,    setAuthed]    = useState(false)
-  const [firstTime, setFirstTime] = useState(false) // no token in backend yet
+  const [firstTime, setFirstTime] = useState(false)
   const [status,    setStatus]    = useState(null)
   const [cookies,   setCookies]   = useState('')
   const [uploading, setUploading] = useState(false)
   const [msg,       setMsg]       = useState(null)
+  const [newSecret, setNewSecret] = useState('')
+  const [changingSecret, setChangingSecret] = useState(false)
+  const [changeMsg, setChangeMsg] = useState(null)
 
   // On mount: check if token exists in backend
   useEffect(() => {
@@ -92,6 +95,29 @@ export default function AdminPanel({ onClose }) {
     const data = await res.json()
     setMsg({ type:'success', text: data.message })
     await checkStatus(secret)
+  }
+
+  const changeSecret = async () => {
+    if (!newSecret.trim()) return
+    setChangingSecret(true)
+    setChangeMsg(null)
+    try {
+      // Save new token to backend
+      const res = await apiFetch(`${API}/admin-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: newSecret.trim() }),
+      })
+      if (!res.ok) throw new Error('Failed to update secret')
+      localStorage.setItem('yt_admin_token', newSecret.trim())
+      setSecret(newSecret.trim())
+      setNewSecret('')
+      setChangeMsg({ type:'success', text:'Secret updated successfully' })
+    } catch(e) {
+      setChangeMsg({ type:'error', text: e.message })
+    } finally {
+      setChangingSecret(false)
+    }
   }
 
   return (
@@ -249,6 +275,40 @@ export default function AdminPanel({ onClose }) {
               }}>
                 ↻ Refresh
               </button>
+            </div>
+
+            {/* Change Secret */}
+            <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:16 }}>
+              <p style={{ margin:'0 0 8px', fontSize:13, fontWeight:600, color:'#888' }}>🔑 Change Admin Secret</p>
+              <p style={{ margin:'0 0 10px', fontSize:12, color:'#555' }}>Only the current admin can update the secret. This replaces the token stored on the backend.</p>
+              <div style={{ display:'flex', gap:8 }}>
+                <input
+                  type="password"
+                  value={newSecret}
+                  onChange={e => { setNewSecret(e.target.value); setChangeMsg(null) }}
+                  onKeyDown={e => e.key === 'Enter' && changeSecret()}
+                  placeholder="New admin secret..."
+                  style={{ flex:1, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'9px 12px', fontSize:13, color:'#e8e8f0', fontFamily:'inherit', outline:'none' }}
+                />
+                <button onClick={changeSecret} disabled={changingSecret || !newSecret.trim()} style={{
+                  padding:'9px 18px', borderRadius:8, border:'none',
+                  background: newSecret.trim() ? 'linear-gradient(135deg,#8b5cf6,#7c3aed)' : '#1c1c2a',
+                  color: newSecret.trim() ? '#fff' : '#444',
+                  fontSize:13, fontWeight:600, cursor: newSecret.trim() ? 'pointer' : 'not-allowed', fontFamily:'inherit',
+                }}>
+                  {changingSecret ? '⏳' : 'Update'}
+                </button>
+              </div>
+              {changeMsg && (
+                <div style={{
+                  marginTop:8, padding:'7px 12px', borderRadius:7, fontSize:12,
+                  background: changeMsg.type==='success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                  border: `1px solid ${changeMsg.type==='success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                  color: changeMsg.type==='success' ? '#10b981' : '#f87171',
+                }}>
+                  {changeMsg.type==='success' ? '✓' : '✗'} {changeMsg.text}
+                </div>
+              )}
             </div>
           </div>
         )}
