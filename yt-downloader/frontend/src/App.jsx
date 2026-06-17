@@ -1187,15 +1187,10 @@ export default function App() {
 
   useEffect(() => () => pollRef.current && clearInterval(pollRef.current), [])
 
-  // Load admin token from backend on mount → sync with localStorage
+  // Load admin token from backend on mount → store in localStorage
   useEffect(() => {
     apiFetch(API + '/admin-token').then(r => r.json()).then(d => {
-      if (d.token) {
-        localStorage.setItem('yt_admin_token', d.token)
-      } else {
-        // Backend has no token — clear localStorage so first-time setup shows
-        localStorage.removeItem('yt_admin_token')
-      }
+      if (d.token) localStorage.setItem('yt_admin_token', d.token)
     }).catch(() => {})
   }, [])
 
@@ -1211,11 +1206,17 @@ export default function App() {
     const check = async () => {
       try {
         const r = await apiFetch(API + '/health', { signal: AbortSignal.timeout(4000) })
-        setBackendOk(r.ok)
+        if (r.ok) {
+          const d = await r.json()
+          setBackendOk(true)
+          setServerInfo(d)
+        } else {
+          setBackendOk(false)
+        }
       } catch { setBackendOk(false) }
     }
     check()
-    const t = setInterval(check, 30000)
+    const t = setInterval(check, 15000)
     return () => clearInterval(t)
   }, [])
 
@@ -1252,10 +1253,26 @@ export default function App() {
               background: backendOk ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
               border: `1px solid ${backendOk ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
               borderRadius:8, color: backendOk ? '#10b981' : '#ef4444', fontSize:12, fontWeight:600,
-              padding:'7px 12px', cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:5,
+              padding:'7px 12px', cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:6,
             }}>
-              <span style={{ width:7, height:7, borderRadius:'50%', background: backendOk ? '#10b981' : '#ef4444', display:'inline-block' }} />
-              {localStorage.getItem('yt_backend_locked') === 'true' ? '🔒' : '🔌'} Backend
+              <span style={{ width:7, height:7, borderRadius:'50%', background: backendOk ? '#10b981' : '#ef4444', display:'inline-block', boxShadow: backendOk ? '0 0 6px #10b981' : 'none' }} />
+              {backendOk === null ? '⏳ Connecting…' : backendOk === false ? '✗ Backend offline' : (
+                <span style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  {localStorage.getItem('yt_backend_locked') === 'true' ? '🔒' : '🔌'} Backend
+                  {serverInfo && (
+                    <>
+                      <span style={{ width:1, height:12, background:'rgba(16,185,129,0.3)', display:'inline-block' }} />
+                      <span style={{ fontSize:11, opacity:0.8 }}>
+                        {serverInfo.active_jobs > 0 ? `⬇ ${serverInfo.active_jobs} active` : '✓ idle'}
+                      </span>
+                      {serverInfo.queued_jobs > 0 && (
+                        <span style={{ fontSize:11, opacity:0.7 }}>· {serverInfo.queued_jobs} queued</span>
+                      )}
+                      <span style={{ fontSize:11, opacity:0.6 }}>· {serverInfo.max_workers}w</span>
+                    </>
+                  )}
+                </span>
+              )}
             </button>
             <button onClick={() => setShowBgPanel(v => !v)} style={{
               background: bgUrl ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.05)',
