@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 
-const API = import.meta.env.VITE_API_URL || '/api'
+const API = localStorage.getItem('yt_backend_url') || import.meta.env.VITE_API_URL || '/api'
 
 function apiFetch(url, options = {}) {
   return fetch(url, {
