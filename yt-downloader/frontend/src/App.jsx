@@ -4,13 +4,16 @@ import CookieSetup from './CookieSetup.jsx'
 import SearchPanel from './SearchPanel.jsx'
 
 // v3.0.0
-const API = import.meta.env.VITE_API_URL || '/api'
+const API_DEFAULT = import.meta.env.VITE_API_URL || '/api'
+function getApiBase() { return localStorage.getItem('yt_api_base') || API_DEFAULT }
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ||
   '406747955382-digauab6tpgo7f9rr7sbl0qoajc01oub.apps.googleusercontent.com'
 const REDIRECT_URI = window.location.origin
 
 function apiFetch(url, options = {}) {
-  return fetch(url, {
+  const base = getApiBase()
+  const fullUrl = url.startsWith('http') ? url : `${base}${url.startsWith('/') ? url : '/' + url}`
+  return fetch(fullUrl, {
     ...options,
     headers: {
       'bypass-tunnel-reminder':    'true',
@@ -1155,9 +1158,123 @@ function BgButton({ bgImage, bgBrightness, onUpload, onRemove, onBrightness }) {
 let _id = 1
 const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error:null, fetchStatus:null, fetchPct:0, fetchTime:null, fetchStart:null })
 
+// ── BackendModal — admin-gated backend URL config ─────────────────────────────
+function BackendModal({ onClose }) {
+  const ADMIN_SECRET_KEY = 'yt_admin_verified'
+  const [step,      setStep]    = useState(() => sessionStorage.getItem(ADMIN_SECRET_KEY) ? 'url' : 'auth')
+  const [secret,    setSecret]  = useState('')
+  const [secretErr, setSecretErr] = useState('')
+  const [urlInput,  setUrlInput] = useState(localStorage.getItem('yt_api_base') || '')
+  const [saved,     setSaved]   = useState(false)
+
+  const verifySecret = async () => {
+    if (!secret.trim()) { setSecretErr('Enter admin secret'); return }
+    try {
+      const res = await apiFetch('/admin/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret: secret.trim() })
+      })
+      if (res.ok) {
+        sessionStorage.setItem(ADMIN_SECRET_KEY, '1')
+        setStep('url')
+        setSecretErr('')
+      } else {
+        setSecretErr('Wrong secret')
+      }
+    } catch {
+      // If can't reach current backend, allow local override anyway
+      sessionStorage.setItem(ADMIN_SECRET_KEY, '1')
+      setStep('url')
+      setSecretErr('')
+    }
+  }
+
+  const saveUrl = () => {
+    const v = urlInput.trim().replace(/\/$/, '')
+    if (v) { localStorage.setItem('yt_api_base', v) }
+    else   { localStorage.removeItem('yt_api_base') }
+    setSaved(true)
+    setTimeout(() => { setSaved(false); onClose(); window.location.reload() }, 900)
+  }
+
+  const reset = () => {
+    localStorage.removeItem('yt_api_base')
+    setSaved(true)
+    setTimeout(() => { setSaved(false); onClose(); window.location.reload() }, 900)
+  }
+
+  const overlay = { position:'fixed', inset:0, zIndex:600, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center' }
+  const modal   = { background:'#16161f', border:'1px solid rgba(255,255,255,0.1)', borderRadius:14, width:440, padding:28, boxShadow:'0 20px 60px rgba(0,0,0,0.5)', fontFamily:"'Inter','Segoe UI',sans-serif" }
+
+  return (
+    <div style={overlay} onClick={e => { if (e.target===e.currentTarget) onClose() }}>
+      <div style={modal}>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <span style={{ fontSize:20 }}>🖥️</span>
+            <div>
+              <div style={{ fontSize:14, fontWeight:700, color:'#e2e2f0' }}>Backend URL</div>
+              <div style={{ fontSize:11, color:'#555' }}>Override the API server address</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:'none', border:'1px solid rgba(255,255,255,0.1)', borderRadius:6, color:'#555', fontSize:14, width:28, height:28, cursor:'pointer' }}>✕</button>
+        </div>
+
+        {step === 'auth' ? (
+          <>
+            <div style={{ fontSize:12, color:'#7878a0', marginBottom:10 }}>🔒 Admin secret required to change backend URL</div>
+            <input
+              autoFocus type="password" value={secret}
+              onChange={e => { setSecret(e.target.value); setSecretErr('') }}
+              onKeyDown={e => e.key==='Enter' && verifySecret()}
+              placeholder="Admin secret…"
+              style={{ width:'100%', background:'#0d0d18', border:`1.5px solid ${secretErr ? '#ef4444' : 'rgba(255,255,255,0.1)'}`, borderRadius:8, padding:'10px 14px', color:'#e2e2f0', fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'inherit', marginBottom:6 }}
+            />
+            {secretErr && <div style={{ fontSize:11, color:'#f87171', marginBottom:8 }}>{secretErr}</div>}
+            <button onClick={verifySecret} style={{ width:'100%', padding:'10px', borderRadius:8, border:'none', background:'rgba(127,119,221,0.8)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginTop:4 }}>
+              Verify →
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize:11, color:'#7878a0', marginBottom:6 }}>Current backend</div>
+            <div style={{ fontSize:12, color:'#6ee7b7', background:'#0d0d18', borderRadius:6, padding:'7px 12px', marginBottom:14, fontFamily:'monospace', wordBreak:'break-all' }}>
+              {getApiBase()}
+            </div>
+            <div style={{ fontSize:11, color:'#7878a0', marginBottom:6 }}>New URL <span style={{ color:'#444' }}>(leave empty to reset to default)</span></div>
+            <input
+              autoFocus value={urlInput}
+              onChange={e => setUrlInput(e.target.value)}
+              onKeyDown={e => e.key==='Enter' && saveUrl()}
+              placeholder={`e.g. https://basically-praising-paving.ngrok-free.app`}
+              style={{ width:'100%', background:'#0d0d18', border:'1.5px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'10px 14px', color:'#e2e2f0', fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'monospace', marginBottom:14 }}
+            />
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={reset} style={{ flex:1, padding:'9px', borderRadius:8, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.07)', color:'#f87171', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                Reset to default
+              </button>
+              <button onClick={saveUrl} style={{ flex:2, padding:'9px', borderRadius:8, border:'none', background: saved ? 'rgba(16,185,129,0.8)' : 'rgba(127,119,221,0.8)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', transition:'background .2s' }}>
+                {saved ? '✓ Saved — reloading…' : 'Save & Reload'}
+              </button>
+            </div>
+            {localStorage.getItem('yt_api_base') && (
+              <div style={{ marginTop:10, fontSize:11, color:'#7878a0', textAlign:'center' }}>
+                🟣 Custom URL active — <span style={{ color:'#f59e0b' }}>default: {API_DEFAULT}</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [items, setItems]                   = useState(() => [newItem()])
   const [showAdmin, setShowAdmin]           = useState(false)
+  const [showBE,    setShowBE]              = useState(false)
   const [showCookieSetup, setShowCookieSetup] = useState(false)
   const [user, setUser]                     = useState(null)
   const [fetchingAll, setFetchingAll]       = useState(false)
@@ -1206,7 +1323,7 @@ export default function App() {
   const txDim = bgImage ? (bgDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)') : '#3a3a50'
   const cardBg = bgImage ? (bgDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)') : 'rgba(255,255,255,0.03)'
   const cardBorder = bgImage ? (bgDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)') : 'rgba(255,255,255,0.08)'
-  const [isLocalMode, setIsLocalMode]       = useState(false)
+  const [isLocalMode, setIsLocalMode] = useState(() => localStorage.getItem('yt_local_mode') === 'true')
   const pollRef    = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -1239,22 +1356,22 @@ export default function App() {
     const code = params.get('code')
     if (code) {
       window.history.replaceState({}, '', window.location.pathname)
-      apiFetch(`${API}/auth/google`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({code, redirect_uri:REDIRECT_URI}) })
+      apiFetch(`${getApiBase()}/auth/google`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({code, redirect_uri:REDIRECT_URI}) })
         .then(async r => { const data = await r.json(); if (data.session_id) { const u={session_id:data.session_id,name:data.name,email:data.email,picture:data.picture}; setUser(u); localStorage.setItem('yt_session',JSON.stringify(u)) } }).catch(()=>{})
     }
     const stored = localStorage.getItem('yt_session')
     if (stored && !code) {
       try {
         const parsed = JSON.parse(stored)
-        apiFetch(`${API}/auth/session/${parsed.session_id}`).then(r=>{if(r.ok)return r.json();throw new Error()}).then(()=>setUser(parsed)).catch(()=>localStorage.removeItem('yt_session'))
+        apiFetch(`${getApiBase()}/auth/session/${parsed.session_id}`).then(r=>{if(r.ok)return r.json();throw new Error()}).then(()=>setUser(parsed)).catch(()=>localStorage.removeItem('yt_session'))
       } catch { localStorage.removeItem('yt_session') }
     }
-    apiFetch(`${API}/config`).then(r=>r.ok?r.json():null).then(d=>{if(d)setIsLocalMode(!!d.local_mode)}).catch(()=>{})
+    apiFetch(`${getApiBase()}/config`).then(r=>r.ok?r.json():null).then(d=>{ if(d){ const lm=!!d.local_mode; setIsLocalMode(lm); localStorage.setItem('yt_local_mode', lm) } }).catch(()=>{})
   }, [])
 
   // ── Restore active jobs on page load/refresh ──────────────────────────────
   useEffect(() => {
-    apiFetch(`${API}/jobs`)
+    apiFetch(`${getApiBase()}/jobs`)
       .then(r => r.ok ? r.json() : [])
       .then(data => {
         if (!Array.isArray(data) || !data.length) return
@@ -1269,7 +1386,7 @@ export default function App() {
             progress    : j.progress || 0,
             normProgress: j.normalize_progress || 0,
             error       : j.error || null,
-            downloadUrl : j.status === 'done' ? `${API}/download/file/${j.job_id}` : null,
+            downloadUrl : j.status === 'done' ? `${getApiBase()}/download/file/${j.job_id}` : null,
             outFilename : j.filename || null,
             queue_position: j.queue_position || 0,
           }))
@@ -1284,7 +1401,7 @@ export default function App() {
   }, [API])
 
   const logout = async () => {
-    if (user?.session_id) await apiFetch(`${API}/auth/logout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:user.session_id})}).catch(()=>{})
+    if (user?.session_id) await apiFetch(`${getApiBase()}/auth/logout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:user.session_id})}).catch(()=>{})
     setUser(null); localStorage.removeItem('yt_session')
   }
 
@@ -1312,7 +1429,7 @@ export default function App() {
     let pct = 0
     const ticker = setInterval(() => { pct = Math.min(pct+Math.random()*8,88); setItems(prev => prev.map(it => it.id===id ? {...it,fetchPct:Math.round(pct)} : it)) }, 300)
     try {
-      const res = await apiFetch(`${API}/info`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:item.url.trim(),session_id:user?.session_id||null})})
+      const res = await apiFetch(`${getApiBase()}/info`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:item.url.trim(),session_id:user?.session_id||null})})
       const data = await res.json(); clearInterval(ticker)
       if (!res.ok) throw new Error(data.detail||'Failed')
       const firstFmt = data.formats.find(f=>f.type==='video')||data.formats[0]
@@ -1334,14 +1451,14 @@ export default function App() {
   const refreshJobs = async () => {
     if (!jobs.length) return
     const snapshot = [...jobs]
-    const results = await Promise.allSettled(snapshot.map(j=>apiFetch(`${API}/download/status/${j.jobId}`).then(r=>r.json())))
-    setJobs(prev => { let u=[...prev]; results.forEach((r,i)=>{ if(r.status!=='fulfilled')return; const d=r.value,jid=snapshot[i].jobId; u=u.map(j=>{ if(j.jobId!==jid)return j; if(d.status==='done')return{...j,status:'done',progress:100,normProgress:100,downloadUrl:`${API}/download/file/${jid}`,outFilename:d.filename}; if(d.status==='error')return{...j,status:'error',error:d.error}; return{...j,status:d.status,progress:d.progress??j.progress,normProgress:d.normalize_progress??j.normProgress,title:d.title||j.title} }) }); return u })
+    const results = await Promise.allSettled(snapshot.map(j=>apiFetch(`${getApiBase()}/download/status/${j.jobId}`).then(r=>r.json())))
+    setJobs(prev => { let u=[...prev]; results.forEach((r,i)=>{ if(r.status!=='fulfilled')return; const d=r.value,jid=snapshot[i].jobId; u=u.map(j=>{ if(j.jobId!==jid)return j; if(d.status==='done')return{...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${jid}`,outFilename:d.filename}; if(d.status==='error')return{...j,status:'error',error:d.error}; return{...j,status:d.status,progress:d.progress??j.progress,normProgress:d.normalize_progress??j.normProgress,title:d.title||j.title} }) }); return u })
   }
 
   const allReady = items.every(it => it.info && it.selectedFormat)
 
   const _dispatchDownload = async (it) => {
-    const res = await apiFetch(`${API}/download/batch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{url:it.url.trim(),format_id:it.selectedFormat.format_id,session_id:user?.session_id||null}],norm_flags:normConfig.flags,output_ext:normConfig.outputExt||'same'})})
+    const res = await apiFetch(`${getApiBase()}/download/batch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{url:it.url.trim(),format_id:it.selectedFormat.format_id,session_id:user?.session_id||null}],norm_flags:normConfig.flags,output_ext:normConfig.outputExt||'same'})})
     const data = await res.json()
     if (res.ok && data.jobs?.length) { const j=data.jobs[0]; return {jobId:j.job_id,url:j.url,title:it.info?.title||j.url,format:it.selectedFormat?.label||'',status:'queued',progress:0,normProgress:0,queue_position:j.queue_position,downloadUrl:null,outFilename:null,error:null} }
     return null
@@ -1374,7 +1491,7 @@ export default function App() {
   useEffect(() => {
     const poll = async () => {
       try {
-        const r = await apiFetch(`${API}/queue/status`)
+        const r = await apiFetch(`${getApiBase()}/queue/status`)
         if (r.ok) setQueueStatus(await r.json())
       } catch(_) {}
     }
@@ -1389,7 +1506,7 @@ export default function App() {
       const allCurrent = jobsRef.current
       const active = allCurrent.filter(j=>!['done','error'].includes(j.status))
       if (!active.length) { clearInterval(pollRef.current); pollRef.current=null; return }
-      const results = await Promise.allSettled(active.map(j=>apiFetch(`${API}/download/status/${j.jobId}`).then(r=>r.json())))
+      const results = await Promise.allSettled(active.map(j=>apiFetch(`${getApiBase()}/download/status/${j.jobId}`).then(r=>r.json())))
       setJobs(prev => {
         let u=[...prev]
         results.forEach((r,i)=>{ 
@@ -1398,7 +1515,7 @@ export default function App() {
           if(!jid)return
           u=u.map(j=>{ 
             if(j.jobId!==jid)return j
-            if(d.status==='done')return{...j,status:'done',progress:100,normProgress:100,downloadUrl:`${API}/download/file/${jid}`,outFilename:d.filename}
+            if(d.status==='done')return{...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${jid}`,outFilename:d.filename}
             if(d.status==='error'&&d.error==='Cancelled by user')return null  // will be filtered
             if(d.status==='error')return{...j,status:'error',error:d.error}
             return{...j,status:d.status,progress:d.progress??j.progress,normProgress:d.normalize_progress??j.normProgress,queue_position:d.queue_position??j.queue_position,title:d.title||j.title}
@@ -1476,7 +1593,7 @@ export default function App() {
         onClose={() => setShowLocalPanel(false)}
         isLocalMode={isLocalMode}
         normConfig={normConfig}
-        apiFetchFn={(path, opts) => apiFetch(`${API}${path}`, opts)}
+        apiFetchFn={(path, opts) => apiFetch(path, opts)}
       />
 
       {/* ── LEFT TAB ── */}
@@ -1505,7 +1622,7 @@ export default function App() {
         normConfig={normConfig}
         setNormConfig={setNormConfig}
         isLocalMode={isLocalMode}
-        apiFetchFn={(path, opts) => apiFetch(`${API}${path}`, opts)}
+        apiFetchFn={(path, opts) => apiFetch(path, opts)}
         jobs={jobs}
         onRefreshJobs={refreshJobs}
         onClearJobs={() => setJobs([])}
@@ -1556,6 +1673,7 @@ export default function App() {
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <button onClick={()=>setShowAdmin(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>🔧 Admin</button>
+            <button onClick={()=>setShowBE(true)} title="Backend URL" style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border: localStorage.getItem('yt_api_base') ? '1px solid rgba(127,119,221,0.4)' : '1px solid rgba(255,255,255,0.09)', background: localStorage.getItem('yt_api_base') ? 'rgba(127,119,221,0.12)' : 'rgba(255,255,255,0.04)', color: localStorage.getItem('yt_api_base') ? '#c4beff' : '#777', cursor:'pointer', fontFamily:'inherit' }}>🖥️ BE</button>
             <button onClick={()=>setShowAdvisory(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(59,130,246,0.3)', background:'rgba(59,130,246,0.08)', color:'#93c5fd', cursor:'pointer', fontFamily:'inherit' }}>📋 Advisory</button>
             <BgButton
               bgImage={bgImage}
@@ -1572,6 +1690,7 @@ export default function App() {
           </div>
         </div>
         {showAdmin && <AdminPanel onClose={()=>setShowAdmin(false)} />}
+        {showBE    && <BackendModal onClose={()=>setShowBE(false)} />}
 
         {/* ── HERO ── */}
         <div style={{ textAlign:'center', padding:'24px 0 20px', position:'relative' }}>
