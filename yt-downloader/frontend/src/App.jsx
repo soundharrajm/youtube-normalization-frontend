@@ -1232,6 +1232,37 @@ export default function App() {
     apiFetch(`${API}/config`).then(r=>r.ok?r.json():null).then(d=>{if(d)setIsLocalMode(!!d.local_mode)}).catch(()=>{})
   }, [])
 
+  // ── Restore active jobs on page load/refresh ──────────────────────────────
+  useEffect(() => {
+    apiFetch(`${API}/jobs`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => {
+        if (!Array.isArray(data) || !data.length) return
+        // Only restore non-done, non-error jobs + recently done jobs
+        const restored = data
+          .filter(j => j.status && j.url && j.job_id)
+          .map(j => ({
+            jobId       : j.job_id,
+            url         : j.url,
+            title       : j.title || j.url,
+            status      : j.status,
+            progress    : j.progress || 0,
+            normProgress: j.normalize_progress || 0,
+            error       : j.error || null,
+            downloadUrl : j.status === 'done' ? `${API}/download/file/${j.job_id}` : null,
+            outFilename : j.filename || null,
+            queue_position: j.queue_position || 0,
+          }))
+        if (restored.length) {
+          setJobs(restored)
+          // Start polling if any jobs are still active
+          const hasActive = restored.some(j => !['done','error'].includes(j.status))
+          if (hasActive) startPolling()
+        }
+      })
+      .catch(() => {})
+  }, [API])
+
   const logout = async () => {
     if (user?.session_id) await apiFetch(`${API}/auth/logout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:user.session_id})}).catch(()=>{})
     setUser(null); localStorage.removeItem('yt_session')
