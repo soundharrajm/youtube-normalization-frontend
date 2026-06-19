@@ -422,6 +422,21 @@ function JobCard({ job }) {
 
         {/* Progress rings — cancel on hover */}
         <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+          {/* Cancel button for queued jobs */}
+          {isQ && handleCancel && (
+            <button
+              onClick={handleCancel}
+              title="Cancel queued job"
+              style={{
+                width:44, height:44, borderRadius:'50%', border:'1.5px solid rgba(239,68,68,0.4)',
+                background:'rgba(239,68,68,0.08)', color:'#f87171', fontSize:14,
+                cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                flexShrink:0, transition:'all .15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background='rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.7)' }}
+              onMouseLeave={e => { e.currentTarget.style.background='rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.4)' }}
+            >✕</button>
+          )}
           {!isQ && !isErr && (
             <CircleProgress
               pct={dlPct} color='#8b5cf6' size={44} stroke={3} label="DL"
@@ -891,7 +906,7 @@ function CodecAdvisory({ open, onClose }) {
 }
 
 // ── SettingsPanel (right slide panel) ─────────────────────────────────────
-function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs, bgImage, bgBrightness, setBgBrightness }) {
+function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs, onClearQueued, onRemoveJob, bgImage, bgBrightness, setBgBrightness }) {
   const activePreset = PRESETS.find(p => p.id === normConfig.presetId) || PRESETS[2]
   const [customFlags, setCustomFlags] = useState(normConfig.presetId==='custom' ? normConfig.flags : '')
   const [parallelFetch, setParallelFetch] = useState(false)
@@ -1021,7 +1036,12 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                 </div>
                 <div style={{ display:'flex', gap:5 }}>
                   <button onClick={onRefreshJobs} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>↻</button>
-                  <button onClick={onClearJobs} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>✕ Clear</button>
+                  <button onClick={async () => {
+                    try { await apiFetchFn('/queue/clear', { method:'POST' }) } catch(_) {}
+                    // Remove all queued jobs from UI immediately
+                    onClearQueued()
+                  }} title="Cancel all queued jobs" style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(245,158,11,0.25)', background:'rgba(245,158,11,0.07)', color:'#f59e0b', cursor:'pointer', fontFamily:'inherit' }}>⏳ Clear Queue</button>
+                  <button onClick={onClearJobs} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>✕ Clear All</button>
                 </div>
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
@@ -1030,8 +1050,8 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                   onCancel: async (id) => {
                     try {
                       await apiFetchFn('/job/cancel', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:id})})
-                      onRefreshJobs()
                     } catch(_) {}
+                    onRemoveJob(id)
                   },
                   onDelete: async (id, deleteFile) => {
                     try {
@@ -1370,7 +1390,22 @@ export default function App() {
       const active = allCurrent.filter(j=>!['done','error'].includes(j.status))
       if (!active.length) { clearInterval(pollRef.current); pollRef.current=null; return }
       const results = await Promise.allSettled(active.map(j=>apiFetch(`${API}/download/status/${j.jobId}`).then(r=>r.json())))
-      setJobs(prev => { let u=[...prev]; results.forEach((r,i)=>{ if(r.status!=='fulfilled')return; const d=r.value,jid=active[i]?.jobId; if(!jid)return; u=u.map(j=>{ if(j.jobId!==jid)return j; if(d.status==='done')return{...j,status:'done',progress:100,normProgress:100,downloadUrl:`${API}/download/file/${jid}`,outFilename:d.filename}; if(d.status==='error')return{...j,status:'error',error:d.error}; return{...j,status:d.status,progress:d.progress??j.progress,normProgress:d.normalize_progress??j.normProgress,queue_position:d.queue_position??j.queue_position,title:d.title||j.title} }) }); return u })
+      setJobs(prev => {
+        let u=[...prev]
+        results.forEach((r,i)=>{ 
+          if(r.status!=='fulfilled')return
+          const d=r.value,jid=active[i]?.jobId
+          if(!jid)return
+          u=u.map(j=>{ 
+            if(j.jobId!==jid)return j
+            if(d.status==='done')return{...j,status:'done',progress:100,normProgress:100,downloadUrl:`${API}/download/file/${jid}`,outFilename:d.filename}
+            if(d.status==='error'&&d.error==='Cancelled by user')return null  // will be filtered
+            if(d.status==='error')return{...j,status:'error',error:d.error}
+            return{...j,status:d.status,progress:d.progress??j.progress,normProgress:d.normalize_progress??j.normProgress,queue_position:d.queue_position??j.queue_position,title:d.title||j.title}
+          })
+        })
+        return u.filter(Boolean)  // remove nulls (cancelled jobs)
+      })
     }, 800)
   }, [])
 
@@ -1474,6 +1509,8 @@ export default function App() {
         jobs={jobs}
         onRefreshJobs={refreshJobs}
         onClearJobs={() => setJobs([])}
+        onClearQueued={() => setJobs(prev => prev.filter(j => j.status !== 'queued'))}
+        onRemoveJob={(id) => setJobs(prev => prev.filter(j => j.jobId !== id))}
         bgImage={bgImage}
         bgBrightness={bgBrightness}
         setBgBrightness={setBgBrightness}
