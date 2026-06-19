@@ -541,7 +541,7 @@ function JobCard({ job }) {
           </div>
         </div>
 
-        {/* Right side: circles + save button */}
+        {/* Right side: circles + cancel + save button */}
         <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
           {/* Download circle */}
           {!isQ && !isErr && (
@@ -554,6 +554,19 @@ function JobCard({ job }) {
             <CircleProgress
               pct={normPct} color='#3b82f6' size={44} stroke={3}
               label="NRM" done={normPct === 100} />
+          )}
+          {/* Cancel button — show for active and queued jobs */}
+          {!isDone && !isErr && job.onCancel && (
+            <button onClick={() => job.onCancel(job.id)}
+              title="Cancel"
+              style={{
+                width:32, height:32, borderRadius:8,
+                border:'1px solid rgba(239,68,68,0.3)',
+                background:'rgba(239,68,68,0.08)',
+                color:'#f87171', fontSize:16, cursor:'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                flexShrink:0,
+              }}>✕</button>
           )}
           {/* Save button */}
           {isDone && job.downloadUrl && (
@@ -605,13 +618,13 @@ function QueueBadge({ jobs }) {
     }}>
       <div style={{ fontSize:11, color:'#555', fontWeight:600, letterSpacing:'0.5px', textTransform:'uppercase' }}>Queue</div>
       {[
-        { label:'Active',  val:active,  color:'#8b5cf6' },
-        { label:'Waiting', val:queued,  color:'#f59e0b' },
+        { label:'Active',  val:active,  color:'#f97316' },
+        { label:'Queued',  val:queued,  color:'#eab308' },
         { label:'Done',    val:done,    color:'#10b981' },
         { label:'Failed',  val:failed,  color:'#ef4444' },
       ].map(r => r.val > 0 && (
         <div key={r.label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
-          <span style={{ fontSize:12, color:'#666' }}>{r.label}</span>
+          <span style={{ fontSize:12, color:r.color, fontWeight:600 }}>{r.label}</span>
           <span style={{ ...S.mono, fontSize:13, fontWeight:700, color:r.color,
             background:`${r.color}18`, border:`1px solid ${r.color}33`,
             borderRadius:6, padding:'1px 8px' }}>{r.val}</span>
@@ -1557,7 +1570,20 @@ export default function App() {
               }}>↻ Refresh</button>
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {jobs.map(job => <JobCard key={job.jobId} job={job} />)}
+              {jobs.map(job => <JobCard key={job.jobId} job={{
+                ...job,
+                onCancel: async (jobId) => {
+                  try {
+                    await apiFetch(API + '/cancel/' + jobId, { method: 'POST' })
+                    setJobs(prev => prev.map(j => j.jobId === jobId
+                      ? { ...j, status: 'error', error: 'Cancelled by user' }
+                      : j
+                    ))
+                  } catch(e) {
+                    console.error('Cancel failed:', e)
+                  }
+                }
+              }} />)}
             </div>
           </div>
         )}
