@@ -1429,12 +1429,12 @@ export default function App() {
   // ── Styles ─────────────────────────────────────────────────────────────
   const st = {
     app:     { height:'100vh', background: bgImage ? 'transparent' : '#141420', fontFamily:"'Space Grotesk',sans-serif", color:tx, overflow:'hidden', display:'flex', flexDirection:'column', position:'relative' },
-    wrap:    { maxWidth:1200, margin:'0 auto', padding:'0 32px 40px', flex:1, overflowY:'auto', scrollbarWidth:'none', position:'relative', zIndex:1 },
+    wrap:    { maxWidth:1200, margin:'0 auto', padding:'0 32px 40px', flex:1, overflowY:'auto', overflowX:'hidden', position:'relative', zIndex:1, WebkitOverflowScrolling:'touch' },
   }
 
   return (
     <div style={st.app}>
-      <style>{`html,body{margin:0;padding:0;height:100%;overflow:hidden;scrollbar-width:none;-ms-overflow-style:none}html::-webkit-scrollbar,body::-webkit-scrollbar,div::-webkit-scrollbar{display:none}`}</style>
+      <style>{`html,body{margin:0;padding:0;height:100%;overflow:hidden;scrollbar-width:none;-ms-overflow-style:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.15)}`}</style>
 
       {/* ── BACKGROUND IMAGE LAYER ── */}
       {bgImage && (
