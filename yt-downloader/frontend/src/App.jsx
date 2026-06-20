@@ -940,6 +940,8 @@ function DownloadHistory({ apiFetchFn, jobs }) {
 
   const clearAll = () => { setHist([]); localStorage.removeItem('yt_dl_history') }
 
+  const [copied, setCopied] = useState(false)
+
   const allEntries = hist
 
   if (!allEntries.length) return null
@@ -953,7 +955,14 @@ function DownloadHistory({ apiFetchFn, jobs }) {
           <span style={{ fontSize:10, color:'#555' }}>{open ? '▲' : '▼'}</span>
         </button>
         {open && (
-          <button onClick={clearAll} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>✕ Clear</button>
+          <div style={{ display:'flex', gap:5 }}>
+            <button onClick={() => {
+              const names = allEntries.map(h => h.filename).join('\n')
+              navigator.clipboard.writeText(names)
+              setCopied(true); setTimeout(() => setCopied(false), 2000)
+            }} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border: copied ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(59,130,246,0.3)', background: copied ? 'rgba(16,185,129,0.08)' : 'rgba(59,130,246,0.07)', color: copied ? '#34d399' : '#93c5fd', cursor:'pointer', fontFamily:'inherit' }}>{copied ? '✓ Copied!' : '📋 Copy All Names'}</button>
+            <button onClick={clearAll} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>✕ Clear</button>
+          </div>
         )}
       </div>
 
