@@ -909,6 +909,58 @@ function CodecAdvisory({ open, onClose }) {
 }
 
 // ── SettingsPanel (right slide panel) ─────────────────────────────────────
+// ── DownloadHistory — persisted across sessions ───────────────────────────────
+function DownloadHistory({ apiFetchFn }) {
+  const [hist, setHist] = useState(() => { try { return JSON.parse(localStorage.getItem('yt_dl_history')||'[]') } catch { return [] } })
+  const [open, setOpen] = useState(false)
+
+  const remove = (jobId) => {
+    const updated = hist.filter(h => h.jobId !== jobId)
+    setHist(updated)
+    localStorage.setItem('yt_dl_history', JSON.stringify(updated))
+  }
+
+  const clearAll = () => { setHist([]); localStorage.removeItem('yt_dl_history') }
+
+  if (!hist.length) return null
+
+  return (
+    <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:12, marginTop:8 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: open ? 10 : 0 }}>
+        <button onClick={() => setOpen(v=>!v)} style={{ display:'flex', alignItems:'center', gap:7, background:'none', border:'none', cursor:'pointer', padding:0 }}>
+          <span style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700 }}>📂 Download History</span>
+          <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:'#3b82f6', borderRadius:100, padding:'1px 7px' }}>{hist.length}</span>
+          <span style={{ fontSize:10, color:'#555' }}>{open ? '▲' : '▼'}</span>
+        </button>
+        {open && (
+          <button onClick={clearAll} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>✕ Clear</button>
+        )}
+      </div>
+
+      {open && (
+        <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:260, overflowY:'auto' }}>
+          {hist.map(h => (
+            <div key={h.jobId} style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:8, padding:'8px 10px' }}>
+              <div style={{ flex:1, overflow:'hidden' }}>
+                <div style={{ fontSize:12, color:'#10b981', ...T.mono, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{h.filename}</div>
+                <div style={{ fontSize:10, color:'#555', marginTop:2 }}>{h.doneAt}</div>
+              </div>
+              <a href={h.downloadUrl} download={h.filename}
+                style={{ fontSize:11, padding:'4px 10px', borderRadius:6, background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.3)', color:'#34d399', textDecoration:'none', fontWeight:700, flexShrink:0 }}>
+                ↓ Save
+              </a>
+              <button onClick={() => remove(h.jobId)}
+                style={{ width:20, height:20, border:'none', background:'none', color:'#555', fontSize:12, cursor:'pointer', flexShrink:0 }}
+                onMouseEnter={e => e.currentTarget.style.color='#f87171'}
+                onMouseLeave={e => e.currentTarget.style.color='#555'}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs, onClearQueued, onRemoveJob, bgImage, bgBrightness, setBgBrightness }) {
   const activePreset = PRESETS.find(p => p.id === normConfig.presetId) || PRESETS[2]
   const [customFlags, setCustomFlags] = useState(normConfig.presetId==='custom' ? normConfig.flags : '')
@@ -1041,7 +1093,6 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                   <button onClick={onRefreshJobs} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>↻</button>
                   <button onClick={async () => {
                     try { await apiFetchFn('/queue/clear', { method:'POST' }) } catch(_) {}
-                    // Remove all queued jobs from UI immediately
                     onClearQueued()
                   }} title="Cancel all queued jobs" style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(245,158,11,0.25)', background:'rgba(245,158,11,0.07)', color:'#f59e0b', cursor:'pointer', fontFamily:'inherit' }}>⏳ Clear Queue</button>
                   <button onClick={onClearJobs} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>✕ Clear All</button>
@@ -1067,6 +1118,9 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
               </div>
             </div>
           )}
+
+          {/* ── DOWNLOAD HISTORY ── */}
+          <DownloadHistory apiFetchFn={apiFetchFn} />
 
         </div>
       </div>
@@ -1508,22 +1562,33 @@ export default function App() {
       const active = allCurrent.filter(j=>!['done','error'].includes(j.status))
       if (!active.length) { clearInterval(pollRef.current); pollRef.current=null; return }
       const results = await Promise.allSettled(active.map(j=>apiFetch(`${getApiBase()}/download/status/${j.jobId}`).then(r=>r.json())))
-      setJobs(prev => {
-        let u=[...prev]
-        results.forEach((r,i)=>{ 
-          if(r.status!=='fulfilled')return
-          const d=r.value,jid=active[i]?.jobId
-          if(!jid)return
-          u=u.map(j=>{ 
-            if(j.jobId!==jid)return j
-            if(d.status==='done')return{...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${jid}`,outFilename:d.filename}
-            if(d.status==='error'&&d.error==='Cancelled by user')return null  // will be filtered
-            if(d.status==='error')return{...j,status:'error',error:d.error}
-            return{...j,status:d.status,progress:d.progress??j.progress,normProgress:d.normalize_progress??j.normProgress,queue_position:d.queue_position??j.queue_position,title:d.title||j.title}
-          })
+    setJobs(prev => {
+      let u=[...prev]
+      results.forEach((r,i)=>{ 
+        if(r.status!=='fulfilled')return
+        const d=r.value,jid=active[i]?.jobId
+        if(!jid)return
+        u=u.map(j=>{ 
+          if(j.jobId!==jid)return j
+          if(d.status==='done'){
+            const doneJob={...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${jid}`,outFilename:d.filename}
+            // Persist to localStorage history
+            try {
+              const hist = JSON.parse(localStorage.getItem('yt_dl_history')||'[]')
+              if (!hist.find(h=>h.jobId===jid)) {
+                hist.unshift({ jobId:jid, filename:d.filename, url:j.url, downloadUrl:`${getApiBase()}/download/file/${jid}`, doneAt: new Date().toLocaleString() })
+                localStorage.setItem('yt_dl_history', JSON.stringify(hist.slice(0,50)))
+              }
+            } catch(_) {}
+            return doneJob
+          }
+          if(d.status==='error'&&d.error==='Cancelled by user')return null
+          if(d.status==='error')return{...j,status:'error',error:d.error}
+          return{...j,status:d.status,progress:d.progress??j.progress,normProgress:d.normalize_progress??j.normProgress,queue_position:d.queue_position??j.queue_position,title:d.title||j.title}
         })
-        return u.filter(Boolean)  // remove nulls (cancelled jobs)
       })
+      return u.filter(Boolean)
+    })
     }, 800)
   }, [])
 
