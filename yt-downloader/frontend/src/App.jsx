@@ -910,9 +910,27 @@ function CodecAdvisory({ open, onClose }) {
 
 // ── SettingsPanel (right slide panel) ─────────────────────────────────────
 // ── DownloadHistory — persisted across sessions ───────────────────────────────
-function DownloadHistory({ apiFetchFn }) {
+function DownloadHistory({ apiFetchFn, jobs }) {
   const [hist, setHist] = useState(() => { try { return JSON.parse(localStorage.getItem('yt_dl_history')||'[]') } catch { return [] } })
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
+
+  // Seed history from current done jobs that aren't already in history
+  useEffect(() => {
+    if (!jobs?.length) return
+    const doneJobs = jobs.filter(j => j.status === 'done' && j.outFilename && j.downloadUrl)
+    if (!doneJobs.length) return
+    setHist(prev => {
+      let updated = [...prev]
+      doneJobs.forEach(j => {
+        if (!updated.find(h => h.jobId === j.jobId)) {
+          updated.unshift({ jobId: j.jobId, filename: j.outFilename, downloadUrl: j.downloadUrl, doneAt: new Date().toLocaleString() })
+        }
+      })
+      updated = updated.slice(0, 50)
+      localStorage.setItem('yt_dl_history', JSON.stringify(updated))
+      return updated
+    })
+  }, [jobs])
 
   const remove = (jobId) => {
     const updated = hist.filter(h => h.jobId !== jobId)
@@ -922,14 +940,16 @@ function DownloadHistory({ apiFetchFn }) {
 
   const clearAll = () => { setHist([]); localStorage.removeItem('yt_dl_history') }
 
-  if (!hist.length) return null
+  const allEntries = hist
+
+  if (!allEntries.length) return null
 
   return (
     <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:12, marginTop:8 }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: open ? 10 : 0 }}>
         <button onClick={() => setOpen(v=>!v)} style={{ display:'flex', alignItems:'center', gap:7, background:'none', border:'none', cursor:'pointer', padding:0 }}>
           <span style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700 }}>📂 Download History</span>
-          <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:'#3b82f6', borderRadius:100, padding:'1px 7px' }}>{hist.length}</span>
+          <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:'#3b82f6', borderRadius:100, padding:'1px 7px' }}>{allEntries.length}</span>
           <span style={{ fontSize:10, color:'#555' }}>{open ? '▲' : '▼'}</span>
         </button>
         {open && (
@@ -939,7 +959,7 @@ function DownloadHistory({ apiFetchFn }) {
 
       {open && (
         <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:260, overflowY:'auto' }}>
-          {hist.map(h => (
+          {allEntries.map(h => (
             <div key={h.jobId} style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:8, padding:'8px 10px' }}>
               <div style={{ flex:1, overflow:'hidden' }}>
                 <div style={{ fontSize:12, color:'#10b981', ...T.mono, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{h.filename}</div>
@@ -1120,7 +1140,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
           )}
 
           {/* ── DOWNLOAD HISTORY ── */}
-          <DownloadHistory apiFetchFn={apiFetchFn} />
+          <DownloadHistory apiFetchFn={apiFetchFn} jobs={jobs} />
 
         </div>
       </div>
