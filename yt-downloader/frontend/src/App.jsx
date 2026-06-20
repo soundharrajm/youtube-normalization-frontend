@@ -1724,7 +1724,11 @@ export default function App() {
         apiFetchFn={(path, opts) => apiFetch(path, opts)}
         jobs={jobs}
         onRefreshJobs={refreshJobs}
-        onClearJobs={() => { setJobs([]); localStorage.removeItem('yt_dl_history') }}
+        onClearJobs={async () => {
+          try { await apiFetch('/queue/clear-all', { method: 'POST' }) } catch(_) {}
+          setJobs([])
+          localStorage.removeItem('yt_dl_history')
+        }}
         onClearQueued={() => {
           setJobs(prev => {
             const kept = prev.filter(j => j.status !== 'queued')
