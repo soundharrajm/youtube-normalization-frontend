@@ -1398,7 +1398,7 @@ export default function App() {
         }
       })
       .catch(() => {})
-  }, [API])
+  }, [])
 
   const logout = async () => {
     if (user?.session_id) await apiFetch(`${getApiBase()}/auth/logout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:user.session_id})}).catch(()=>{})
