@@ -1161,7 +1161,7 @@ const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error
 // ── BackendModal — admin-gated backend URL config ─────────────────────────────
 function BackendModal({ onClose }) {
   const ADMIN_SECRET_KEY = 'yt_admin_verified'
-  const [step,      setStep]    = useState(() => sessionStorage.getItem(ADMIN_SECRET_KEY) ? 'url' : 'auth')
+  const [step,      setStep]    = useState(() => (sessionStorage.getItem(ADMIN_SECRET_KEY) || localStorage.getItem('yt_admin_token')) ? 'url' : 'auth')
   const [secret,    setSecret]  = useState('')
   const [secretErr, setSecretErr] = useState('')
   const [urlInput,  setUrlInput] = useState(localStorage.getItem('yt_api_base') || '')
@@ -1173,20 +1173,21 @@ function BackendModal({ onClose }) {
       const res = await apiFetch('/admin/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret: secret.trim() })
+        body: JSON.stringify({ secret: secret.trim() }),
       })
       if (res.ok) {
+        localStorage.setItem('yt_admin_token', secret.trim())
         sessionStorage.setItem(ADMIN_SECRET_KEY, '1')
-        setStep('url')
-        setSecretErr('')
+        setStep('url'); setSecretErr('')
       } else {
         setSecretErr('Wrong secret')
       }
     } catch {
-      // If can't reach current backend, allow local override anyway
+      // Backend unreachable — this is exactly when BE URL needs changing
+      // Accept any input so admin can fix the URL
+      localStorage.setItem('yt_admin_token', secret.trim())
       sessionStorage.setItem(ADMIN_SECRET_KEY, '1')
-      setStep('url')
-      setSecretErr('')
+      setStep('url'); setSecretErr('')
     }
   }
 
