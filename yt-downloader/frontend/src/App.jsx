@@ -910,7 +910,7 @@ function CodecAdvisory({ open, onClose }) {
 
 // ── SettingsPanel (right slide panel) ─────────────────────────────────────
 // ── DownloadHistory — persisted across sessions ───────────────────────────────
-function DownloadHistory({ apiFetchFn, jobs }) {
+function DownloadHistory({ apiFetchFn, jobs, onClearAll }) {
   const [hist, setHist] = useState(() => { try { return JSON.parse(localStorage.getItem('yt_dl_history')||'[]') } catch { return [] } })
   const [open, setOpen] = useState(true)
 
@@ -938,7 +938,11 @@ function DownloadHistory({ apiFetchFn, jobs }) {
     localStorage.setItem('yt_dl_history', JSON.stringify(updated))
   }
 
-  const clearAll = () => { setHist([]); localStorage.removeItem('yt_dl_history') }
+  const clearAll = () => {
+    setHist([])
+    localStorage.removeItem('yt_dl_history')
+    onClearAll?.()
+  }
 
   const [copied, setCopied] = useState(false)
 
@@ -1149,7 +1153,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
           )}
 
           {/* ── DOWNLOAD HISTORY ── */}
-          <DownloadHistory apiFetchFn={apiFetchFn} jobs={jobs} />
+          <DownloadHistory apiFetchFn={apiFetchFn} jobs={jobs} onClearAll={onClearJobs} />
 
         </div>
       </div>
@@ -1720,9 +1724,26 @@ export default function App() {
         apiFetchFn={(path, opts) => apiFetch(path, opts)}
         jobs={jobs}
         onRefreshJobs={refreshJobs}
-        onClearJobs={() => setJobs([])}
-        onClearQueued={() => setJobs(prev => prev.filter(j => j.status !== 'queued'))}
-        onRemoveJob={(id) => setJobs(prev => prev.filter(j => j.jobId !== id))}
+        onClearJobs={() => { setJobs([]); localStorage.removeItem('yt_dl_history') }}
+        onClearQueued={() => {
+          setJobs(prev => {
+            const kept = prev.filter(j => j.status !== 'queued')
+            // Remove queued entries from history too
+            try {
+              const hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]')
+              const keptIds = new Set(kept.map(j => j.jobId))
+              localStorage.setItem('yt_dl_history', JSON.stringify(hist.filter(h => keptIds.has(h.jobId))))
+            } catch(_) {}
+            return kept
+          })
+        }}
+        onRemoveJob={(id) => {
+          setJobs(prev => prev.filter(j => j.jobId !== id))
+          try {
+            const hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]')
+            localStorage.setItem('yt_dl_history', JSON.stringify(hist.filter(h => h.jobId !== id)))
+          } catch(_) {}
+        }}
         bgImage={bgImage}
         bgBrightness={bgBrightness}
         setBgBrightness={setBgBrightness}
