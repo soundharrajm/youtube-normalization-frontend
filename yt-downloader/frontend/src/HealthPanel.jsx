@@ -82,7 +82,16 @@ export default function HealthPanel({ open, onClose, apiFetchFn }) {
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
             {lastPoll && <span style={{ fontSize:9, color:'#444', fontFamily:'monospace' }}>{lastPoll}</span>}
-            <button onClick={fetchHealth} title="Refresh" style={{ width:24, height:24, borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', fontSize:12, cursor:'pointer' }}>↻</button>
+            <button onClick={fetchHealth} title="Refresh health" style={{ width:24, height:24, borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', fontSize:12, cursor:'pointer' }}>↻</button>
+            <button onClick={async () => {
+              try {
+                const res = await apiFetchFn('/system/stats')
+                const d   = await res.json()
+                console.table(d.top_processes)
+                console.log('[STATS]', JSON.stringify(d, null, 2))
+                alert(`CPU: ${d.cpu.total_pct}%  RAM: ${d.ram.pct}% (${d.ram.free_gb}GB free)  Disk: ${d.disk.free_gb}GB free\nJobs: ${JSON.stringify(d.jobs.by_status)}\nUptime: ${d.uptime}`)
+              } catch(e) { alert('Could not fetch stats: ' + e.message) }
+            }} title="Full system stats" style={{ width:24, height:24, borderRadius:6, border:'1px solid rgba(59,130,246,0.3)', background:'rgba(59,130,246,0.06)', color:'#93c5fd', fontSize:11, cursor:'pointer' }}>📊</button>
             <button onClick={onClose} style={{ width:24, height:24, borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', fontSize:12, cursor:'pointer' }}>✕</button>
           </div>
         </div>
