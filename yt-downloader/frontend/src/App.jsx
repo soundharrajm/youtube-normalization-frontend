@@ -595,9 +595,20 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
   const [scanResult, setScanResult] = useState(null)
   const [scanning, setScanning]     = useState(false)
   const [localJobs, setLocalJobs]   = useState([])
+  const [showPopup, setShowPopup]   = useState(false)
+  const [copied, setCopied]         = useState(false)
   const localPollRef = useRef(null)
+  const prevDoneRef  = useRef(0)
 
-  // Poll local job statuses every second while any are active
+  // Auto-show popup when all active jobs complete
+  useEffect(() => {
+    const doneCount   = localJobs.filter(j => j.status === 'done').length
+    const activeCount = localJobs.filter(j => j.status === 'queued' || j.status === 'normalizing').length
+    if (doneCount > 0 && activeCount === 0 && doneCount > prevDoneRef.current) setShowPopup(true)
+    prevDoneRef.current = doneCount
+  }, [localJobs])
+
+  // Poll active jobs
   useEffect(() => {
     const active = localJobs.filter(j => j.status !== 'done' && j.status !== 'error')
     if (!active.length) { clearInterval(localPollRef.current); return }
@@ -607,7 +618,10 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
       if (!ids.length) { clearInterval(localPollRef.current); return }
       try {
         const results = await Promise.allSettled(
-          ids.map(id => apiFetchFn(`/download/status/${id}`).then(r=>r.json()))
+          ids.map(id => apiFetchFn(`/download/status/${id}`).then(r => {
+            if (r.status === 404) return { _missing: true }
+            return r.json()
+          }))
         )
         setLocalJobs(prev => prev.map(j => {
           const idx = ids.indexOf(j.job_id)
@@ -615,10 +629,11 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
           const r = results[idx]
           if (r.status !== 'fulfilled') return j
           const d = r.value
-          if (d.status === 'done') return {...j, status:'done', normalize_progress:100, title:d.filename||j.title}
-          if (d.status === 'error') return {...j, status:'error', error:d.error}
-          return {...j, status:d.status, normalize_progress:d.normalize_progress??j.normalize_progress}
-        }))
+          if (d._missing) return null
+          if (d.status === 'done')  return { ...j, status:'done',  normalize_progress:100, out_path:j.out_path }
+          if (d.status === 'error') return { ...j, status:'error', error:d.error }
+          return { ...j, status:d.status, normalize_progress:d.normalize_progress??j.normalize_progress }
+        }).filter(Boolean))
       } catch(_) {}
     }, 1000)
     return () => clearInterval(localPollRef.current)
@@ -629,7 +644,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
     if (!pathList.length) return
     setScanning(true); setScanResult(null)
     try {
-      const res = await apiFetchFn('/normalize/local/scan', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList,recursive,skip_already_normalized:skipDone,output_ext:normConfig.outputExt||'same'}) })
+      const res = await apiFetchFn('/normalize/local/scan', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList,recursive,skip_already_normalized:skipDone}) })
       if (res.ok) setScanResult(await res.json())
     } catch(_) {} finally { setScanning(false) }
   }
@@ -637,8 +652,9 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
   async function handleNormalize() {
     const pathList = paths.split('\n').map(p=>p.trim().replace(/^["']+|["']+$/g,'')).filter(Boolean)
     if (!pathList.length) return
+    prevDoneRef.current = 0
     try {
-      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList,norm_flags:normConfig.flags,output_ext:normConfig.outputExt||'same',recursive,skip_already_normalized:skipDone}) })
+      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList,norm_flags:normConfig?.flags||null,recursive,skip_already_normalized:skipDone}) })
       if (res.ok) {
         const created = await res.json()
         setLocalJobs(prev => [...created.map(j=>({...j,status:'queued',normalize_progress:0,title:j.source_path.split(/[/\\]/).pop()})),...prev])
@@ -647,25 +663,73 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
     } catch(_) {}
   }
 
-  const activeJobs = localJobs.filter(j=>j.status!=='done'&&j.status!=='error').length
+  const doneJobs    = localJobs.filter(j => j.status === 'done')
+  const activeCount = localJobs.filter(j => j.status === 'queued' || j.status === 'normalizing').length
+  const doneCount   = doneJobs.length
+  const totalJobs   = localJobs.length
+  const errorCount  = localJobs.filter(j => j.status === 'error').length
+  const runningCount= localJobs.filter(j => j.status === 'normalizing').length
+  const queuedCount = localJobs.filter(j => j.status === 'queued').length
+  const pct         = totalJobs > 0 ? Math.round(doneCount / totalJobs * 100) : 0
+
+  const copyDoneNames = () => {
+    const names = doneJobs.map(j => j.out_path?.split(/[/\\]/).pop() || j.title).join('\n')
+    navigator.clipboard.writeText(names)
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
+  }
 
   const panelStyle = {
-    position:'fixed', left:0, top:0, height:'100vh', width:'min(280px,90vw)',
+    position:'fixed', left:0, top:0, height:'100vh', width:'min(300px,90vw)',
     background:'#13121f', borderRight:'1px solid rgba(186,117,23,0.35)',
     transform:open?'translateX(0)':'translateX(-100%)',
     transition:'transform .25s ease', zIndex:160,
     overflowY:'auto', display:'flex', flexDirection:'column',
   }
-  const lbl = { fontSize:10, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
+  const lbl  = { fontSize:10, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
   const sdiv = { height:1, background:'rgba(186,117,23,0.12)', margin:'12px 0' }
 
   return (
     <div style={panelStyle}>
+      {/* Completion popup */}
+      {showPopup && (
+        <div style={{ position:'fixed', inset:0, zIndex:600, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center' }}
+          onClick={e => { if (e.target===e.currentTarget) setShowPopup(false) }}>
+          <div style={{ background:'#16161f', border:'1px solid rgba(255,255,255,0.1)', borderRadius:14, width:500, maxHeight:'70vh', display:'flex', flexDirection:'column', boxShadow:'0 20px 60px rgba(0,0,0,0.5)', fontFamily:"'Inter','Segoe UI',sans-serif" }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <span style={{ fontSize:20 }}>✅</span>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:700, color:'#e2e2f0' }}>Normalization Complete</div>
+                  <div style={{ fontSize:11, color:'#555' }}>{doneJobs.length} file{doneJobs.length!==1?'s':''} normalized</div>
+                </div>
+              </div>
+              <button onClick={()=>setShowPopup(false)} style={{ background:'none', border:'1px solid rgba(255,255,255,0.1)', borderRadius:6, color:'#555', fontSize:14, width:28, height:28, cursor:'pointer' }}>✕</button>
+            </div>
+            <div style={{ flex:1, overflowY:'auto', padding:'10px 18px' }}>
+              {doneJobs.map((j,i) => (
+                <div key={j.job_id||i} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
+                  <span style={{ color:'#22c55e', fontSize:12, flexShrink:0 }}>✓</span>
+                  <span style={{ flex:1, fontSize:11, color:'#6ee7b7', fontFamily:'monospace', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {j.out_path?.split(/[/\\]/).pop() || j.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding:'10px 18px', borderTop:'1px solid rgba(255,255,255,0.08)', display:'flex', gap:8, justifyContent:'flex-end' }}>
+              <button onClick={() => { copyDoneNames(); }} style={{ padding:'7px 14px', borderRadius:7, border:'1px solid rgba(59,130,246,0.4)', background:'rgba(59,130,246,0.08)', color:'#93c5fd', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                {copied ? '✓ Copied!' : '📋 Copy All Names'}
+              </button>
+              <button onClick={()=>setShowPopup(false)} style={{ padding:'7px 14px', borderRadius:7, border:'none', background:'rgba(127,119,221,0.8)', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 14px 11px', borderBottom:'1px solid rgba(186,117,23,0.3)', position:'sticky', top:0, background:'#13121f', zIndex:2 }}>
         <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:600, color:'#ffffff' }}>
           <span style={{ fontSize:18 }}>📁</span> Local Normalizer
-          {activeJobs > 0 && <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:100, padding:'1px 7px' }}>{activeJobs}</span>}
+          {activeCount > 0 && <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:100, padding:'1px 7px' }}>{activeCount}</span>}
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:7 }}>
           <span style={{ fontSize:9, color:T.am3, background:'rgba(186,117,23,0.13)', border:'1px solid rgba(186,117,23,0.22)', borderRadius:100, padding:'2px 7px', fontWeight:700 }}>LOCAL</span>
@@ -690,6 +754,8 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
               <button onClick={handleScan} disabled={scanning||!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, padding:'7px 12px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.07)', color:'#c0c0e0', cursor:'pointer', fontFamily:'inherit' }}>🔍 {scanning?'Scanning…':'Preview'}</button>
               <button onClick={handleNormalize} disabled={!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, padding:'7px 14px', borderRadius:7, border:'1px solid rgba(29,158,117,0.35)', background:'rgba(29,158,117,0.12)', color:T.te2, cursor:'pointer', fontFamily:'inherit' }}>▶ Normalize</button>
             </div>
+
+            {/* Scan result */}
             {scanResult && (
               <div style={{ background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:8, padding:'9px 11px', marginBottom:8 }}>
                 <div style={{ fontSize:11, color:'#9090b8', marginBottom:5 }}>Found {scanResult.count} file{scanResult.count!==1?'s':''}</div>
@@ -703,15 +769,64 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
                 ))}
               </div>
             )}
+
+            {/* Jobs section */}
             {localJobs.length > 0 && (
               <>
                 <div style={sdiv} />
-                <div style={lbl}>Jobs</div>
+
+                {/* Jobs header with action buttons */}
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8, flexWrap:'wrap', gap:5 }}>
+                  <div style={{ ...lbl, marginBottom:0 }}>Jobs <span style={{ color:'#3b82f6' }}>({totalJobs})</span></div>
+                  <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                    {doneCount > 0 && (
+                      <button onClick={copyDoneNames} style={{ fontSize:9, padding:'2px 7px', borderRadius:5, border: copied?'1px solid rgba(34,197,94,0.4)':'1px solid rgba(59,130,246,0.3)', background: copied?'rgba(34,197,94,0.07)':'rgba(59,130,246,0.07)', color: copied?'#22c55e':'#93c5fd', cursor:'pointer', fontFamily:'inherit' }}>
+                        {copied?'✓ Copied!':'📋 Copy Names'}
+                      </button>
+                    )}
+                    {doneCount > 0 && (
+                      <button onClick={()=>setShowPopup(true)} style={{ fontSize:9, padding:'2px 7px', borderRadius:5, border:'1px solid rgba(34,197,94,0.3)', background:'rgba(34,197,94,0.07)', color:'#22c55e', cursor:'pointer', fontFamily:'inherit' }}>
+                        ✅ View Done
+                      </button>
+                    )}
+                    {doneCount > 0 && (
+                      <button onClick={()=>setLocalJobs(prev=>prev.filter(j=>j.status!=='done'&&j.status!=='error'))} style={{ fontSize:9, padding:'2px 7px', borderRadius:5, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>
+                        Clear Done
+                      </button>
+                    )}
+                    <button onClick={()=>{setLocalJobs([]);prevDoneRef.current=0}} style={{ fontSize:9, padding:'2px 7px', borderRadius:5, border:'1px solid rgba(239,68,68,0.25)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>
+                      ✕ Clear All
+                    </button>
+                  </div>
+                </div>
+
+                {/* Queue status bar */}
+                <div style={{ marginBottom:8, padding:'7px 10px', borderRadius:7, background:'rgba(59,130,246,0.07)', border:'1px solid rgba(59,130,246,0.18)' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5 }}>
+                    <span style={{ fontSize:9, color:'#7878a0', fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em' }}>⚡ Queue</span>
+                    <div style={{ display:'flex', gap:8, fontSize:9, ...T.mono }}>
+                      {runningCount > 0 && <span style={{ color:'#3b82f6' }}>↻ {runningCount} running</span>}
+                      {queuedCount  > 0 && <span style={{ color:'#f59e0b' }}>⏳ {queuedCount} waiting</span>}
+                      {doneCount    > 0 && <span style={{ color:'#22c55e' }}>✓ {doneCount} done</span>}
+                      {errorCount   > 0 && <span style={{ color:'#ef4444' }}>✕ {errorCount} error</span>}
+                    </div>
+                    <span style={{ fontSize:9, color:'#3b82f6', fontWeight:700, ...T.mono }}>{pct}%</span>
+                  </div>
+                  <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:100, height:3 }}>
+                    <div style={{ height:'100%', borderRadius:100, background: pct===100?'#22c55e':'linear-gradient(90deg,#3b82f6,#6366f1)', width:`${pct}%`, transition:'width 0.5s ease' }} />
+                  </div>
+                </div>
+
+                {/* Job rows */}
                 {localJobs.map(j => (
                   <div key={j.job_id} style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'7px 10px', marginBottom:5 }}>
-                    <span style={{ fontSize:13, color:j.status==='done'?T.te3:j.status==='error'?'#ef4444':'#f59e0b' }}>{j.status==='done'?'✓':j.status==='error'?'✗':'⏳'}</span>
+                    <span style={{ fontSize:13, color:j.status==='done'?'#22c55e':j.status==='error'?'#ef4444':j.status==='normalizing'?'#3b82f6':'#f59e0b' }}>
+                      {j.status==='done'?'✓':j.status==='error'?'✗':j.status==='normalizing'?'↻':'⏳'}
+                    </span>
                     <span style={{ flex:1, fontSize:11, color:'#e0e0f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</span>
-                    <span style={{ fontSize:10, color:'#9090b8', ...T.mono }}>{j.status==='done'?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}</span>
+                    <span style={{ fontSize:10, color:'#9090b8', ...T.mono }}>
+                      {j.status==='done'?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}
+                    </span>
                   </div>
                 ))}
               </>
