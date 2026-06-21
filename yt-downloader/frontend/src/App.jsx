@@ -658,7 +658,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
     if (!pathList.length) return
     prevDoneRef.current = 0
     try {
-      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList,norm_flags:normConfig?.flags||null,recursive,skip_already_normalized:skipDone}) })
+      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList,norm_flags:effectiveFlags(normConfig),recursive,skip_already_normalized:skipDone}) })
       if (res.ok) {
         const created = await res.json()
         setLocalJobs(prev => [...created.map(j=>({...j,status:'queued',normalize_progress:0,title:j.source_path.split(/[/\\]/).pop()})),...prev])
@@ -1537,9 +1537,20 @@ export default function App() {
 
   const [normConfig, setNormConfig] = useState({
     presetId: 'hq',
-    flags: '-c:v libx264 -crf 19 -forced-idr 1 -c:a copy -c:s copy',
+    flags: '-c:v libx264 -crf 19 -forced-idr 1 -c:a copy',
     outputExt: 'same',
+    subtitleMode: 'convert',
   })
+
+  // Build final flags with subtitle mode injected
+  const effectiveFlags = (cfg = normConfig) => {
+    const subFlag = cfg.subtitleMode === 'drop' ? '-sn'
+                  : cfg.subtitleMode === 'copy' ? '-c:s copy'
+                  : '-c:s mov_text'
+    // Strip any existing subtitle flags then append chosen one
+    const base = (cfg.flags || '').replace(/-c:s\s+\S+|-sn/g, '').trim()
+    return `${base} ${subFlag}`.trim()
+  }
 
   const importUrls = (e) => {
     const file = e.target.files?.[0]; if (!file) return
@@ -1666,7 +1677,7 @@ export default function App() {
   const allReady = items.every(it => it.info && it.selectedFormat)
 
   const _dispatchDownload = async (it) => {
-    const res = await apiFetch(`${getApiBase()}/download/batch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{url:it.url.trim(),format_id:it.selectedFormat.format_id,session_id:user?.session_id||null}],norm_flags:normConfig.flags,output_ext:normConfig.outputExt||'same'})})
+    const res = await apiFetch(`${getApiBase()}/download/batch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{url:it.url.trim(),format_id:it.selectedFormat.format_id,session_id:user?.session_id||null}],norm_flags:effectiveFlags(),output_ext:normConfig.outputExt||'same'})})
     const data = await res.json()
     if (res.ok && data.jobs?.length) { const j=data.jobs[0]; return {jobId:j.job_id,url:j.url,title:it.info?.title||j.url,format:it.selectedFormat?.label||'',status:'queued',progress:0,normProgress:0,queue_position:j.queue_position,downloadUrl:null,outFilename:null,error:null} }
     return null

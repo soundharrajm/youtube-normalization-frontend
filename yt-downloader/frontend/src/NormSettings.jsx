@@ -16,16 +16,27 @@ const OUTPUT_FORMATS = [
   { ext:"mov",  label:".mov",           desc:"Apple QuickTime", color:"#6ee7b7" },
 ];
 
+const SUBTITLE_MODES = [
+  { id:"convert", label:"Convert",  flag:"-c:s mov_text", desc:"SRT→mov_text (safe for mp4)", color:"#22c55e" },
+  { id:"copy",    label:"Copy",     flag:"-c:s copy",     desc:"Fast, may fail on mp4",        color:"#3b82f6" },
+  { id:"drop",    label:"Drop",     flag:"-sn",           desc:"Remove all subtitles",         color:"#f59e0b" },
+]
+
 export default function NormSettings({ value, onChange }) {
   const [customInput, setCustomInput] = useState(value?.presetId === "custom" ? value.flags : "")
   const [open, setOpen] = useState(false)
 
-  const activePreset = PRESETS.find(p => p.id === value?.presetId) || PRESETS[2]
-  const activeExt    = value?.outputExt || "same"
+  const activePreset   = PRESETS.find(p => p.id === value?.presetId) || PRESETS[2]
+  const activeExt      = value?.outputExt || "same"
+  const activeSubMode  = value?.subtitleMode || "convert"
 
   function selectPreset(preset) {
     if (preset.id === "custom") onChange({ ...value, presetId:"custom", flags:customInput })
     else onChange({ ...value, presetId:preset.id, flags:preset.flags })
+  }
+
+  function selectSubMode(mode) {
+    onChange({ ...value, subtitleMode: mode.id })
   }
 
   function handleCustomChange(e) {
@@ -64,6 +75,29 @@ export default function NormSettings({ value, onChange }) {
             )
           })}
         </div>
+      </div>
+
+      {/* ── Subtitle handling bar ── */}
+      <div style={{ ...S.formatBar, marginBottom:6 }}>
+        <span style={S.formatBarLabel}>Subtitles</span>
+        <div style={S.formatBtns}>
+          {SUBTITLE_MODES.map(m => {
+            const active = activeSubMode === m.id
+            return (
+              <button key={m.id} onClick={() => selectSubMode(m)} title={m.desc} style={{
+                ...S.fmtBtn,
+                background: active ? `rgba(${m.id==="convert"?"34,197,94":m.id==="copy"?"59,130,246":"245,158,11"},0.15)` : "rgba(255,255,255,0.04)",
+                border: `1.5px solid ${active ? m.color : "rgba(255,255,255,0.1)"}`,
+                color:  active ? m.color : "#888",
+              }}>
+                {m.label}
+              </button>
+            )
+          })}
+        </div>
+        <span style={{ fontSize:10, color:'#505070', marginLeft:4, whiteSpace:'nowrap' }}>
+          {SUBTITLE_MODES.find(m=>m.id===activeSubMode)?.desc}
+        </span>
       </div>
 
       {/* ── Collapsible preset trigger ── */}
