@@ -650,21 +650,32 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     try {
       const res = await apiFetchFn('/normalize/local/scan', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList,recursive,skip_already_normalized:skipDone}) })
       if (res.ok) setScanResult(await res.json())
-    } catch(_) {} finally { setScanning(false) }
+      else console.error('[Scan] failed:', res.status, await res.json().catch(()=>({})))
+    } catch(e) { console.error('[Scan] error:', e) }
+    finally { setScanning(false) }
   }
 
   async function handleNormalize() {
     const pathList = paths.split('\n').map(p=>p.trim().replace(/^["']+|["']+$/g,'')).filter(Boolean)
     if (!pathList.length) return
     prevDoneRef.current = 0
+    // Build flags with subtitle mode inline
+    const subFlag = normConfig?.subtitleMode === 'drop' ? '-sn'
+                  : normConfig?.subtitleMode === 'copy' ? '-c:s copy'
+                  : '-c:s mov_text'
+    const baseFlags = (normConfig?.flags || '-c:v libx264 -crf 19 -forced-idr 1 -c:a copy').replace(/-c:s\s+\S+|-sn/g, '').trim()
+    const finalFlags = `${baseFlags} ${subFlag}`.trim()
     try {
-      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList,norm_flags:effectiveFlags(normConfig),recursive,skip_already_normalized:skipDone}) })
+      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList, norm_flags:finalFlags, recursive, skip_already_normalized:skipDone}) })
       if (res.ok) {
         const created = await res.json()
         setLocalJobs(prev => [...created.map(j=>({...j,status:'queued',normalize_progress:0,title:j.source_path.split(/[/\\]/).pop()})),...prev])
         setScanResult(null)
+      } else {
+        const d = await res.json().catch(()=>({}))
+        console.error('[Normalize] failed:', res.status, d)
       }
-    } catch(_) {}
+    } catch(e) { console.error('[Normalize] error:', e) }
   }
 
   const doneJobs    = localJobs.filter(j => j.status === 'done')
