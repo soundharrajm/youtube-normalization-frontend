@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import AdminPanel from './AdminPanel.jsx'
+import AdminPanel  from './AdminPanel.jsx'
+import HealthPanel  from './HealthPanel.jsx'
 import CookieSetup from './CookieSetup.jsx'
 import SearchPanel from './SearchPanel.jsx'
 
@@ -608,14 +609,16 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
     prevDoneRef.current = doneCount
   }, [localJobs])
 
-  // Poll active jobs
+  const localJobsRef = useRef([])
+  useEffect(() => { localJobsRef.current = localJobs }, [localJobs])
+
+  // Stable polling interval — starts once, reads from ref
   useEffect(() => {
-    const active = localJobs.filter(j => j.status !== 'done' && j.status !== 'error')
-    if (!active.length) { clearInterval(localPollRef.current); return }
-    clearInterval(localPollRef.current)
-    localPollRef.current = setInterval(async () => {
-      const ids = localJobs.filter(j=>j.status!=='done'&&j.status!=='error').map(j=>j.job_id)
-      if (!ids.length) { clearInterval(localPollRef.current); return }
+    const tick = async () => {
+      const ids = localJobsRef.current
+        .filter(j => j.status !== 'done' && j.status !== 'error')
+        .map(j => j.job_id)
+      if (!ids.length) return
       try {
         const results = await Promise.allSettled(
           ids.map(id => apiFetchFn(`/download/status/${id}`).then(r => {
@@ -630,14 +633,15 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
           if (r.status !== 'fulfilled') return j
           const d = r.value
           if (d._missing) return null
-          if (d.status === 'done')  return { ...j, status:'done',  normalize_progress:100, out_path:j.out_path }
+          if (d.status === 'done')  return { ...j, status:'done',  normalize_progress:100 }
           if (d.status === 'error') return { ...j, status:'error', error:d.error }
           return { ...j, status:d.status, normalize_progress:d.normalize_progress??j.normalize_progress }
         }).filter(Boolean))
       } catch(_) {}
-    }, 1000)
+    }
+    localPollRef.current = setInterval(tick, 1000)
     return () => clearInterval(localPollRef.current)
-  }, [localJobs])
+  }, []) // ← empty deps: starts once, never restarts
 
   async function handleScan() {
     const pathList = paths.split('\n').map(p=>p.trim().replace(/^["']+|["']+$/g,'')).filter(Boolean)
@@ -1493,6 +1497,7 @@ export default function App() {
   const [showSettings, setShowSettings]     = useState(false)
   const [showLocalPanel, setShowLocalPanel] = useState(false)
   const [showAdvisory, setShowAdvisory]     = useState(false)
+  const [showHealth,   setShowHealth]       = useState(false)
   const [queueStatus, setQueueStatus]       = useState(null)
   const [bgImage, setBgImage]               = useState(() => localStorage.getItem('yt_bg_image') || null)
   const [bgBrightness, setBgBrightness]     = useState(() => Number(localStorage.getItem('yt_bg_brightness') || 30))
@@ -1918,6 +1923,7 @@ export default function App() {
             <button onClick={()=>setShowAdmin(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>🔧 Admin</button>
             <button onClick={()=>setShowBE(true)} title="Backend URL" style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border: localStorage.getItem('yt_api_base') ? '1px solid rgba(127,119,221,0.4)' : '1px solid rgba(255,255,255,0.09)', background: localStorage.getItem('yt_api_base') ? 'rgba(127,119,221,0.12)' : 'rgba(255,255,255,0.04)', color: localStorage.getItem('yt_api_base') ? '#c4beff' : '#777', cursor:'pointer', fontFamily:'inherit' }}>🖥️ BE</button>
             <button onClick={()=>setShowAdvisory(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(59,130,246,0.3)', background:'rgba(59,130,246,0.08)', color:'#93c5fd', cursor:'pointer', fontFamily:'inherit' }}>📋 Advisory</button>
+            <button onClick={()=>setShowHealth(v=>!v)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border: showHealth ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(34,197,94,0.2)', background: showHealth ? 'rgba(34,197,94,0.12)' : 'rgba(34,197,94,0.05)', color:'#22c55e', cursor:'pointer', fontFamily:'inherit' }}>● Health</button>
             <BgButton
               bgImage={bgImage}
               bgBrightness={bgBrightness}
@@ -1964,6 +1970,7 @@ export default function App() {
 
         {/* ── CODEC ADVISORY MODAL ── */}
         <CodecAdvisory open={showAdvisory} onClose={()=>setShowAdvisory(false)} />
+        <HealthPanel open={showHealth} onClose={()=>setShowHealth(false)} apiFetchFn={apiFetch} />
 
         {/* ── OUTPUT FORMAT DROPDOWN — always visible ── */}
         <div style={{ background: bgImage ? (bgDark?'rgba(0,0,0,0.4)':'rgba(255,255,255,0.5)') : 'rgba(83,74,183,0.08)', border:'1px solid rgba(127,119,221,0.22)', borderRadius:12, padding:'10px 14px', marginBottom:'.65rem', display:'flex', alignItems:'center', gap:12 }}>
