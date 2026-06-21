@@ -269,6 +269,38 @@ export default function LocalNormalizer({ apiFetch, normConfig, isLocalMode }) {
                   <button style={styles.clearBtn} onClick={clearDone}>Clear done</button>
                 )}
               </div>
+
+              {/* ── Queue status bar ── */}
+              {jobs.length > 0 && (() => {
+                const total     = jobs.length
+                const done      = jobs.filter(j => j.status === 'done').length
+                const running   = jobs.filter(j => j.status === 'normalizing').length
+                const queued    = jobs.filter(j => j.status === 'queued').length
+                const errored   = jobs.filter(j => j.status === 'error').length
+                const pct       = total > 0 ? Math.round(done / total * 100) : 0
+                return (
+                  <div style={{ marginBottom:10, padding:'8px 12px', borderRadius:8, background:'rgba(59,130,246,0.07)', border:'1px solid rgba(59,130,246,0.18)' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                      <span style={{ fontSize:10, color:'#7878a0', fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em' }}>⚡ Queue</span>
+                      <div style={{ display:'flex', gap:10, fontSize:10, fontFamily:'monospace' }}>
+                        {running > 0 && <span style={{ color:'#3b82f6' }}>↻ {running} running</span>}
+                        {queued  > 0 && <span style={{ color:'#f59e0b' }}>⏳ {queued} waiting</span>}
+                        {done    > 0 && <span style={{ color:'#22c55e' }}>✓ {done} done</span>}
+                        {errored > 0 && <span style={{ color:'#ef4444' }}>✕ {errored} error</span>}
+                      </div>
+                      <span style={{ fontSize:10, color:'#3b82f6', fontWeight:700, fontFamily:'monospace' }}>{pct}%</span>
+                    </div>
+                    <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:100, height:4 }}>
+                      <div style={{
+                        height:'100%', borderRadius:100,
+                        background: pct === 100 ? '#22c55e' : 'linear-gradient(90deg,#3b82f6,#6366f1)',
+                        width:`${pct}%`, transition:'width 0.5s ease'
+                      }} />
+                    </div>
+                  </div>
+                )
+              })()}
+
               {jobs.map(j => (
                 <div key={j.job_id} style={styles.jobCard}>
                   <Ring
