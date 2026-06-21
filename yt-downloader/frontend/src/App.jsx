@@ -1594,13 +1594,21 @@ export default function App() {
       const allCurrent = jobsRef.current
       const active = allCurrent.filter(j=>!['done','error'].includes(j.status))
       if (!active.length) { clearInterval(pollRef.current); pollRef.current=null; return }
-      const results = await Promise.allSettled(active.map(j=>apiFetch(`${getApiBase()}/download/status/${j.jobId}`).then(r=>r.json())))
+      const results = await Promise.allSettled(active.map(j=>apiFetch(`${getApiBase()}/download/status/${j.jobId}`).then(r=>{
+        if(r.status===404) return {_missing:true}
+        return r.json()
+      })))
     setJobs(prev => {
       let u=[...prev]
       results.forEach((r,i)=>{ 
         if(r.status!=='fulfilled')return
         const d=r.value,jid=active[i]?.jobId
         if(!jid)return
+        if(d._missing){ 
+          u=u.filter(j=>j.jobId!==jid)
+          try { const h=JSON.parse(localStorage.getItem('yt_dl_history')||'[]'); localStorage.setItem('yt_dl_history',JSON.stringify(h.filter(x=>x.jobId!==jid))) } catch(_){}
+          return
+        }
         u=u.map(j=>{ 
           if(j.jobId!==jid)return j
           if(d.status==='done'){

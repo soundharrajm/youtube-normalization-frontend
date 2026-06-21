@@ -16,29 +16,77 @@ const STATUS_LABEL = {
   error:       "Error",
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function Ring({ pct = 0, color = "#3b82f6", size = 36 }) {
   const r = (size - 4) / 2;
   const circ = 2 * Math.PI * r;
   const dash = (pct / 100) * circ;
   return (
     <svg width={size} height={size}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none"
-        stroke="#2e2e45" strokeWidth={3} />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none"
-        stroke={color} strokeWidth={3}
-        strokeDasharray={`${dash} ${circ}`}
-        strokeLinecap="round"
-        transform={`rotate(-90 ${size / 2} ${size / 2})`} />
-      <text x={size / 2} y={size / 2 + 4} textAnchor="middle"
-        fontSize="9" fill={color} fontWeight="700">{pct}%</text>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#2e2e45" strokeWidth={3} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={3}
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+        transform={`rotate(-90 ${size/2} ${size/2})`} />
+      <text x={size/2} y={size/2+4} textAnchor="middle" fontSize="9" fill={color} fontWeight="700">{pct}%</text>
     </svg>
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Completion popup ──────────────────────────────────────────────────────────
+function CompletionPopup({ jobs, onClose }) {
+  const doneJobs = jobs.filter(j => j.status === "done");
+  const [copied, setCopied] = useState(false);
 
+  const copyAll = () => {
+    const names = doneJobs.map(j => j.out_path?.split(/[\\/]/).pop() || j.title).join("\n");
+    navigator.clipboard.writeText(names);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:600, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background:"#16161f", border:"1px solid rgba(255,255,255,0.1)", borderRadius:14, width:520, maxHeight:"70vh", display:"flex", flexDirection:"column", boxShadow:"0 20px 60px rgba(0,0,0,0.5)", fontFamily:"'Inter','Segoe UI',sans-serif" }}>
+        {/* Header */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 20px", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:20 }}>✅</span>
+            <div>
+              <div style={{ fontSize:14, fontWeight:700, color:"#e2e2f0" }}>Normalization Complete</div>
+              <div style={{ fontSize:11, color:"#555" }}>{doneJobs.length} file{doneJobs.length !== 1 ? "s" : ""} normalized</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, color:"#555", fontSize:14, width:28, height:28, cursor:"pointer" }}>✕</button>
+        </div>
+        {/* File list */}
+        <div style={{ flex:1, overflowY:"auto", padding:"12px 20px" }}>
+          {doneJobs.map((j, i) => (
+            <div key={j.job_id || i} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 0", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+              <span style={{ color:"#22c55e", fontSize:12, flexShrink:0 }}>✓</span>
+              <span style={{ flex:1, fontSize:12, color:"#6ee7b7", fontFamily:"monospace", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {j.out_path?.split(/[\\/]/).pop() || j.title}
+              </span>
+              <span style={{ fontSize:10, color:"#505070", flexShrink:0, fontFamily:"monospace" }}>
+                {j.out_path?.split(/[\\/]/).slice(0,-1).join("/").slice(-30)}
+              </span>
+            </div>
+          ))}
+        </div>
+        {/* Footer */}
+        <div style={{ padding:"12px 20px", borderTop:"1px solid rgba(255,255,255,0.08)", display:"flex", gap:8, justifyContent:"flex-end" }}>
+          <button onClick={copyAll} style={{ padding:"8px 16px", borderRadius:8, border: copied ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(59,130,246,0.4)", background: copied ? "rgba(34,197,94,0.08)" : "rgba(59,130,246,0.08)", color: copied ? "#22c55e" : "#93c5fd", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+            {copied ? "✓ Copied!" : "📋 Copy All Names"}
+          </button>
+          <button onClick={onClose} style={{ padding:"8px 16px", borderRadius:8, border:"none", background:"rgba(127,119,221,0.8)", color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function LocalNormalizer({ apiFetch, normConfig, isLocalMode }) {
   const [paths, setPaths]         = useState("");
   const [recursive, setRecursive] = useState(false);
@@ -46,10 +94,23 @@ export default function LocalNormalizer({ apiFetch, normConfig, isLocalMode }) {
   const [scanResult, setScanResult] = useState(null);
   const [scanning, setScanning]   = useState(false);
   const [starting, setStarting]   = useState(false);
-  const [jobs, setJobs]           = useState([]);       // { job_id, source_path, out_path, ...status }
+  const [jobs, setJobs]           = useState([]);
   const [error, setError]         = useState(null);
   const [open, setOpen]           = useState(false);
-  const pollRef = useRef(null);
+  const [showPopup, setShowPopup] = useState(false);
+  const [copied, setCopied]       = useState(false);
+  const pollRef  = useRef(null);
+  const prevDone = useRef(0);
+
+  // ── Auto-show popup when all active jobs finish ───────────────────────────
+  useEffect(() => {
+    const doneCount   = jobs.filter(j => j.status === "done").length;
+    const activeCount = jobs.filter(j => j.status === "queued" || j.status === "normalizing").length;
+    if (doneCount > 0 && activeCount === 0 && doneCount > prevDone.current) {
+      setShowPopup(true);
+    }
+    prevDone.current = doneCount;
+  }, [jobs]);
 
   // ── Poll active jobs ──────────────────────────────────────────────────────
   const pollJobs = useCallback(async (jobIds) => {
@@ -64,8 +125,9 @@ export default function LocalNormalizer({ apiFetch, normConfig, isLocalMode }) {
       setJobs(prev =>
         prev.map(j => {
           const fresh = data[j.job_id];
+          if (fresh && Object.keys(fresh).length === 0) return null;
           return fresh ? { ...j, ...fresh } : j;
-        })
+        }).filter(Boolean)
       );
     } catch (_) {}
   }, [apiFetch]);
@@ -74,7 +136,6 @@ export default function LocalNormalizer({ apiFetch, normConfig, isLocalMode }) {
     const activeIds = jobs
       .filter(j => j.status === "queued" || j.status === "normalizing")
       .map(j => j.job_id);
-
     if (activeIds.length) {
       pollRef.current = setInterval(() => pollJobs(activeIds), 1000);
     }
@@ -85,73 +146,53 @@ export default function LocalNormalizer({ apiFetch, normConfig, isLocalMode }) {
   async function handleScan() {
     const pathList = paths.split("\n").map(p => p.trim()).filter(Boolean);
     if (!pathList.length) { setError("Enter at least one path."); return; }
-    setError(null);
-    setScanning(true);
-    setScanResult(null);
+    setError(null); setScanning(true); setScanResult(null);
     try {
       const res = await apiFetch("/normalize/local/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ paths: pathList, recursive, skip_already_normalized: skipDone }),
       });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.detail || "Scan failed");
-      }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.detail || "Scan failed"); }
       setScanResult(await res.json());
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setScanning(false);
-    }
+    } catch (e) { setError(e.message); }
+    finally { setScanning(false); }
   }
 
   // ── Start jobs ────────────────────────────────────────────────────────────
   async function handleStart() {
     const pathList = paths.split("\n").map(p => p.trim()).filter(Boolean);
-    setError(null);
-    setStarting(true);
+    setError(null); setStarting(true); prevDone.current = 0;
     try {
       const res = await apiFetch("/normalize/local", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paths: pathList,
-          norm_flags: normConfig?.flags || null,
-          recursive,
-          skip_already_normalized: skipDone,
-        }),
+        body: JSON.stringify({ paths: pathList, norm_flags: normConfig?.flags || null, recursive, skip_already_normalized: skipDone }),
       });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.detail || "Failed to start jobs");
-      }
-      const created = await res.json(); // [{ job_id, source_path, out_path, status }]
+      if (!res.ok) { const d = await res.json(); throw new Error(d.detail || "Failed to start jobs"); }
+      const created = await res.json();
       setJobs(prev => [
-        ...created.map(j => ({
-          job_id:             j.job_id,
-          source_path:        j.source_path,
-          out_path:           j.out_path,
-          title:              j.source_path.split(/[\\/]/).pop(),
-          status:             "queued",
-          normalize_progress: 0,
-        })),
+        ...created.map(j => ({ job_id: j.job_id, source_path: j.source_path, out_path: j.out_path, title: j.source_path.split(/[\\/]/).pop(), status: "queued", normalize_progress: 0 })),
         ...prev,
       ]);
       setScanResult(null);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setStarting(false);
-    }
+    } catch (e) { setError(e.message); }
+    finally { setStarting(false); }
   }
 
-  function clearDone() {
-    setJobs(prev => prev.filter(j => j.status !== "done" && j.status !== "error"));
-  }
-
+  const doneJobs    = jobs.filter(j => j.status === "done");
   const activeCount = jobs.filter(j => j.status === "queued" || j.status === "normalizing").length;
-  const doneCount   = jobs.filter(j => j.status === "done").length;
+  const doneCount   = doneJobs.length;
+
+  const copyDoneNames = () => {
+    const names = doneJobs.map(j => j.out_path?.split(/[\\/]/).pop() || j.title).join("\n");
+    navigator.clipboard.writeText(names);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const clearAll  = () => { setJobs([]); prevDone.current = 0; };
+  const clearDone = () => setJobs(prev => prev.filter(j => j.status !== "done" && j.status !== "error"));
 
   // ── Server mode guard ─────────────────────────────────────────────────────
   if (!isLocalMode) {
@@ -160,10 +201,7 @@ export default function LocalNormalizer({ apiFetch, normConfig, isLocalMode }) {
         <span style={styles.serverIcon}>🖥️</span>
         <div>
           <p style={styles.serverTitle}>Local Normalizer — not available</p>
-          <p style={styles.serverSub}>
-            The backend is running in server mode. Local file paths aren't accessible.
-            <br />Set <code>LOCAL_MODE=true</code> in your backend <code>.env</code> to enable this.
-          </p>
+          <p style={styles.serverSub}>Backend is in server mode. Set <code>LOCAL_MODE=true</code> in backend <code>.env</code>.</p>
         </div>
       </div>
     );
@@ -171,6 +209,8 @@ export default function LocalNormalizer({ apiFetch, normConfig, isLocalMode }) {
 
   return (
     <div style={styles.wrapper}>
+      {showPopup && <CompletionPopup jobs={jobs} onClose={() => setShowPopup(false)} />}
+
       {/* Header / toggle */}
       <button style={styles.trigger} onClick={() => setOpen(o => !o)}>
         <span style={styles.triggerLeft}>
@@ -178,57 +218,38 @@ export default function LocalNormalizer({ apiFetch, normConfig, isLocalMode }) {
           <span>
             <span style={styles.triggerTitle}>Local File Normalizer</span>
             <span style={styles.triggerSub}>
-              {activeCount > 0
-                ? `${activeCount} running…`
-                : doneCount > 0
-                ? `${doneCount} done`
-                : "Normalize files on this machine"}
+              {activeCount > 0 ? `${activeCount} running…` : doneCount > 0 ? `${doneCount} done` : "Normalize files on this machine"}
             </span>
           </span>
         </span>
-        {activeCount > 0 && (
-          <span style={{ ...styles.badge, background: "#3b82f6" }}>{activeCount} active</span>
-        )}
+        {activeCount > 0 && <span style={{ ...styles.badge, background:"#3b82f6" }}>{activeCount} active</span>}
         <span style={{ ...styles.chevron, transform: open ? "rotate(180deg)" : "rotate(0)" }}>▾</span>
       </button>
 
       {open && (
         <div style={styles.panel}>
-
           {/* Path input */}
           <label style={styles.label}>
-            File or folder path(s)
-            <span style={styles.hint}> — one per line; folders are scanned automatically</span>
+            File or folder path(s)<span style={styles.hint}> — one per line</span>
           </label>
-          <textarea
-            style={styles.textarea}
-            rows={3}
-            value={paths}
+          <textarea style={styles.textarea} rows={3} value={paths}
             onChange={e => { setPaths(e.target.value); setScanResult(null); }}
-            placeholder={"C:\\Videos\\movie.mp4\nC:\\Shows\\Season1\\"}
-            spellCheck={false}
-          />
+            placeholder={"C:\\Videos\\movie.mp4\nC:\\Shows\\Season1\\"} spellCheck={false} />
 
-          {/* Options row */}
+          {/* Options */}
           <div style={styles.optRow}>
             <label style={styles.checkbox}>
-              <input type="checkbox" checked={recursive}
-                onChange={e => setRecursive(e.target.checked)} />
+              <input type="checkbox" checked={recursive} onChange={e => setRecursive(e.target.checked)} />
               Scan subfolders recursively
             </label>
             <label style={styles.checkbox}>
-              <input type="checkbox" checked={skipDone}
-                onChange={e => setSkipDone(e.target.checked)} />
+              <input type="checkbox" checked={skipDone} onChange={e => setSkipDone(e.target.checked)} />
               Skip already-normalized files
             </label>
           </div>
 
-          {/* Supported formats note */}
-          <p style={styles.extsNote}>
-            Supported: {VIDEO_EXTS.join("  ")}
-          </p>
+          <p style={styles.extsNote}>Supported: {VIDEO_EXTS.join("  ")}</p>
 
-          {/* Error */}
           {error && <p style={styles.errorMsg}>⚠️ {error}</p>}
 
           {/* Action buttons */}
@@ -245,9 +266,7 @@ export default function LocalNormalizer({ apiFetch, normConfig, isLocalMode }) {
           {scanResult && (
             <div style={styles.scanBox}>
               <p style={styles.scanTitle}>
-                {scanResult.count === 0
-                  ? "No eligible files found."
-                  : `Found ${scanResult.count} file${scanResult.count !== 1 ? "s" : ""} to normalize:`}
+                {scanResult.count === 0 ? "No eligible files found." : `Found ${scanResult.count} file${scanResult.count !== 1 ? "s" : ""} to normalize:`}
               </p>
               {scanResult.files.map((f, i) => (
                 <div key={i} style={styles.scanRow}>
@@ -263,59 +282,69 @@ export default function LocalNormalizer({ apiFetch, normConfig, isLocalMode }) {
           {/* Job list */}
           {jobs.length > 0 && (
             <div style={styles.jobSection}>
+
+              {/* Job header with all action buttons */}
               <div style={styles.jobHeader}>
-                <span style={styles.jobHeaderTitle}>Jobs</span>
-                {doneCount > 0 && (
-                  <button style={styles.clearBtn} onClick={clearDone}>Clear done</button>
-                )}
+                <span style={styles.jobHeaderTitle}>
+                  Jobs <span style={{ color:"#3b82f6" }}>({jobs.length})</span>
+                </span>
+                <div style={{ display:"flex", gap:5, flexWrap:"wrap", justifyContent:"flex-end" }}>
+                  {doneCount > 0 && (
+                    <button onClick={copyDoneNames} style={{ fontSize:10, padding:"3px 8px", borderRadius:5, border: copied ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(59,130,246,0.3)", background: copied ? "rgba(34,197,94,0.07)" : "rgba(59,130,246,0.07)", color: copied ? "#22c55e" : "#93c5fd", cursor:"pointer", fontFamily:"inherit" }}>
+                      {copied ? "✓ Copied!" : "📋 Copy Done Names"}
+                    </button>
+                  )}
+                  {doneCount > 0 && (
+                    <button onClick={() => setShowPopup(true)} style={{ fontSize:10, padding:"3px 8px", borderRadius:5, border:"1px solid rgba(34,197,94,0.3)", background:"rgba(34,197,94,0.07)", color:"#22c55e", cursor:"pointer", fontFamily:"inherit" }}>
+                      ✅ View Done
+                    </button>
+                  )}
+                  {doneCount > 0 && (
+                    <button style={{ fontSize:10, padding:"3px 8px", borderRadius:5, border:"1px solid rgba(255,255,255,0.09)", background:"rgba(255,255,255,0.04)", color:"#777", cursor:"pointer", fontFamily:"inherit" }} onClick={clearDone}>
+                      Clear Done
+                    </button>
+                  )}
+                  <button style={{ fontSize:10, padding:"3px 8px", borderRadius:5, border:"1px solid rgba(239,68,68,0.25)", background:"rgba(239,68,68,0.06)", color:"#f87171", cursor:"pointer", fontFamily:"inherit" }} onClick={clearAll}>
+                    ✕ Clear All
+                  </button>
+                </div>
               </div>
 
-              {/* ── Queue status bar ── */}
-              {jobs.length > 0 && (() => {
-                const total     = jobs.length
-                const done      = jobs.filter(j => j.status === 'done').length
-                const running   = jobs.filter(j => j.status === 'normalizing').length
-                const queued    = jobs.filter(j => j.status === 'queued').length
-                const errored   = jobs.filter(j => j.status === 'error').length
-                const pct       = total > 0 ? Math.round(done / total * 100) : 0
+              {/* Queue status bar */}
+              {(() => {
+                const total   = jobs.length;
+                const done    = doneCount;
+                const running = jobs.filter(j => j.status === "normalizing").length;
+                const queued  = jobs.filter(j => j.status === "queued").length;
+                const errored = jobs.filter(j => j.status === "error").length;
+                const pct     = total > 0 ? Math.round(done / total * 100) : 0;
                 return (
-                  <div style={{ marginBottom:10, padding:'8px 12px', borderRadius:8, background:'rgba(59,130,246,0.07)', border:'1px solid rgba(59,130,246,0.18)' }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-                      <span style={{ fontSize:10, color:'#7878a0', fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em' }}>⚡ Queue</span>
-                      <div style={{ display:'flex', gap:10, fontSize:10, fontFamily:'monospace' }}>
-                        {running > 0 && <span style={{ color:'#3b82f6' }}>↻ {running} running</span>}
-                        {queued  > 0 && <span style={{ color:'#f59e0b' }}>⏳ {queued} waiting</span>}
-                        {done    > 0 && <span style={{ color:'#22c55e' }}>✓ {done} done</span>}
-                        {errored > 0 && <span style={{ color:'#ef4444' }}>✕ {errored} error</span>}
+                  <div style={{ marginBottom:10, padding:"8px 12px", borderRadius:8, background:"rgba(59,130,246,0.07)", border:"1px solid rgba(59,130,246,0.18)" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                      <span style={{ fontSize:10, color:"#7878a0", fontWeight:700, textTransform:"uppercase", letterSpacing:".06em" }}>⚡ Queue</span>
+                      <div style={{ display:"flex", gap:10, fontSize:10, fontFamily:"monospace" }}>
+                        {running > 0 && <span style={{ color:"#3b82f6" }}>↻ {running} running</span>}
+                        {queued  > 0 && <span style={{ color:"#f59e0b" }}>⏳ {queued} waiting</span>}
+                        {done    > 0 && <span style={{ color:"#22c55e" }}>✓ {done} done</span>}
+                        {errored > 0 && <span style={{ color:"#ef4444" }}>✕ {errored} error</span>}
                       </div>
-                      <span style={{ fontSize:10, color:'#3b82f6', fontWeight:700, fontFamily:'monospace' }}>{pct}%</span>
+                      <span style={{ fontSize:10, color:"#3b82f6", fontWeight:700, fontFamily:"monospace" }}>{pct}%</span>
                     </div>
-                    <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:100, height:4 }}>
-                      <div style={{
-                        height:'100%', borderRadius:100,
-                        background: pct === 100 ? '#22c55e' : 'linear-gradient(90deg,#3b82f6,#6366f1)',
-                        width:`${pct}%`, transition:'width 0.5s ease'
-                      }} />
+                    <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:100, height:4 }}>
+                      <div style={{ height:"100%", borderRadius:100, background: pct===100 ? "#22c55e" : "linear-gradient(90deg,#3b82f6,#6366f1)", width:`${pct}%`, transition:"width 0.5s ease" }} />
                     </div>
                   </div>
-                )
+                );
               })()}
 
               {jobs.map(j => (
                 <div key={j.job_id} style={styles.jobCard}>
-                  <Ring
-                    pct={j.status === "done" ? 100 : j.normalize_progress || 0}
-                    color={STATUS_COLOR[j.status] || "#6b7280"}
-                  />
+                  <Ring pct={j.status === "done" ? 100 : j.normalize_progress || 0} color={STATUS_COLOR[j.status] || "#6b7280"} />
                   <div style={styles.jobInfo}>
                     <p style={styles.jobTitle}>{j.title || j.source_path?.split(/[\\/]/).pop()}</p>
                     <p style={styles.jobPath}>{j.source_path}</p>
-                    {j.status === "done" && (
-                      <p style={styles.jobOut}>✅ {j.out_path}</p>
-                    )}
-                    {j.status === "error" && (
-                      <p style={styles.jobError}>❌ {j.error}</p>
-                    )}
+                    {j.status === "done"  && <p style={styles.jobOut}>✅ {j.out_path?.split(/[\\/]/).pop()}</p>}
+                    {j.status === "error" && <p style={styles.jobError}>❌ {j.error}</p>}
                   </div>
                   <span style={{ ...styles.statusBadge, background: STATUS_COLOR[j.status] }}>
                     {STATUS_LABEL[j.status]}
@@ -330,79 +359,46 @@ export default function LocalNormalizer({ apiFetch, normConfig, isLocalMode }) {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-
 const styles = {
-  wrapper: { fontFamily: "'Inter','Segoe UI',sans-serif", marginBottom: "12px" },
-  trigger: {
-    width: "100%", display: "flex", alignItems: "center", gap: "10px",
-    background: "#1e1e2e", border: "1px solid #2e2e45", borderRadius: "10px",
-    padding: "10px 14px", cursor: "pointer", color: "#e2e2f0", textAlign: "left",
-  },
-  triggerLeft: { flex: 1, display: "flex", alignItems: "center", gap: "10px" },
-  triggerIcon: { fontSize: "20px" },
-  triggerTitle: { display: "block", fontSize: "11px", color: "#7878a0", textTransform: "uppercase", letterSpacing: "0.08em" },
-  triggerSub: { display: "block", fontSize: "14px", fontWeight: 600, color: "#e2e2f0" },
-  badge: { fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "20px", color: "#fff", textTransform: "uppercase" },
-  chevron: { fontSize: "16px", color: "#7878a0", transition: "transform 0.2s" },
-
-  panel: { background: "#16161f", border: "1px solid #2e2e45", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "16px" },
-
-  label: { display: "block", fontSize: "12px", color: "#9898b8", marginBottom: "6px" },
-  hint:  { color: "#505070", fontSize: "11px" },
-  textarea: {
-    width: "100%", background: "#0d0d18", border: "1px solid #3a3a5c",
-    borderRadius: "6px", padding: "9px 12px", color: "#e2e2f0",
-    fontSize: "13px", fontFamily: "'JetBrains Mono','Fira Code',monospace",
-    outline: "none", resize: "vertical", boxSizing: "border-box",
-  },
-
-  optRow: { display: "flex", gap: "20px", margin: "10px 0 6px" },
-  checkbox: { display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#9898b8", cursor: "pointer" },
-
-  extsNote: { fontSize: "11px", color: "#505070", margin: "0 0 12px", fontFamily: "monospace", letterSpacing: "0.03em" },
-
-  errorMsg: { background: "#2a1515", border: "1px solid #5a1a1a", borderRadius: "6px", padding: "8px 12px", color: "#f87171", fontSize: "13px", marginBottom: "10px" },
-
-  btnRow: { display: "flex", gap: "8px", marginBottom: "12px" },
-  btnSecondary: {
-    background: "#252538", border: "1px solid #3a3a5c", borderRadius: "6px",
-    padding: "8px 16px", color: "#a0a0c8", fontSize: "13px", cursor: "pointer",
-  },
-  btnPrimary: {
-    background: "#3b82f6", border: "none", borderRadius: "6px",
-    padding: "8px 20px", color: "#fff", fontSize: "13px", fontWeight: 600, cursor: "pointer",
-  },
-
-  scanBox: { background: "#0d0d18", borderRadius: "8px", padding: "12px", marginBottom: "12px" },
-  scanTitle: { fontSize: "12px", color: "#7878a0", margin: "0 0 8px" },
-  scanRow: { display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", marginBottom: "4px" },
-  scanFile: { color: "#e2e2f0", flex: "0 0 auto", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  scanMeta: { color: "#505070", fontSize: "11px", flex: "0 0 auto" },
-  scanArrow: { color: "#3b82f6" },
-  scanOut: { color: "#6ee7b7", fontFamily: "monospace", fontSize: "11px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-
-  jobSection: { borderTop: "1px solid #2e2e45", paddingTop: "12px" },
-  jobHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" },
-  jobHeaderTitle: { fontSize: "12px", color: "#7878a0", textTransform: "uppercase", letterSpacing: "0.08em" },
-  clearBtn: { background: "none", border: "none", color: "#6060a0", fontSize: "12px", cursor: "pointer" },
-
-  jobCard: {
-    display: "flex", alignItems: "flex-start", gap: "12px",
-    background: "#1e1e2e", borderRadius: "8px", padding: "10px 12px", marginBottom: "6px",
-  },
-  jobInfo: { flex: 1, minWidth: 0 },
-  jobTitle: { margin: 0, fontSize: "13px", fontWeight: 600, color: "#e2e2f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  jobPath: { margin: "2px 0 0", fontSize: "10px", color: "#505070", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  jobOut:  { margin: "3px 0 0", fontSize: "11px", color: "#6ee7b7" },
-  jobError:{ margin: "3px 0 0", fontSize: "11px", color: "#f87171" },
-  statusBadge: { fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "20px", color: "#fff", flexShrink: 0, alignSelf: "center" },
-
-  serverBlock: {
-    display: "flex", gap: "14px", alignItems: "flex-start",
-    background: "#1a1a28", border: "1px solid #2e2e45", borderRadius: "10px", padding: "14px 16px",
-  },
-  serverIcon: { fontSize: "24px", flexShrink: 0, marginTop: "2px" },
-  serverTitle: { margin: "0 0 4px", fontSize: "14px", fontWeight: 600, color: "#e2e2f0" },
-  serverSub: { margin: 0, fontSize: "12px", color: "#7878a0", lineHeight: 1.5 },
+  wrapper:     { fontFamily:"'Inter','Segoe UI',sans-serif", marginBottom:"12px" },
+  trigger:     { width:"100%", display:"flex", alignItems:"center", gap:"10px", background:"#1e1e2e", border:"1px solid #2e2e45", borderRadius:"10px", padding:"10px 14px", cursor:"pointer", color:"#e2e2f0", textAlign:"left" },
+  triggerLeft: { flex:1, display:"flex", alignItems:"center", gap:"10px" },
+  triggerIcon: { fontSize:"20px" },
+  triggerTitle:{ display:"block", fontSize:"11px", color:"#7878a0", textTransform:"uppercase", letterSpacing:"0.08em" },
+  triggerSub:  { display:"block", fontSize:"14px", fontWeight:600, color:"#e2e2f0" },
+  badge:       { fontSize:"10px", fontWeight:700, padding:"2px 7px", borderRadius:"20px", color:"#fff", textTransform:"uppercase" },
+  chevron:     { fontSize:"16px", color:"#7878a0", transition:"transform 0.2s" },
+  panel:       { background:"#16161f", border:"1px solid #2e2e45", borderTop:"none", borderRadius:"0 0 10px 10px", padding:"16px" },
+  label:       { display:"block", fontSize:"12px", color:"#9898b8", marginBottom:"6px" },
+  hint:        { color:"#505070", fontSize:"11px" },
+  textarea:    { width:"100%", background:"#0d0d18", border:"1px solid #3a3a5c", borderRadius:"6px", padding:"9px 12px", color:"#e2e2f0", fontSize:"13px", fontFamily:"'JetBrains Mono','Fira Code',monospace", outline:"none", resize:"vertical", boxSizing:"border-box" },
+  optRow:      { display:"flex", gap:"20px", margin:"10px 0 6px" },
+  checkbox:    { display:"flex", alignItems:"center", gap:"6px", fontSize:"12px", color:"#9898b8", cursor:"pointer" },
+  extsNote:    { fontSize:"11px", color:"#505070", margin:"0 0 12px", fontFamily:"monospace", letterSpacing:"0.03em" },
+  errorMsg:    { background:"#2a1515", border:"1px solid #5a1a1a", borderRadius:"6px", padding:"8px 12px", color:"#f87171", fontSize:"13px", marginBottom:"10px" },
+  btnRow:      { display:"flex", gap:"8px", marginBottom:"12px" },
+  btnSecondary:{ background:"#252538", border:"1px solid #3a3a5c", borderRadius:"6px", padding:"8px 16px", color:"#a0a0c8", fontSize:"13px", cursor:"pointer" },
+  btnPrimary:  { background:"#3b82f6", border:"none", borderRadius:"6px", padding:"8px 20px", color:"#fff", fontSize:"13px", fontWeight:600, cursor:"pointer" },
+  scanBox:     { background:"#0d0d18", borderRadius:"8px", padding:"12px", marginBottom:"12px" },
+  scanTitle:   { fontSize:"12px", color:"#7878a0", margin:"0 0 8px" },
+  scanRow:     { display:"flex", alignItems:"center", gap:"8px", fontSize:"12px", marginBottom:"4px" },
+  scanFile:    { color:"#e2e2f0", flex:"0 0 auto", maxWidth:"200px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" },
+  scanMeta:    { color:"#505070", fontSize:"11px", flex:"0 0 auto" },
+  scanArrow:   { color:"#3b82f6" },
+  scanOut:     { color:"#6ee7b7", fontFamily:"monospace", fontSize:"11px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" },
+  jobSection:  { borderTop:"1px solid #2e2e45", paddingTop:"12px" },
+  jobHeader:   { display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"8px", flexWrap:"wrap", gap:6 },
+  jobHeaderTitle:{ fontSize:"12px", color:"#7878a0", textTransform:"uppercase", letterSpacing:"0.08em" },
+  clearBtn:    { background:"none", border:"none", color:"#6060a0", fontSize:"12px", cursor:"pointer" },
+  jobCard:     { display:"flex", alignItems:"flex-start", gap:"12px", background:"#1e1e2e", borderRadius:"8px", padding:"10px 12px", marginBottom:"6px" },
+  jobInfo:     { flex:1, minWidth:0 },
+  jobTitle:    { margin:0, fontSize:"13px", fontWeight:600, color:"#e2e2f0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" },
+  jobPath:     { margin:"2px 0 0", fontSize:"10px", color:"#505070", fontFamily:"monospace", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" },
+  jobOut:      { margin:"3px 0 0", fontSize:"11px", color:"#6ee7b7" },
+  jobError:    { margin:"3px 0 0", fontSize:"11px", color:"#f87171" },
+  statusBadge: { fontSize:"10px", fontWeight:700, padding:"2px 7px", borderRadius:"20px", color:"#fff", flexShrink:0, alignSelf:"center" },
+  serverBlock: { display:"flex", gap:"14px", alignItems:"flex-start", background:"#1a1a28", border:"1px solid #2e2e45", borderRadius:"10px", padding:"14px 16px" },
+  serverIcon:  { fontSize:"24px", flexShrink:0, marginTop:"2px" },
+  serverTitle: { margin:"0 0 4px", fontSize:"14px", fontWeight:600, color:"#e2e2f0" },
+  serverSub:   { margin:0, fontSize:"12px", color:"#7878a0", lineHeight:1.5 },
 };
