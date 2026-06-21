@@ -589,7 +589,7 @@ function CompletionPopup({ jobs, onClose }) {
 }
 
 // ── LocalPanel (left slide panel) ─────────────────────────────────────────
-function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
+function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetSubtitleMode }) {
   const [paths, setPaths]           = useState('')
   const [recursive, setRecursive]   = useState(false)
   const [skipDone, setSkipDone]     = useState(true)
@@ -754,6 +754,39 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn }) {
               <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={skipDone} onChange={e=>setSkipDone(e.target.checked)} /> Skip already-normalized files</label>
             </div>
             <div style={{ fontSize:10, color:'#9090b8', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
+
+            {/* Subtitle mode */}
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:10, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:6 }}>Subtitles</div>
+              <div style={{ display:'flex', gap:5 }}>
+                {[
+                  { id:'convert', label:'Convert', desc:'SRT→mov_text (safe)', color:'#22c55e' },
+                  { id:'copy',    label:'Copy',    desc:'Fast, may fail mp4', color:'#3b82f6' },
+                  { id:'drop',    label:'Drop',    desc:'Remove all subs',    color:'#f59e0b' },
+                ].map(m => {
+                  const active = (normConfig?.subtitleMode || 'convert') === m.id
+                  return (
+                    <button key={m.id} title={m.desc}
+                      onClick={() => {
+                        // Update normConfig subtitleMode via setter passed from App
+                        if (typeof onSetSubtitleMode === 'function') onSetSubtitleMode(m.id)
+                      }}
+                      style={{ flex:1, padding:'5px 4px', borderRadius:6, fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit', textAlign:'center',
+                        border: active ? `1.5px solid ${m.color}` : '1px solid rgba(255,255,255,0.12)',
+                        background: active ? `rgba(${m.id==='convert'?'34,197,94':m.id==='copy'?'59,130,246':'245,158,11'},0.12)` : 'rgba(255,255,255,0.04)',
+                        color: active ? m.color : '#777',
+                      }}>
+                      {m.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={{ fontSize:9, color:'#505070', marginTop:4, ...T.mono }}>
+                {normConfig?.subtitleMode === 'drop' ? '⚠ -sn — all subtitles removed' :
+                 normConfig?.subtitleMode === 'copy' ? '⚡ -c:s copy — fast, may fail on mp4+SRT' :
+                 '✓ -c:s mov_text — converts SRT to mp4 format'}
+              </div>
+            </div>
             <div style={{ display:'flex', gap:6, marginBottom:10 }}>
               <button onClick={handleScan} disabled={scanning||!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, padding:'7px 12px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.07)', color:'#c0c0e0', cursor:'pointer', fontFamily:'inherit' }}>🔍 {scanning?'Scanning…':'Preview'}</button>
               <button onClick={handleNormalize} disabled={!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, padding:'7px 14px', borderRadius:7, border:'1px solid rgba(29,158,117,0.35)', background:'rgba(29,158,117,0.12)', color:T.te2, cursor:'pointer', fontFamily:'inherit' }}>▶ Normalize</button>
@@ -1832,6 +1865,7 @@ export default function App() {
         isLocalMode={isLocalMode}
         normConfig={normConfig}
         apiFetchFn={(path, opts) => apiFetch(path, opts)}
+        onSetSubtitleMode={(mode) => setNormConfig(c => ({ ...c, subtitleMode: mode }))}
       />
 
       {/* ── LEFT TAB ── */}
