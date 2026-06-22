@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import AdminPanel  from './AdminPanel.jsx'
-import HealthPanel  from './HealthPanel.jsx'
+import AdminPanel   from './AdminPanel.jsx'
+import HealthPanel   from './HealthPanel.jsx'
+import ChannelPanel  from './ChannelPanel.jsx'
 import CookieSetup from './CookieSetup.jsx'
 import SearchPanel from './SearchPanel.jsx'
 
@@ -1542,6 +1543,7 @@ export default function App() {
   const [showLocalPanel, setShowLocalPanel] = useState(false)
   const [showAdvisory, setShowAdvisory]     = useState(false)
   const [showHealth,   setShowHealth]       = useState(false)
+  const [showChannel,  setShowChannel]      = useState(false)
   const [queueStatus, setQueueStatus]       = useState(null)
   const [bgImage, setBgImage]               = useState(() => localStorage.getItem('yt_bg_image') || null)
   const [bgBrightness, setBgBrightness]     = useState(() => Number(localStorage.getItem('yt_bg_brightness') || 30))
@@ -2062,6 +2064,12 @@ export default function App() {
             border:'1px solid rgba(127,119,221,0.35)', background:'rgba(127,119,221,0.14)', color:'#AFA9EC',
             cursor:'pointer', fontFamily:'inherit',
           }}>🔎 Search YouTube</button>
+          <button onClick={()=>setShowChannel(true)} style={{
+            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            fontSize:14, fontWeight:600, padding:'13px 18px', borderRadius:11,
+            border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.08)', color:'#f87171',
+            cursor:'pointer', fontFamily:'inherit',
+          }}>📺 Channel</button>
           <button onClick={startAll} disabled={dlTotal>0||!items.some(it=>it.info&&it.selectedFormat)} style={{
             flex:1, minWidth:160, display:'flex', alignItems:'center', justifyContent:'center', gap:8, position:'relative', overflow:'hidden',
             fontSize:14, fontWeight:700, padding:'13px 18px', borderRadius:11,
@@ -2086,6 +2094,19 @@ export default function App() {
         <div style={{ display:'flex', gap:6, marginBottom:24, flexWrap:'wrap' }}>
           <input ref={fileInputRef} type="file" accept=".json,.csv" onChange={importUrls} style={{ display:'none' }} />
           {showSearch && <SearchPanel onAddUrl={addUrlFromSearch} onClose={()=>setShowSearch(false)} />}
+          {showChannel && (
+            <ChannelPanel
+              open={showChannel}
+              onClose={() => setShowChannel(false)}
+              apiFetchFn={(path, opts) => apiFetch(path, opts)}
+              user={user}
+              onAddToQueue={(url, title) => {
+                // Add URL to the items list as a new row
+                const id  = Date.now() + Math.random()
+                setItems(prev => [...prev, { id, url, info:null, selectedFormat:null, fetchError:null, fetching:false }])
+              }}
+            />
+          )}
           <button onClick={addItem} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px dashed rgba(255,255,255,0.18)', background:'rgba(255,255,255,0.04)', color:'#999', cursor:'pointer', fontFamily:'inherit' }}>+ Add URL</button>
           <button onClick={()=>fileInputRef.current?.click()} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px dashed rgba(99,102,241,0.28)', background:'rgba(99,102,241,0.05)', color:'#818cf8', cursor:'pointer', fontFamily:'inherit' }}>↑ Import JSON/CSV</button>
           <button onClick={fetchAll} disabled={fetchingAll||!items.some(it=>it.url.trim()&&!it.info)} style={{
