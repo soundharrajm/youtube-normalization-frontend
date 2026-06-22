@@ -1587,6 +1587,7 @@ export default function App() {
     outputExt: 'same',
     subtitleMode: 'convert',
   })
+  const [doNormalize, setDoNormalize] = useState(true)
 
   // Build final flags with subtitle mode injected
   const effectiveFlags = (cfg = normConfig) => {
@@ -1723,7 +1724,7 @@ export default function App() {
   const allReady = items.every(it => it.info && it.selectedFormat)
 
   const _dispatchDownload = async (it) => {
-    const res = await apiFetch(`${getApiBase()}/download/batch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{url:it.url.trim(),format_id:it.selectedFormat.format_id,session_id:user?.session_id||null}],norm_flags:effectiveFlags(),output_ext:normConfig.outputExt||'same'})})
+    const res = await apiFetch(`${getApiBase()}/download/batch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{url:it.url.trim(),format_id:it.selectedFormat.format_id,session_id:user?.session_id||null}],norm_flags:doNormalize ? effectiveFlags() : null,output_ext:normConfig.outputExt||'same'})})
     const data = await res.json()
     if (res.ok && data.jobs?.length) { const j=data.jobs[0]; return {jobId:j.job_id,url:j.url,title:it.info?.title||j.url,format:it.selectedFormat?.label||'',status:'queued',progress:0,normProgress:0,queue_position:j.queue_position,downloadUrl:null,outFilename:null,error:null} }
     return null
@@ -2090,7 +2091,22 @@ export default function App() {
           </button>
         </div>
 
-        {/* ── SECONDARY ACTIONS ── */}
+        {/* ── Normalize toggle ── */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16, padding:'8px 14px', borderRadius:10, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' }}>
+          <div onClick={()=>setDoNormalize(v=>!v)} style={{ width:38, height:22, borderRadius:11, background:doNormalize?C.pu:'rgba(255,255,255,0.1)', cursor:'pointer', position:'relative', transition:'background .2s', flexShrink:0 }}>
+            <div style={{ width:16, height:16, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:doNormalize?19:3, transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
+          </div>
+          <div style={{ flex:1 }}>
+            <span style={{ fontSize:12, fontWeight:600, color:doNormalize?C.pu:'#64748b' }}>
+              {doNormalize ? '⚡ Normalize after download' : '⬇️ Download only (no normalize)'}
+            </span>
+            <span style={{ fontSize:10, color:'#555', marginLeft:8 }}>
+              {doNormalize
+                ? `ffmpeg · ${normConfig.presetId} · ${normConfig.subtitleMode==='drop'?'no subs':normConfig.subtitleMode==='copy'?'copy subs':'convert subs'}`
+                : 'saves raw file with video title as filename'}
+            </span>
+          </div>
+        </div>
         <div style={{ display:'flex', gap:6, marginBottom:24, flexWrap:'wrap' }}>
           <input ref={fileInputRef} type="file" accept=".json,.csv" onChange={importUrls} style={{ display:'none' }} />
           {showSearch && <SearchPanel onAddUrl={addUrlFromSearch} onClose={()=>setShowSearch(false)} />}
