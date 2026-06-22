@@ -2066,7 +2066,7 @@ export default function App() {
         </div>
 
         {/* ── URL INPUTS — full width ── */}
-        <div style={{ background:cardBg, border:`1px solid ${cardBorder}`, borderRadius:14, padding:16, display:'flex', flexDirection:'column', gap:12, marginBottom:12 }}>
+        <div style={{ background:cardBg, border:`1px solid ${cardBorder}`, borderRadius:14, padding:16, display:'flex', flexDirection:'column', gap:12, marginBottom:12, maxHeight: items.length > 5 ? 420 : 'none', overflowY: items.length > 5 ? 'auto' : 'visible' }}>
             {items.map((item, i) => (
               <div key={item.id}>
                 {i > 0 && <div style={{ height:1, background:'rgba(255,255,255,0.05)', marginBottom:12 }} />}
