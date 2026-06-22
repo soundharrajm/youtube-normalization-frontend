@@ -51,10 +51,10 @@ function VideoCard({ video, selected, onToggle }) {
   )
 }
 
-function PlaylistCard({ pl, onExpand }) {
+function PlaylistCard({ pl, onExpand, loading }) {
   return (
-    <div onClick={onExpand} style={{
-      width:180, flexShrink:0, cursor:'pointer', borderRadius:10, overflow:'hidden',
+    <div style={{
+      width:180, flexShrink:0, borderRadius:10, overflow:'hidden',
       border:`1px solid ${S.border}`, background:'rgba(255,255,255,0.03)',
       transition:'all .15s', position:'relative',
     }}>
@@ -63,31 +63,37 @@ function PlaylistCard({ pl, onExpand }) {
           ? <img src={pl.thumbnail} alt="" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} onError={e=>e.target.style.display='none'} />
           : <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', color:'#333', fontSize:24 }}>📋</div>
         }
-        <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)', display:'flex', alignItems:'flex-end', padding:'8px' }}>
-          <span style={{ color:'#fff', fontSize:11, fontWeight:700 }}>{pl.count ? `${pl.count} videos` : 'Playlist'}</span>
-        </div>
+        {pl.count > 0 && (
+          <div style={{ position:'absolute', bottom:4, right:4, background:'rgba(0,0,0,0.85)', color:'#fff', fontSize:10, fontWeight:700, padding:'1px 5px', borderRadius:3 }}>
+            {pl.count} videos
+          </div>
+        )}
       </div>
-      <div style={{ padding:'8px 8px 6px' }}>
-        <div style={{ fontSize:11, fontWeight:600, color:S.text, lineHeight:1.4, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>
+      <div style={{ padding:'8px 8px 10px' }}>
+        <div style={{ fontSize:11, fontWeight:600, color:S.text, lineHeight:1.4, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', marginBottom:6 }}>
           {pl.title}
         </div>
-        <div style={{ fontSize:10, color:S.pu, marginTop:3 }}>▶ Open playlist</div>
+        <button onClick={onExpand} disabled={loading}
+          style={{ width:'100%', padding:'5px', borderRadius:6, border:`1px solid ${S.pu}`, background:loading?'rgba(124,106,247,0.05)':'rgba(124,106,247,0.12)', color:loading?S.sub:S.pu, fontSize:10, fontWeight:600, cursor:loading?'wait':'pointer', fontFamily:'inherit' }}>
+          {loading ? '⏳ Loading…' : '▶ Load Videos'}
+        </button>
       </div>
     </div>
   )
 }
 
-function SectionRow({ section, selected, onToggle, onSelectAll, onDeselectAll, apiFetchFn, limit, onExpandPlaylist }) {
+function SectionRow({ section, selected, onToggle, onSelectAll, onDeselectAll, onExpandPlaylist, loadingPl }) {
   const scrollRef = useRef(null)
-  const allSel    = section.videos.length > 0 && section.videos.every(v => selected.has(v.id))
-  const scroll    = (d) => scrollRef.current?.scrollBy({ left: d*400, behavior:'smooth' })
+  const hasVideos = section.videos && section.videos.length > 0
+  const allSel    = hasVideos && section.videos.every(v => selected.has(v.id))
+  const scroll    = (d) => scrollRef.current?.scrollBy({ left:d*400, behavior:'smooth' })
 
   return (
     <div style={{ marginBottom:28 }}>
       <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
         <span style={{ fontSize:14, fontWeight:700, color:S.text }}>{section.title}</span>
-        {!section.is_playlist && <span style={{ fontSize:11, color:S.sub }}>({section.videos.length})</span>}
-        {!section.is_playlist && (
+        {!section.is_playlist && hasVideos && <span style={{ fontSize:11, color:S.sub }}>({section.videos.length})</span>}
+        {!section.is_playlist && hasVideos && (
           <button onClick={allSel ? onDeselectAll : onSelectAll}
             style={{ fontSize:10, padding:'2px 8px', borderRadius:5, border:`1px solid ${allSel?'rgba(239,68,68,0.3)':'rgba(124,106,247,0.3)'}`, background:allSel?'rgba(239,68,68,0.07)':'rgba(124,106,247,0.07)', color:allSel?'#f87171':S.pu, cursor:'pointer', fontFamily:'inherit' }}>
             {allSel?'☐ Deselect all':'☑ Select all'}
@@ -100,10 +106,25 @@ function SectionRow({ section, selected, onToggle, onSelectAll, onDeselectAll, a
       </div>
       <div ref={scrollRef} style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:8, scrollbarWidth:'thin', scrollbarColor:'rgba(255,255,255,0.1) transparent' }}>
         {section.is_playlist
-          ? section.videos.map((pl,i) => <PlaylistCard key={i} pl={pl} onExpand={()=>onExpandPlaylist(pl)} />)
-          : section.videos.map(v => <VideoCard key={v.id} video={v} selected={selected.has(v.id)} onToggle={()=>onToggle(v.id)} />)
+          ? section.videos.map((pl,i) => (
+              <PlaylistCard key={i} pl={pl}
+                loading={loadingPl === (pl.playlist_id || pl.title)}
+                onExpand={() => onExpandPlaylist(pl)} />
+            ))
+          : section.videos.map(v => (
+              <VideoCard key={v.id} video={v} selected={selected.has(v.id)} onToggle={()=>onToggle(v.id)} />
+            ))
         }
       </div>
+      {!section.is_playlist && section.has_more && (
+        <div style={{ textAlign:'center', marginTop:6 }}>
+          <button onClick={()=>onExpandPlaylist({playlist_url:section.playlist_url, playlist_id:section.playlist_id, title:section.title})}
+            disabled={loadingPl===section.playlist_id}
+            style={{ fontSize:11, padding:'5px 16px', borderRadius:7, border:`1px solid rgba(124,106,247,0.3)`, background:'rgba(124,106,247,0.08)', color:S.pu, cursor:'pointer', fontFamily:'inherit' }}>
+            {loadingPl===section.playlist_id ? '⏳ Loading…' : '↓ Load more from this playlist'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -113,6 +134,7 @@ export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQ
   const [tab,        setTab]        = useState('home')
   const [limit,      setLimit]      = useState(100)
   const [loading,    setLoading]    = useState(false)
+  const [loadingPl,  setLoadingPl]  = useState(null)  // playlist_id being loaded
   const [result,     setResult]     = useState(null)
   const [error,      setError]      = useState(null)
   const [selected,   setSelected]   = useState(new Set())
@@ -155,6 +177,34 @@ export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQ
     const u = url.trim()
     if (!u) return
     setChannelUrl('')
+    setError(null)
+    setSelected(new Set())
+
+    // If it's a playlist URL (has list= param), load directly as playlist
+    if (u.includes('list=') || u.includes('/playlist?')) {
+      setLoading(true)
+      setResult(null)
+      try {
+        const res = await apiFetchFn('/channel/playlist', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ url:u, limit, session_id:user?.session_id||null }),
+        })
+        const d = await res.json()
+        if (!res.ok) throw new Error(d.detail||'Failed')
+        setResult({
+          channel_name: d.title,
+          channel_url:  u,
+          tab:          'videos',
+          total:        d.total,
+          playlists:    [{ title: d.title, videos: d.videos, is_playlist: false }],
+        })
+        setTab('videos')
+      } catch(e) { setError(e.message) }
+      finally { setLoading(false) }
+      return
+    }
+
+    // Otherwise treat as channel URL
     setTab('home')
     await fetchTab('home', u)
   }
@@ -165,7 +215,8 @@ export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQ
   }
 
   async function expandPlaylist(pl) {
-    setLoading(true)
+    const plKey = pl.playlist_id || pl.title
+    setLoadingPl(plKey)
     try {
       const res = await apiFetchFn('/channel/playlist', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -173,12 +224,26 @@ export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQ
       })
       const d = await res.json()
       if (!res.ok) throw new Error(d.detail||'Failed')
-      setResult(prev => ({
-        ...prev,
-        playlists: [{ title: d.title, videos: d.videos, is_playlist:false }],
-      }))
+      // Insert a new video section right after the playlist section
+      setResult(prev => {
+        const pls = [...(prev?.playlists||[])]
+        // Find the playlist section that contains this pl card
+        let insertIdx = -1
+        for (let i=0; i<pls.length; i++) {
+          if (pls[i].is_playlist && pls[i].videos.some(v=>(v.playlist_id||v.title)===plKey)) {
+            insertIdx = i+1; break
+          }
+        }
+        const newSection = { title: d.title, videos: d.videos, is_playlist: false }
+        if (insertIdx >= 0) {
+          pls.splice(insertIdx, 0, newSection)
+        } else {
+          pls.push(newSection)
+        }
+        return { ...prev, playlists: pls }
+      })
     } catch(e) { setError(e.message) }
-    finally { setLoading(false) }
+    finally { setLoadingPl(null) }
   }
 
   async function addSelected() {
@@ -277,8 +342,7 @@ export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQ
               onToggle={toggleOne}
               onSelectAll={()=>selectSec(pl)}
               onDeselectAll={()=>deselectSec(pl)}
-              apiFetchFn={apiFetchFn}
-              limit={limit}
+              loadingPl={loadingPl}
               onExpandPlaylist={expandPlaylist}
             />
           ))}
