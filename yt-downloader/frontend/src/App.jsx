@@ -2116,9 +2116,10 @@ export default function App() {
               onClose={() => setShowChannel(false)}
               apiFetchFn={(path, opts) => apiFetch(path, opts)}
               user={user}
+              doNormalize={doNormalize}
+              onToggleNormalize={() => setDoNormalize(v => !v)}
               onAddToQueue={(url, title) => {
-                // Add URL to the items list as a new row
-                const id  = Date.now() + Math.random()
+                const id = Date.now() + Math.random()
                 setItems(prev => [...prev, { id, url, info:null, selectedFormat:null, fetchError:null, fetching:false }])
               }}
             />

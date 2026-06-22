@@ -38,7 +38,7 @@ function VideoCard({ video, selected, onToggle }) {
   )
 }
 
-export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQueue }) {
+export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQueue, doNormalize, onToggleNormalize }) {
   const [url,       setUrl]       = useState('')
   const [loading,   setLoading]   = useState(false)
   const [result,    setResult]    = useState(null)
@@ -150,12 +150,24 @@ export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQ
                 <span style={{ fontSize: 13, fontWeight: 700, color: CP.text }}>{result.channel_name}</span>
                 <span style={{ fontSize: 11, color: CP.sub, marginLeft: 8 }}>{result.total} video{result.total !== 1 ? 's' : ''}</span>
               </div>
+
+              {/* Normalize toggle */}
+              <div style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 10px', borderRadius:8, border:`1px solid ${doNormalize?'rgba(124,106,247,0.3)':'rgba(255,255,255,0.08)'}`, background:doNormalize?'rgba(124,106,247,0.07)':'rgba(255,255,255,0.02)', cursor:'pointer' }}
+                onClick={onToggleNormalize}>
+                <div style={{ width:28, height:16, borderRadius:8, background:doNormalize?'#7c6af7':'rgba(255,255,255,0.15)', position:'relative', transition:'background .2s', flexShrink:0 }}>
+                  <div style={{ width:12, height:12, borderRadius:'50%', background:'#fff', position:'absolute', top:2, left:doNormalize?14:2, transition:'left .2s' }} />
+                </div>
+                <span style={{ fontSize:11, fontWeight:600, color:doNormalize?'#7c6af7':CP.sub, whiteSpace:'nowrap' }}>
+                  {doNormalize ? '⚡ Normalize' : '⬇️ Raw only'}
+                </span>
+              </div>
+
               {/* Filter */}
               <input value={filter} onChange={e => setFilter(e.target.value)}
                 placeholder="Filter by title…"
-                style={{ width: 160, background: 'rgba(0,0,0,0.3)', border: `1px solid ${CP.border}`, borderRadius: 6, padding: '5px 10px', fontSize: 11, color: CP.text, outline: 'none', fontFamily: 'inherit' }} />
+                style={{ width: 140, background: 'rgba(0,0,0,0.3)', border: `1px solid ${CP.border}`, borderRadius: 6, padding: '5px 10px', fontSize: 11, color: CP.text, outline: 'none', fontFamily: 'inherit' }} />
               {/* Select all */}
-              <button onClick={toggleAll} style={{ ...btnBase, padding: '5px 12px', background: allSelected ? 'rgba(239,68,68,0.1)' : 'rgba(124,106,247,0.1)', border: `1px solid ${allSelected ? 'rgba(239,68,68,0.3)' : 'rgba(124,106,247,0.3)'}`, color: allSelected ? '#f87171' : CP.pu, fontSize: 11 }}>
+              <button onClick={toggleAll} style={{ ...btnBase, padding: '5px 12px', background: allSelected ? 'rgba(239,68,68,0.1)' : 'rgba(124,106,247,0.1)', border: `1px solid ${allSelected ? 'rgba(239,68,68,0.3)' : 'rgba(124,106,247,0.3)'}`, color: allSelected ? '#f87171' : '#7c6af7', fontSize: 11 }}>
                 {allSelected ? '☐ Deselect All' : '☑ Select All'}
               </button>
               {/* Add to queue */}
@@ -182,7 +194,7 @@ export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQ
               <div style={{ padding: '10px 20px', borderTop: `1px solid ${CP.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                 <span style={{ fontSize: 12, color: CP.sub }}>{selected.size} of {filtered.length} selected</span>
                 <button onClick={addSelected} disabled={adding}
-                  style={{ ...btnBase, background: CP.pu, color: '#fff', fontSize: 13, opacity: adding ? 0.7 : 1 }}>
+                  style={{ ...btnBase, background: '#7c6af7', color: '#fff', fontSize: 13, opacity: adding ? 0.7 : 1 }}>
                   {adding ? `Adding ${added}/${selected.size}…` : `⚡ Add ${selected.size} to Queue`}
                 </button>
               </div>
