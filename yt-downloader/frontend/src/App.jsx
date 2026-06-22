@@ -8,6 +8,12 @@ import SearchPanel from './SearchPanel.jsx'
 // v3.0.0
 const API_DEFAULT = import.meta.env.VITE_API_URL || '/api'
 function getApiBase() { return localStorage.getItem('yt_api_base') || API_DEFAULT }
+
+// ── Poll intervals — loaded from backend /config on startup ───────────────────
+// Defaults used until /config responds
+const _pollDefaults = { active: 2000, idle: 30000, download: 800 }
+let _pollCfg = { ..._pollDefaults }
+function getPollMs(key) { return _pollCfg[key] || _pollDefaults[key] }
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ||
   '406747955382-digauab6tpgo7f9rr7sbl0qoajc01oub.apps.googleusercontent.com'
 const REDIRECT_URI = window.location.origin
@@ -405,6 +411,21 @@ function CircleProgress({ pct, color, size=44, stroke=3, label, done, cancelled,
 }
 
 // ── JobCard ────────────────────────────────────────────────────────────────
+function _eta(startedAt, pct) {
+  if (!startedAt || pct <= 0 || pct >= 100) return null
+  const elapsed = (Date.now() / 1000) - startedAt
+  if (elapsed < 3) return null  // not enough data yet
+  const total    = elapsed / (pct / 100)
+  const remaining= Math.max(0, total - elapsed)
+  if (remaining > 86400) return null  // unreasonable
+  const h = Math.floor(remaining / 3600)
+  const m = Math.floor((remaining % 3600) / 60)
+  const s = Math.floor(remaining % 60)
+  if (h > 0) return `~${h}h ${m}m left`
+  if (m > 0) return `~${m}m ${s}s left`
+  return `~${s}s left`
+}
+
 function JobCard({ job }) {
   const meta = PHASE[job.status] || PHASE.queued
   const isQ   = job.status==='queued'
@@ -418,6 +439,11 @@ function JobCard({ job }) {
   const dlPct   = isDl ? job.progress : (isDone||isNorm) ? 100 : 0
   const normPct = isNorm ? job.normProgress : isDone ? 100 : 0
 
+  // ETA calculations
+  const dlEta   = isDl   ? _eta(job.started_at,      dlPct)   : null
+  const normEta = isNorm ? _eta(job.norm_started_at,  normPct) : null
+  const eta     = normEta || dlEta
+
   // Cancel handler — passed to both rings so either can cancel
   const handleCancel = job.onCancel ? () => job.onCancel(job.jobId) : null
 
@@ -427,9 +453,12 @@ function JobCard({ job }) {
         <div style={{ width:32, height:32, borderRadius:'50%', background:`${meta.color}22`, border:`1.5px solid ${meta.color}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:meta.color, flexShrink:0 }}>{meta.icon}</div>
         <div style={{ flex:1, minWidth:0 }}>
           <p style={{ margin:0, fontSize:14, fontWeight:600, color:'#e8e8f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{job.title||job.url||'…'}</p>
-          <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:3 }}>
+          <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:3, flexWrap:'wrap' }}>
             <span style={{ fontSize:11, color:'#555', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:200, ...T.mono }}>{(job.url||'').replace('https://www.youtube.com/watch?v=','yt:')}</span>
             <span style={{ fontSize:10, color:meta.color, background:`${meta.color}18`, border:`1px solid ${meta.color}33`, borderRadius:100, padding:'1px 7px', fontWeight:600, flexShrink:0 }}>{isQ&&job.queue_position>0?`#${job.queue_position+1} queued`:meta.label}</span>
+            {eta && <span style={{ fontSize:10, color:'#f59e0b', fontFamily:'monospace', flexShrink:0 }}>⏱ {eta}</span>}
+            {isDl   && dlPct   > 0 && <span style={{ fontSize:10, color:'#8b5cf6', fontFamily:'monospace' }}>DL {dlPct}%</span>}
+            {isNorm && normPct > 0 && <span style={{ fontSize:10, color:'#3b82f6', fontFamily:'monospace' }}>NRM {normPct}%</span>}
           </div>
         </div>
 
@@ -652,12 +681,12 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
       const active = localJobsRef.current.filter(j=>j.status!=='done'&&j.status!=='error')
       const now = Date.now()
       if (active.length > 0) {
-        refreshLocalJobs()  // poll every 2s when active
-      } else if (now - lastFallbackRef.current > 30000) {
+        refreshLocalJobs()
+      } else if (now - lastFallbackRef.current > getPollMs("idle")) {
         lastFallbackRef.current = now
-        refreshLocalJobs()  // fallback every 30s
+        refreshLocalJobs()
       }
-    }, 2000)
+    }, getPollMs('active'))
     return () => clearInterval(localPollRef.current)
   }, [])
 
@@ -1653,7 +1682,16 @@ export default function App() {
         apiFetch(`${getApiBase()}/auth/session/${parsed.session_id}`).then(r=>{if(r.ok)return r.json();throw new Error()}).then(()=>setUser(parsed)).catch(()=>localStorage.removeItem('yt_session'))
       } catch { localStorage.removeItem('yt_session') }
     }
-    apiFetch(`${getApiBase()}/config`).then(r=>r.ok?r.json():null).then(d=>{ if(d){ const lm=!!d.local_mode; setIsLocalMode(lm); localStorage.setItem('yt_local_mode', lm) } }).catch(()=>{})
+    apiFetch(`${getApiBase()}/config`).then(r=>r.ok?r.json():null).then(d=>{
+      if(d){
+        const lm=!!d.local_mode; setIsLocalMode(lm); localStorage.setItem('yt_local_mode', lm)
+        // Apply poll intervals from backend
+        if(d.poll_active_ms)   _pollCfg.active   = d.poll_active_ms
+        if(d.poll_idle_ms)     _pollCfg.idle      = d.poll_idle_ms
+        if(d.poll_download_ms) _pollCfg.download  = d.poll_download_ms
+        console.log(`[POLL] active=${_pollCfg.active}ms idle=${_pollCfg.idle}ms download=${_pollCfg.download}ms`)
+      }
+    }).catch(()=>{})
   }, [])
 
   // ── Restore active jobs on page load/refresh ──────────────────────────────
@@ -1790,7 +1828,7 @@ export default function App() {
         poll()
       } else {
         const now = Date.now()
-        if (now - lastIdlePollRef.current > 10000) {
+        if (now - lastIdlePollRef.current > getPollMs("idle")) {
           lastIdlePollRef.current = now
           poll()
         }
@@ -1839,13 +1877,16 @@ export default function App() {
           return {...j,status:d.status,
             progress:    Math.max(j.progress||0,     d.progress??j.progress),
             normProgress:Math.max(j.normProgress||0,  d.normalize_progress??j.normProgress),
-            queue_position:d.queue_position??j.queue_position, title:d.title||j.title}
+            queue_position:d.queue_position??j.queue_position, title:d.title||j.title,
+            started_at:      d.started_at      ?? j.started_at,
+            norm_started_at: d.norm_started_at ?? j.norm_started_at,
+          }
         })
       })
       return u.filter(Boolean)
     })
       } catch(_) {}
-    }, 800)
+    }, getPollMs("download"))
   }, [])
 
   useEffect(() => () => pollRef.current && clearInterval(pollRef.current), [])
