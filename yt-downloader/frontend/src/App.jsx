@@ -2093,11 +2093,11 @@ export default function App() {
 
         {/* ── Normalize toggle ── */}
         <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16, padding:'8px 14px', borderRadius:10, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' }}>
-          <div onClick={()=>setDoNormalize(v=>!v)} style={{ width:38, height:22, borderRadius:11, background:doNormalize?C.pu:'rgba(255,255,255,0.1)', cursor:'pointer', position:'relative', transition:'background .2s', flexShrink:0 }}>
+          <div onClick={()=>setDoNormalize(v=>!v)} style={{ width:38, height:22, borderRadius:11, background:doNormalize?'#7c6af7':'rgba(255,255,255,0.1)', cursor:'pointer', position:'relative', transition:'background .2s', flexShrink:0 }}>
             <div style={{ width:16, height:16, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:doNormalize?19:3, transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
           </div>
           <div style={{ flex:1 }}>
-            <span style={{ fontSize:12, fontWeight:600, color:doNormalize?C.pu:'#64748b' }}>
+            <span style={{ fontSize:12, fontWeight:600, color:doNormalize?'#7c6af7':'#64748b' }}>
               {doNormalize ? '⚡ Normalize after download' : '⬇️ Download only (no normalize)'}
             </span>
             <span style={{ fontSize:10, color:'#555', marginLeft:8 }}>
