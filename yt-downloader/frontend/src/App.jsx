@@ -624,28 +624,26 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
   // Manual + auto refresh
   const lastFallbackRef = useRef(0)
   const refreshLocalJobs = async () => {
-    const ids = localJobsRef.current.filter(j=>j.status!=='done'&&j.status!=='error').map(j=>j.job_id)
-    if (!ids.length) return
+    const active = localJobsRef.current.filter(j=>j.status!=='done'&&j.status!=='error')
+    if (!active.length) return
+    const ids = active.map(j=>j.job_id)
     try {
-      const results = await Promise.allSettled(
-        ids.map(id => apiFetchFn(`/download/status/${id}`).then(r=>{
-          if(r.status===404) return {_missing:true}
-          return r.json()
-        }))
-      )
-      setLocalJobs(prev => prev.map(j=>{
-        // Never update jobs already marked done/error in UI — prevents flickering back
-        if (j.status === 'done' || j.status === 'error') return j
-        const idx=ids.indexOf(j.job_id); if(idx===-1) return j
-        const r=results[idx]; if(r.status!=='fulfilled') return j
-        const d=r.value
-        if(d._missing) return null
-        if(d.status==='done')  return {...j,status:'done',normalize_progress:100}
-        if(d.status==='error') return {...j,status:'error',error:d.error}
-        // Only update progress if it's higher than current (never go backwards)
-        const newPct = d.normalize_progress ?? j.normalize_progress
-        return {...j,status:d.status,normalize_progress:Math.max(j.normalize_progress||0, newPct||0)}
-      }).filter(Boolean))
+      // Use batch endpoint — 1 request for all jobs instead of N individual requests
+      const res = await apiFetchFn('/download/status/batch', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(ids)
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      setLocalJobs(prev => prev.map(j => {
+        if (j.status==='done'||j.status==='error') return j
+        const d = data[j.job_id]
+        if (!d) return j
+        if (d.status==='done')  return {...j,status:'done',normalize_progress:100}
+        if (d.status==='error') return {...j,status:'error',error:d.error}
+        return {...j,status:d.status,
+          normalize_progress:Math.max(j.normalize_progress||0, d.normalize_progress||0)}
+      }))
     } catch(_) {}
   }
 
@@ -1807,28 +1805,26 @@ export default function App() {
       const allCurrent = jobsRef.current
       const active = allCurrent.filter(j=>!['done','error'].includes(j.status))
       if (!active.length) { clearInterval(pollRef.current); pollRef.current=null; return }
-      const results = await Promise.allSettled(active.map(j=>apiFetch(`${getApiBase()}/download/status/${j.jobId}`).then(r=>{
-        if(r.status===404) return {_missing:true}
-        return r.json()
-      })))
+      // Use batch endpoint — 1 request for all active jobs
+      try {
+        const ids = active.map(j=>j.jobId)
+        const res = await apiFetch(`${getApiBase()}/download/status/batch`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(ids)
+        })
+        if (!res.ok) return
+        const data = await res.json()
     setJobs(prev => {
       let u=[...prev]
-      results.forEach((r,i)=>{ 
-        if(r.status!=='fulfilled')return
-        const d=r.value,jid=active[i]?.jobId
-        if(!jid)return
-        if(d._missing){ 
-          u=u.filter(j=>j.jobId!==jid)
-          try { const h=JSON.parse(localStorage.getItem('yt_dl_history')||'[]'); localStorage.setItem('yt_dl_history',JSON.stringify(h.filter(x=>x.jobId!==jid))) } catch(_){}
-          return
-        }
-        u=u.map(j=>{ 
-          if(j.jobId!==jid)return j
-          // Never downgrade already-done/error jobs
+      active.forEach(aj => {
+        const jid = aj.jobId
+        const d   = data[jid]
+        if (!d) return
+        u = u.map(j => {
+          if(j.jobId!==jid) return j
           if(j.status==='done'||j.status==='error') return j
           if(d.status==='done'){
             const doneJob={...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${jid}`,outFilename:d.filename}
-            // Persist to localStorage history
             try {
               const hist = JSON.parse(localStorage.getItem('yt_dl_history')||'[]')
               if (!hist.find(h=>h.jobId===jid)) {
@@ -1838,17 +1834,17 @@ export default function App() {
             } catch(_) {}
             return doneJob
           }
-          if(d.status==='error'&&d.error==='Cancelled by user')return null
-          if(d.status==='error')return{...j,status:'error',error:d.error}
-          // Never go backwards on progress
-          return{...j,status:d.status,
-            progress:    Math.max(j.progress||0,    d.progress??j.progress),
-            normProgress:Math.max(j.normProgress||0, d.normalize_progress??j.normProgress),
-            queue_position:d.queue_position??j.queue_position,title:d.title||j.title}
+          if(d.status==='error'&&d.error==='Cancelled by user') return null
+          if(d.status==='error') return {...j,status:'error',error:d.error}
+          return {...j,status:d.status,
+            progress:    Math.max(j.progress||0,     d.progress??j.progress),
+            normProgress:Math.max(j.normProgress||0,  d.normalize_progress??j.normProgress),
+            queue_position:d.queue_position??j.queue_position, title:d.title||j.title}
         })
       })
       return u.filter(Boolean)
     })
+      } catch(_) {}
     }, 800)
   }, [])
 
