@@ -633,7 +633,8 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
   const [skipDone, setSkipDone]     = useState(true)
   const [scanResult, setScanResult] = useState(null)
   const [scanning, setScanning]     = useState(false)
-  const [localJobs, setLocalJobs]   = useState([])
+  const [localJobs, setLocalJobs]         = useState([])
+  const [localJobsExpanded, setLocalJobsExpanded] = useState(false)
   const [showPopup, setShowPopup]   = useState(false)
   const [copied, setCopied]         = useState(false)
   const localPollRef = useRef(null)
@@ -671,7 +672,10 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
         if (d.status==='done')  return {...j,status:'done',normalize_progress:100}
         if (d.status==='error') return {...j,status:'error',error:d.error}
         return {...j,status:d.status,
-          normalize_progress:Math.max(j.normalize_progress||0, d.normalize_progress||0)}
+          normalize_progress:Math.max(j.normalize_progress||0, d.normalize_progress||0),
+          started_at:      d.started_at      ?? j.started_at,
+          norm_started_at: d.norm_started_at ?? j.norm_started_at,
+        }
       }))
     } catch(_) {}
   }
@@ -915,18 +919,40 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                   </div>
                 </div>
 
-                {/* Job rows */}
-                {localJobs.map(j => (
-                  <div key={j.job_id} style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'7px 10px', marginBottom:5 }}>
-                    <span style={{ fontSize:13, color:j.status==='done'?'#22c55e':j.status==='error'?'#ef4444':j.status==='normalizing'?'#3b82f6':'#f59e0b' }}>
-                      {j.status==='done'?'✓':j.status==='error'?'✗':j.status==='normalizing'?'↻':'⏳'}
-                    </span>
-                    <span style={{ flex:1, fontSize:11, color:'#e0e0f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</span>
-                    <span style={{ fontSize:10, color:'#9090b8', ...T.mono }}>
-                      {j.status==='done'?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}
-                    </span>
-                  </div>
-                ))}
+                {/* Job rows with ETA + show more */}
+                {(() => {
+                  const [showAll, setShowAll] = [localJobsExpanded, setLocalJobsExpanded]
+                  const visible = showAll ? localJobs : localJobs.slice(0, 5)
+                  return <>
+                    {visible.map(j => {
+                      const isNorm = j.status === 'normalizing'
+                      const isDl   = j.status === 'downloading'
+                      const eta    = isNorm ? _eta(j.norm_started_at, j.normalize_progress||0)
+                                   : isDl   ? _eta(j.started_at,      j.normalize_progress||0)
+                                   : null
+                      return (
+                        <div key={j.job_id} style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'7px 10px', marginBottom:5 }}>
+                          <span style={{ fontSize:13, color:j.status==='done'?'#22c55e':j.status==='error'?'#ef4444':j.status==='normalizing'?'#3b82f6':'#f59e0b' }}>
+                            {j.status==='done'?'✓':j.status==='error'?'✗':j.status==='normalizing'?'↻':'⏳'}
+                          </span>
+                          <span style={{ flex:1, fontSize:11, color:'#e0e0f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</span>
+                          <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:1, flexShrink:0 }}>
+                            <span style={{ fontSize:10, color:'#9090b8', ...T.mono }}>
+                              {j.status==='done'?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}
+                            </span>
+                            {eta && <span style={{ fontSize:9, color:'#f59e0b', ...T.mono }}>{eta}</span>}
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {localJobs.length > 5 && (
+                      <button onClick={()=>setLocalJobsExpanded(v=>!v)}
+                        style={{ width:'100%', padding:'5px', borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.03)', color:'#777', fontSize:10, cursor:'pointer', fontFamily:'inherit', marginTop:2 }}>
+                        {showAll ? `▲ Show less` : `▼ Show all ${localJobs.length} jobs`}
+                      </button>
+                    )}
+                  </>
+                })()}
               </>
             )}
           </>
