@@ -299,7 +299,7 @@ function FormatPicker({ info, selected, onSelect }) {
 }
 
 // ── UrlRow ─────────────────────────────────────────────────────────────────
-function UrlRow({ item, onChange, onRemove, canRemove }) {
+function UrlRow({ item, onChange, onRemove, canRemove, onOpenChannel }) {
   const { url, info, error, fetchStatus, fetchPct, fetchStart } = item
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
@@ -315,7 +315,15 @@ function UrlRow({ item, onChange, onRemove, canRemove }) {
       <div style={{ flex:1, display:'flex', flexDirection:'column', gap:6 }}>
         <div style={{ ...T.card, display:'flex', alignItems:'center', gap:8, padding:'6px 6px 6px 14px', borderColor:error?'rgba(239,68,68,0.35)':info?'rgba(16,185,129,0.35)':valid?'rgba(139,92,246,0.25)':'rgba(255,255,255,0.08)' }}>
           <span style={{ fontSize:15, flexShrink:0 }}>🔗</span>
-          <input value={url} onChange={e => onChange('url', e.target.value)} placeholder="https://youtube.com/watch?v=..."
+          <input value={url} onChange={e => onChange('url', e.target.value)}
+            onPaste={e => {
+              const pasted = e.clipboardData.getData('text').trim()
+              if (pasted.includes('list=') || pasted.includes('/playlist?')) {
+                e.preventDefault()
+                if (typeof onOpenChannel === 'function') onOpenChannel(pasted)
+              }
+            }}
+            placeholder="https://youtube.com/watch?v=..."
             style={{ flex:1, background:'none', border:'none', outline:'none', fontSize:16, color:'#f0f0ff', fontFamily:'inherit', padding:'11px 0' }} />
           {isFetching && <span style={{ ...T.pill('#8b5cf6'), flexShrink:0 }}>fetching…</span>}
           {fetchStatus==='done' && !error && <span style={{ ...T.pill('#10b981'), flexShrink:0 }}>✓ ready</span>}
@@ -1543,7 +1551,8 @@ export default function App() {
   const [showLocalPanel, setShowLocalPanel] = useState(false)
   const [showAdvisory, setShowAdvisory]     = useState(false)
   const [showHealth,   setShowHealth]       = useState(false)
-  const [showChannel,  setShowChannel]      = useState(false)
+  const [showChannel,   setShowChannel]    = useState(false)
+  const [channelInitUrl,setChannelInitUrl] = useState('')
   const [queueStatus, setQueueStatus]       = useState(null)
   const [bgImage, setBgImage]               = useState(() => localStorage.getItem('yt_bg_image') || null)
   const [bgBrightness, setBgBrightness]     = useState(() => Number(localStorage.getItem('yt_bg_brightness') || 30))
@@ -2064,7 +2073,8 @@ export default function App() {
                 <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
                   <span style={{ fontSize:10, color:'#5555aa', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:5, padding:'1px 7px', ...T.mono }}>#{i+1}</span>
                 </div>
-                <UrlRow item={item} onChange={(key,val)=>updateItem(item.id,key,val)} onRemove={()=>removeItem(item.id)} canRemove={items.length>1} />
+                <UrlRow item={item} onChange={(key,val)=>updateItem(item.id,key,val)} onRemove={()=>removeItem(item.id)} canRemove={items.length>1}
+                onOpenChannel={(plUrl) => { setChannelInitUrl(plUrl); setShowChannel(true) }} />
               </div>
             ))}
         </div>
@@ -2125,9 +2135,10 @@ export default function App() {
           {showChannel && (
             <ChannelPanel
               open={showChannel}
-              onClose={() => setShowChannel(false)}
+              onClose={() => { setShowChannel(false); setChannelInitUrl('') }}
               apiFetchFn={(path, opts) => apiFetch(path, opts)}
               user={user}
+              initialUrl={channelInitUrl}
               doNormalize={doNormalize}
               onToggleNormalize={() => setDoNormalize(v => !v)}
               onAddToQueue={(url, title) => {

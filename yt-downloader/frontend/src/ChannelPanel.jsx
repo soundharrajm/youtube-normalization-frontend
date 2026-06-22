@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 
 const S = {
   pu:'#7c6af7', green:'#22c55e', red:'#ef4444', amber:'#f59e0b',
@@ -129,12 +129,12 @@ function SectionRow({ section, selected, onToggle, onSelectAll, onDeselectAll, o
   )
 }
 
-export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQueue, doNormalize, onToggleNormalize }) {
-  const [url,        setUrl]        = useState('')
+export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQueue, doNormalize, onToggleNormalize, initialUrl }) {
+  const [url,        setUrl]        = useState(initialUrl || '')
   const [tab,        setTab]        = useState('home')
   const [limit,      setLimit]      = useState(100)
   const [loading,    setLoading]    = useState(false)
-  const [loadingPl,  setLoadingPl]  = useState(null)  // playlist_id being loaded
+  const [loadingPl,  setLoadingPl]  = useState(null)
   const [result,     setResult]     = useState(null)
   const [error,      setError]      = useState(null)
   const [selected,   setSelected]   = useState(new Set())
@@ -142,6 +142,19 @@ export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQ
   const [added,      setAdded]      = useState(0)
   const [filter,     setFilter]     = useState('')
   const [channelUrl, setChannelUrl] = useState('')
+
+  // Auto-fetch when opened with an initial URL
+  const didAutoFetch = useRef(false)
+  useEffect(() => {
+    if (initialUrl && !didAutoFetch.current) {
+      didAutoFetch.current = true
+      setUrl(initialUrl)
+      // Small delay so state settles
+      setTimeout(() => {
+        handleFetchUrl(initialUrl)
+      }, 50)
+    }
+  }, [initialUrl])
 
   if (!open) return null
 
@@ -173,17 +186,14 @@ export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQ
     finally { setLoading(false) }
   }
 
-  async function handleFetch() {
-    const u = url.trim()
+  async function handleFetchUrl(u) {
     if (!u) return
     setChannelUrl('')
     setError(null)
     setSelected(new Set())
 
-    // If it's a playlist URL (has list= param), load directly as playlist
     if (u.includes('list=') || u.includes('/playlist?')) {
-      setLoading(true)
-      setResult(null)
+      setLoading(true); setResult(null)
       try {
         const res = await apiFetchFn('/channel/playlist', {
           method:'POST', headers:{'Content-Type':'application/json'},
@@ -191,22 +201,19 @@ export default function ChannelPanel({ open, onClose, apiFetchFn, user, onAddToQ
         })
         const d = await res.json()
         if (!res.ok) throw new Error(d.detail||'Failed')
-        setResult({
-          channel_name: d.title,
-          channel_url:  u,
-          tab:          'videos',
-          total:        d.total,
-          playlists:    [{ title: d.title, videos: d.videos, is_playlist: false }],
-        })
+        setResult({ channel_name:d.title, channel_url:u, tab:'videos', total:d.total, playlists:[{title:d.title,videos:d.videos,is_playlist:false}] })
         setTab('videos')
       } catch(e) { setError(e.message) }
       finally { setLoading(false) }
       return
     }
 
-    // Otherwise treat as channel URL
     setTab('home')
     await fetchTab('home', u)
+  }
+
+  async function handleFetch() {
+    await handleFetchUrl(url.trim())
   }
 
   async function switchTab(t) {
