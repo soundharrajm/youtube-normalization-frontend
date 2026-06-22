@@ -621,36 +621,43 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
   const localJobsRef = useRef([])
   useEffect(() => { localJobsRef.current = localJobs }, [localJobs])
 
-  // Stable polling interval — starts once, reads from ref
+  // Manual + auto refresh
+  const lastFallbackRef = useRef(0)
+  const refreshLocalJobs = async () => {
+    const ids = localJobsRef.current.filter(j=>j.status!=='done'&&j.status!=='error').map(j=>j.job_id)
+    if (!ids.length) return
+    try {
+      const results = await Promise.allSettled(
+        ids.map(id => apiFetchFn(`/download/status/${id}`).then(r=>{
+          if(r.status===404) return {_missing:true}
+          return r.json()
+        }))
+      )
+      setLocalJobs(prev => prev.map(j=>{
+        const idx=ids.indexOf(j.job_id); if(idx===-1) return j
+        const r=results[idx]; if(r.status!=='fulfilled') return j
+        const d=r.value
+        if(d._missing) return null
+        if(d.status==='done')  return {...j,status:'done',normalize_progress:100}
+        if(d.status==='error') return {...j,status:'error',error:d.error}
+        return {...j,status:d.status,normalize_progress:d.normalize_progress??j.normalize_progress}
+      }).filter(Boolean))
+    } catch(_) {}
+  }
+
   useEffect(() => {
-    const tick = async () => {
-      const ids = localJobsRef.current
-        .filter(j => j.status !== 'done' && j.status !== 'error')
-        .map(j => j.job_id)
-      if (!ids.length) return
-      try {
-        const results = await Promise.allSettled(
-          ids.map(id => apiFetchFn(`/download/status/${id}`).then(r => {
-            if (r.status === 404) return { _missing: true }
-            return r.json()
-          }))
-        )
-        setLocalJobs(prev => prev.map(j => {
-          const idx = ids.indexOf(j.job_id)
-          if (idx === -1) return j
-          const r = results[idx]
-          if (r.status !== 'fulfilled') return j
-          const d = r.value
-          if (d._missing) return null
-          if (d.status === 'done')  return { ...j, status:'done',  normalize_progress:100 }
-          if (d.status === 'error') return { ...j, status:'error', error:d.error }
-          return { ...j, status:d.status, normalize_progress:d.normalize_progress??j.normalize_progress }
-        }).filter(Boolean))
-      } catch(_) {}
-    }
-    localPollRef.current = setInterval(tick, 1000)
+    localPollRef.current = setInterval(() => {
+      const active = localJobsRef.current.filter(j=>j.status!=='done'&&j.status!=='error')
+      const now = Date.now()
+      if (active.length > 0) {
+        refreshLocalJobs()  // poll every 2s when active
+      } else if (now - lastFallbackRef.current > 30000) {
+        lastFallbackRef.current = now
+        refreshLocalJobs()  // fallback every 30s
+      }
+    }, 2000)
     return () => clearInterval(localPollRef.current)
-  }, []) // ← empty deps: starts once, never restarts
+  }, [])
 
   async function handleScan() {
     const pathList = paths.split('\n').map(p=>p.trim().replace(/^["']+|["']+$/g,'')).filter(Boolean)
@@ -860,7 +867,10 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                 {/* Queue status bar */}
                 <div style={{ marginBottom:8, padding:'7px 10px', borderRadius:7, background:'rgba(59,130,246,0.07)', border:'1px solid rgba(59,130,246,0.18)' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5 }}>
-                    <span style={{ fontSize:9, color:'#7878a0', fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em' }}>⚡ Queue</span>
+                    <button onClick={refreshLocalJobs}
+                      style={{ fontSize:9, color:'#3b82f6', fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit', display:'flex', alignItems:'center', gap:4 }}>
+                      ↻ Status
+                    </button>
                     <div style={{ display:'flex', gap:8, fontSize:9, ...T.mono }}>
                       {runningCount > 0 && <span style={{ color:'#3b82f6' }}>↻ {runningCount} running</span>}
                       {queuedCount  > 0 && <span style={{ color:'#f59e0b' }}>⏳ {queuedCount} waiting</span>}
