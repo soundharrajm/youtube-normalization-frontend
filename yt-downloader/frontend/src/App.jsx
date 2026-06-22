@@ -634,13 +634,17 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
         }))
       )
       setLocalJobs(prev => prev.map(j=>{
+        // Never update jobs already marked done/error in UI — prevents flickering back
+        if (j.status === 'done' || j.status === 'error') return j
         const idx=ids.indexOf(j.job_id); if(idx===-1) return j
         const r=results[idx]; if(r.status!=='fulfilled') return j
         const d=r.value
         if(d._missing) return null
         if(d.status==='done')  return {...j,status:'done',normalize_progress:100}
         if(d.status==='error') return {...j,status:'error',error:d.error}
-        return {...j,status:d.status,normalize_progress:d.normalize_progress??j.normalize_progress}
+        // Only update progress if it's higher than current (never go backwards)
+        const newPct = d.normalize_progress ?? j.normalize_progress
+        return {...j,status:d.status,normalize_progress:Math.max(j.normalize_progress||0, newPct||0)}
       }).filter(Boolean))
     } catch(_) {}
   }
@@ -1820,6 +1824,8 @@ export default function App() {
         }
         u=u.map(j=>{ 
           if(j.jobId!==jid)return j
+          // Never downgrade already-done/error jobs
+          if(j.status==='done'||j.status==='error') return j
           if(d.status==='done'){
             const doneJob={...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${jid}`,outFilename:d.filename}
             // Persist to localStorage history
@@ -1834,7 +1840,11 @@ export default function App() {
           }
           if(d.status==='error'&&d.error==='Cancelled by user')return null
           if(d.status==='error')return{...j,status:'error',error:d.error}
-          return{...j,status:d.status,progress:d.progress??j.progress,normProgress:d.normalize_progress??j.normProgress,queue_position:d.queue_position??j.queue_position,title:d.title||j.title}
+          // Never go backwards on progress
+          return{...j,status:d.status,
+            progress:    Math.max(j.progress||0,    d.progress??j.progress),
+            normProgress:Math.max(j.normProgress||0, d.normalize_progress??j.normProgress),
+            queue_position:d.queue_position??j.queue_position,title:d.title||j.title}
         })
       })
       return u.filter(Boolean)
