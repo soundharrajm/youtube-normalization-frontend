@@ -1753,7 +1753,8 @@ export default function App() {
   const jobsRef = useRef([])
   useEffect(() => { jobsRef.current = jobs }, [jobs])
 
-  // Poll queue status — fast when jobs active, slow when idle
+  // Poll queue status — fast when jobs active, 10s when idle
+  const lastIdlePollRef = useRef(0)
   useEffect(() => {
     const poll = async () => {
       try {
@@ -1762,15 +1763,14 @@ export default function App() {
       } catch(_) {}
     }
     poll()
-    // 2s when jobs active, 10s when idle
     const t = setInterval(() => {
       const hasActive = jobsRef.current.some(j => !['done','error'].includes(j.status))
-      if (hasActive) poll()
-      else {
-        // poll slowly — every 10s via a counter
+      if (hasActive) {
+        poll()
+      } else {
         const now = Date.now()
-        if (!poll._lastIdle || now - poll._lastIdle > 10000) {
-          poll._lastIdle = now
+        if (now - lastIdlePollRef.current > 10000) {
+          lastIdlePollRef.current = now
           poll()
         }
       }
