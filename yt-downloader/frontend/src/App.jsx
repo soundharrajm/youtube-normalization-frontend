@@ -1800,10 +1800,25 @@ export default function App() {
   }
 
   const refreshJobs = async () => {
-    if (!jobs.length) return
-    const snapshot = [...jobs]
-    const results = await Promise.allSettled(snapshot.map(j=>apiFetch(`${getApiBase()}/download/status/${j.jobId}`).then(r=>r.json())))
-    setJobs(prev => { let u=[...prev]; results.forEach((r,i)=>{ if(r.status!=='fulfilled')return; const d=r.value,jid=snapshot[i].jobId; u=u.map(j=>{ if(j.jobId!==jid)return j; if(d.status==='done')return{...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${jid}`,outFilename:d.filename}; if(d.status==='error')return{...j,status:'error',error:d.error}; return{...j,status:d.status,progress:d.progress??j.progress,normProgress:d.normalize_progress??j.normProgress,title:d.title||j.title} }) }); return u })
+    const active = jobsRef.current.filter(j => !['done','error'].includes(j.status))
+    if (!active.length) return  // nothing active — don't poll
+    try {
+      const ids = active.map(j => j.jobId)
+      const res = await apiFetch(`${getApiBase()}/download/status/batch`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(ids)
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      setJobs(prev => prev.map(j => {
+        if (j.status==='done'||j.status==='error') return j
+        const d = data[j.jobId]
+        if (!d) return j
+        if (d.status==='done') return {...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${j.jobId}`,outFilename:d.filename}
+        if (d.status==='error') return {...j,status:'error',error:d.error}
+        return {...j,status:d.status,progress:d.progress??j.progress,normProgress:d.normalize_progress??j.normProgress,title:d.title||j.title}
+      }))
+    } catch(_) {}
   }
 
   const allReady = items.every(it => it.info && it.selectedFormat)
@@ -1868,7 +1883,11 @@ export default function App() {
     pollRef.current = setInterval(async () => {
       const allCurrent = jobsRef.current
       const active = allCurrent.filter(j=>!['done','error'].includes(j.status))
-      if (!active.length) { clearInterval(pollRef.current); pollRef.current=null; return }
+      if (!active.length) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+        return
+      }
       // Use batch endpoint — 1 request for all active jobs
       try {
         const ids = active.map(j=>j.jobId)
