@@ -633,6 +633,8 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
   const [skipDone, setSkipDone]     = useState(true)
   const [scanResult, setScanResult] = useState(null)
   const [scanning, setScanning]     = useState(false)
+  const [validating, setValidating] = useState(false)
+  const [validateResult, setValidateResult] = useState(null)
   const [localJobs, setLocalJobs]         = useState([])
   const [localJobsExpanded, setLocalJobsExpanded] = useState(false)
   const [showPopup, setShowPopup]   = useState(false)
@@ -711,19 +713,46 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     const pathList = paths.split('\n').map(p=>p.trim().replace(/^["']+|["']+$/g,'')).filter(Boolean)
     if (!pathList.length) return
     prevDoneRef.current = 0
-    // Build flags with subtitle mode inline — only when normalize is on
     const subFlag = normConfig?.subtitleMode === 'drop' ? '-sn'
                   : normConfig?.subtitleMode === 'copy' ? '-c:s copy'
                   : '-c:s mov_text'
     const baseFlags = (normConfig?.flags || '-c:v libx264 -crf 19 -forced-idr 1 -c:a copy').replace(/-c:s\s+\S+|-sn/g, '').trim()
     const finalFlags = doNormalize ? `${baseFlags} ${subFlag}`.trim() : null
+
+    // ── Step 1: validate with ffprobe before queuing ──────────────────────────
+    setValidating(true); setValidateResult(null)
+    try {
+      const vres = await apiFetchFn('/normalize/local/validate', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          paths: pathList,
+          recursive,
+          skip_already_normalized: skipDone,
+          output_ext:     normConfig.outputExt || 'same',
+          subtitle_mode:  normConfig.subtitleMode || 'drop',
+          codec:          targetCodec || 'h264',
+          force_reencode: !!forceReencode,
+        }),
+      })
+      if (vres.ok) {
+        const vdata = await vres.json()
+        setValidateResult(vdata)
+        if (!vdata.valid) {
+          setValidating(false)
+          return   // block — show errors to user, don't queue
+        }
+      }
+    } catch(e) { console.error('[Validate] error:', e) }
+    finally { setValidating(false) }
+
+    // ── Step 2: all clear — queue jobs ────────────────────────────────────────
     try {
       const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList, norm_flags:finalFlags, recursive, skip_already_normalized:skipDone, codec:targetCodec||'h264', resolution:targetRes||'1920x1080', output_ext:normConfig.outputExt||'same', force_reencode:!!forceReencode}) })
       if (res.ok) {
         const created = await res.json()
         setLocalJobs(prev => [...created.map(j=>({...j,status:'queued',normalize_progress:0,title:j.source_path.split(/[/\\]/).pop()})),...prev])
-        setScanResult(null)
-        startLocalPolling()  // start polling now that we have active jobs
+        setScanResult(null); setValidateResult(null)
+        startLocalPolling()
       } else {
         const d = await res.json().catch(()=>({}))
         console.error('[Normalize] failed:', res.status, d)
@@ -853,8 +882,44 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
             </div>
             <div style={{ display:'flex', gap:6, marginBottom:6 }}>
               <button onClick={handleScan} disabled={scanning||!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, padding:'7px 12px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.07)', color:'#c0c0e0', cursor:'pointer', fontFamily:'inherit' }}>🔍 {scanning?'Scanning…':'Preview'}</button>
-              <button onClick={handleNormalize} disabled={!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, padding:'7px 14px', borderRadius:7, border:'1px solid rgba(29,158,117,0.35)', background:'rgba(29,158,117,0.12)', color:T.te2, cursor:'pointer', fontFamily:'inherit' }}>▶ {doNormalize ? 'Normalize' : 'Copy (raw)'}</button>
+              <button onClick={handleNormalize} disabled={!paths.trim()||validating} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, padding:'7px 14px', borderRadius:7, border:`1px solid ${validating?'rgba(245,158,11,0.35)':'rgba(29,158,117,0.35)'}`, background:validating?'rgba(245,158,11,0.08)':'rgba(29,158,117,0.12)', color:validating?'#f59e0b':T.te2, cursor:'pointer', fontFamily:'inherit' }}>
+                {validating ? '🔎 Checking…' : doNormalize ? '▶ Normalize' : '▶ Copy (raw)'}
+              </button>
             </div>
+
+            {/* Validate result — errors block, warnings allow */}
+            {validateResult && (
+              <div style={{ marginBottom:10 }}>
+                {!validateResult.valid && (
+                  <div style={{ background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)', borderRadius:8, padding:'10px 12px', marginBottom:6 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#f87171', marginBottom:6 }}>⛔ Cannot normalize — fix these errors first:</div>
+                    {validateResult.results.filter(r=>r.errors?.length>0).map((r,i) => (
+                      <div key={i} style={{ marginBottom:6 }}>
+                        <div style={{ fontSize:10, color:'#f87171', fontWeight:600, ...T.mono, marginBottom:2 }}>{r.file}</div>
+                        {r.errors.map((e,j) => <div key={j} style={{ fontSize:10, color:'#fca5a5', lineHeight:1.5, paddingLeft:8 }}>• {e}</div>)}
+                        <div style={{ fontSize:10, color:'#555', marginTop:2, paddingLeft:8 }}>
+                          Detected: {r.probe?.video||'?'} · {r.probe?.width}×{r.probe?.height} · subs: {r.probe?.subtitles?.join(', ')||'none'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {validateResult.results.some(r=>r.warnings?.length>0) && (
+                  <div style={{ background:'rgba(245,158,11,0.07)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:8, padding:'10px 12px' }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#f59e0b', marginBottom:6 }}>⚠ Warnings — will proceed with these changes:</div>
+                    {validateResult.results.filter(r=>r.warnings?.length>0).map((r,i) => (
+                      <div key={i} style={{ marginBottom:6 }}>
+                        <div style={{ fontSize:10, color:'#f59e0b', fontWeight:600, ...T.mono, marginBottom:2 }}>{r.file}</div>
+                        {r.warnings.map((w,j) => <div key={j} style={{ fontSize:10, color:'#fcd34d', lineHeight:1.5, paddingLeft:8 }}>• {w}</div>)}
+                      </div>
+                    ))}
+                    <button onClick={handleNormalize} disabled={validating} style={{ marginTop:8, fontSize:11, fontWeight:600, padding:'6px 14px', borderRadius:7, border:'1px solid rgba(245,158,11,0.4)', background:'rgba(245,158,11,0.12)', color:'#f59e0b', cursor:'pointer', fontFamily:'inherit' }}>
+                      Proceed anyway →
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ fontSize:10, color:'#555', marginBottom:10, lineHeight:1.5 }}>
               {doNormalize
                 ? `${forceReencode ? '🔄 force re-encode' : '⚡ smart copy'} · ${targetCodec?.toUpperCase()||'H.264'} · ${targetRes==='source'?'source res':targetRes?.replace('x','×')||'1920×1080'} — set in ⚙ Settings`
@@ -1435,7 +1500,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
             })}
             {activePreset.id === 'custom' && (
               <input value={customFlags} onChange={e=>{setCustomFlags(e.target.value);setNormConfig(v=>({...v,flags:e.target.value}))}}
-                placeholder="-c:v libx264 -crf 18 -c:a aac"
+                placeholder="-c:v libx264 -crf 22 -preset medium -c:a copy"
                 style={{ width:'100%', background:'rgba(0,0,0,0.25)', border:'1px solid rgba(127,119,221,0.3)', borderRadius:7, padding:'8px 10px', fontSize:11, ...T.mono, color:T.pu2, outline:'none', boxSizing:'border-box', marginTop:6 }} />
             )}
 
