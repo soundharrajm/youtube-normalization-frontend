@@ -700,7 +700,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     if (!pathList.length) return
     setScanning(true); setScanResult(null)
     try {
-      const res = await apiFetchFn('/normalize/local/scan', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList,recursive,skip_already_normalized:skipDone}) })
+      const res = await apiFetchFn('/normalize/local/scan', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList,recursive,skip_already_normalized:skipDone,output_ext:normConfig.outputExt||'same'}) })
       if (res.ok) setScanResult(await res.json())
       else console.error('[Scan] failed:', res.status, await res.json().catch(()=>({})))
     } catch(e) { console.error('[Scan] error:', e) }
@@ -718,7 +718,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     const baseFlags = (normConfig?.flags || '-c:v libx264 -crf 19 -forced-idr 1 -c:a copy').replace(/-c:s\s+\S+|-sn/g, '').trim()
     const finalFlags = doNormalize ? `${baseFlags} ${subFlag}`.trim() : null
     try {
-      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList, norm_flags:finalFlags, recursive, skip_already_normalized:skipDone, codec:targetCodec||'h264', resolution:targetRes||'1920x1080'}) })
+      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList, norm_flags:finalFlags, recursive, skip_already_normalized:skipDone, codec:targetCodec||'h264', resolution:targetRes||'1920x1080', output_ext:normConfig.outputExt||'same'}) })
       if (res.ok) {
         const created = await res.json()
         setLocalJobs(prev => [...created.map(j=>({...j,status:'queued',normalize_progress:0,title:j.source_path.split(/[/\\]/).pop()})),...prev])
