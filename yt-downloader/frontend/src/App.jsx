@@ -650,9 +650,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
 
   const localJobsRef = useRef([])
   useEffect(() => { localJobsRef.current = localJobs }, [localJobs])
-
   // Manual + auto refresh
-  const lastFallbackRef = useRef(0)
   const refreshLocalJobs = async () => {
     const active = localJobsRef.current.filter(j=>j.status!=='done'&&j.status!=='error')
     if (!active.length) return
@@ -680,19 +678,22 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     } catch(_) {}
   }
 
-  useEffect(() => {
+  // Start/stop polling based on whether there are active jobs
+  const startLocalPolling = useCallback(() => {
+    if (localPollRef.current) return  // already running
     localPollRef.current = setInterval(() => {
-      const active = localJobsRef.current.filter(j=>j.status!=='done'&&j.status!=='error')
-      const now = Date.now()
+      const active = localJobsRef.current.filter(j => j.status !== 'done' && j.status !== 'error')
       if (active.length > 0) {
         refreshLocalJobs()
-      } else if (now - lastFallbackRef.current > getPollMs("idle")) {
-        lastFallbackRef.current = now
-        refreshLocalJobs()
+      } else {
+        // No active jobs — stop polling entirely
+        clearInterval(localPollRef.current)
+        localPollRef.current = null
       }
     }, getPollMs('active'))
-    return () => clearInterval(localPollRef.current)
   }, [])
+
+  useEffect(() => () => { if (localPollRef.current) clearInterval(localPollRef.current) }, [])
 
   async function handleScan() {
     const pathList = paths.split('\n').map(p=>p.trim().replace(/^["']+|["']+$/g,'')).filter(Boolean)
@@ -722,6 +723,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
         const created = await res.json()
         setLocalJobs(prev => [...created.map(j=>({...j,status:'queued',normalize_progress:0,title:j.source_path.split(/[/\\]/).pop()})),...prev])
         setScanResult(null)
+        startLocalPolling()  // start polling now that we have active jobs
       } else {
         const d = await res.json().catch(()=>({}))
         console.error('[Normalize] failed:', res.status, d)
