@@ -627,7 +627,7 @@ function CompletionPopup({ jobs, onClose }) {
 }
 
 // ── LocalPanel (left slide panel) ─────────────────────────────────────────
-function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetSubtitleMode }) {
+function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetSubtitleMode, targetCodec, targetRes, doNormalize }) {
   const [paths, setPaths]           = useState('')
   const [recursive, setRecursive]   = useState(false)
   const [skipDone, setSkipDone]     = useState(true)
@@ -710,14 +710,14 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     const pathList = paths.split('\n').map(p=>p.trim().replace(/^["']+|["']+$/g,'')).filter(Boolean)
     if (!pathList.length) return
     prevDoneRef.current = 0
-    // Build flags with subtitle mode inline
+    // Build flags with subtitle mode inline — only when normalize is on
     const subFlag = normConfig?.subtitleMode === 'drop' ? '-sn'
                   : normConfig?.subtitleMode === 'copy' ? '-c:s copy'
                   : '-c:s mov_text'
     const baseFlags = (normConfig?.flags || '-c:v libx264 -crf 19 -forced-idr 1 -c:a copy').replace(/-c:s\s+\S+|-sn/g, '').trim()
-    const finalFlags = `${baseFlags} ${subFlag}`.trim()
+    const finalFlags = doNormalize ? `${baseFlags} ${subFlag}`.trim() : null
     try {
-      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList, norm_flags:finalFlags, recursive, skip_already_normalized:skipDone}) })
+      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList, norm_flags:finalFlags, recursive, skip_already_normalized:skipDone, codec:targetCodec||'h264', resolution:targetRes||'1920x1080'}) })
       if (res.ok) {
         const created = await res.json()
         setLocalJobs(prev => [...created.map(j=>({...j,status:'queued',normalize_progress:0,title:j.source_path.split(/[/\\]/).pop()})),...prev])
@@ -849,9 +849,14 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                  '✓ -c:s mov_text — converts SRT to mp4 format'}
               </div>
             </div>
-            <div style={{ display:'flex', gap:6, marginBottom:10 }}>
+            <div style={{ display:'flex', gap:6, marginBottom:6 }}>
               <button onClick={handleScan} disabled={scanning||!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, padding:'7px 12px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.07)', color:'#c0c0e0', cursor:'pointer', fontFamily:'inherit' }}>🔍 {scanning?'Scanning…':'Preview'}</button>
-              <button onClick={handleNormalize} disabled={!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, padding:'7px 14px', borderRadius:7, border:'1px solid rgba(29,158,117,0.35)', background:'rgba(29,158,117,0.12)', color:T.te2, cursor:'pointer', fontFamily:'inherit' }}>▶ Normalize</button>
+              <button onClick={handleNormalize} disabled={!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, padding:'7px 14px', borderRadius:7, border:'1px solid rgba(29,158,117,0.35)', background:'rgba(29,158,117,0.12)', color:T.te2, cursor:'pointer', fontFamily:'inherit' }}>▶ {doNormalize ? 'Normalize' : 'Copy (raw)'}</button>
+            </div>
+            <div style={{ fontSize:10, color:'#555', marginBottom:10, lineHeight:1.5 }}>
+              {doNormalize
+                ? `⚡ ffmpeg · ${targetCodec?.toUpperCase()||'H.264'} · ${targetRes==='source'?'source res':targetRes?.replace('x','×')||'1920×1080'} — set in ⚙ Settings`
+                : '⬇️ Download only mode — ffmpeg skipped — set in ⚙ Settings'}
             </div>
 
             {/* Scan result */}
@@ -1233,7 +1238,7 @@ function DownloadHistory({ apiFetchFn, jobs, onClearAll }) {
   )
 }
 
-function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs, onClearQueued, onRemoveJob, bgImage, bgBrightness, setBgBrightness }) {
+function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs, onClearQueued, onRemoveJob, bgImage, bgBrightness, setBgBrightness, targetCodec, setTargetCodec, targetRes, setTargetRes, doNormalize, setDoNormalize }) {
   const activePreset = PRESETS.find(p => p.id === normConfig.presetId) || PRESETS[2]
   const [customFlags, setCustomFlags] = useState(normConfig.presetId==='custom' ? normConfig.flags : '')
   const [parallelFetch, setParallelFetch] = useState(false)
@@ -1276,6 +1281,35 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
             </div>
           )}
 
+          {/* ── NORMALIZE TOGGLE ── */}
+          <div style={{ marginBottom:'1rem' }}>
+            <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Normalize</div>
+            <div onClick={() => setDoNormalize(v => !v)} style={{
+              display:'flex', alignItems:'center', gap:10,
+              padding:'10px 12px', borderRadius:9, cursor:'pointer',
+              border: doNormalize ? '1px solid rgba(124,106,247,0.35)' : '1px solid rgba(255,255,255,0.07)',
+              background: doNormalize ? 'rgba(124,106,247,0.1)' : 'rgba(255,255,255,0.03)',
+              transition:'all .2s', userSelect:'none',
+            }}>
+              {/* pill toggle */}
+              <div style={{ width:36, height:20, borderRadius:10, background:doNormalize?'#7c6af7':'rgba(255,255,255,0.1)', position:'relative', flexShrink:0, transition:'background .2s' }}>
+                <div style={{ width:14, height:14, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:doNormalize?19:3, transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:12, fontWeight:600, color:doNormalize?'#a78bfa':'#64748b' }}>
+                  {doNormalize ? '⚡ Normalize after download' : '⬇️ Download only (skip ffmpeg)'}
+                </div>
+                <div style={{ fontSize:10, color:'#444', marginTop:2 }}>
+                  {doNormalize
+                    ? `applies to YouTube + local files`
+                    : 'raw file saved with video title as filename'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ height:1, background:'rgba(255,255,255,0.06)', margin:'.75rem 0' }} />
+
           {/* Sequential toggle */}
           <div style={{ marginBottom:'1rem' }}>
             <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Download mode</div>
@@ -1292,7 +1326,68 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
 
           <div style={{ height:1, background:'rgba(255,255,255,0.06)', margin:'.75rem 0' }} />
 
-          {/* Encoding preset */}
+          {/* ── CODEC TOGGLE ── */}
+          <div style={{ marginBottom:'1rem' }}>
+            <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Video codec</div>
+            <div style={{ display:'flex', gap:6 }}>
+              {[{val:'h264',label:'H.264',color:'#3b82f6'},{val:'h265',label:'H.265',color:'#7c3aed'}].map(opt => {
+                const active = targetCodec === opt.val
+                return (
+                  <button key={opt.val} onClick={() => setTargetCodec(opt.val)} style={{
+                    flex:1, padding:'7px 0', borderRadius:8, cursor:'pointer', fontFamily:'inherit',
+                    fontSize:12, fontWeight:700,
+                    border: active ? `1px solid ${opt.color}66` : '1px solid rgba(255,255,255,0.08)',
+                    background: active ? `${opt.color}22` : 'rgba(255,255,255,0.03)',
+                    color: active ? opt.color : '#555',
+                    transition:'all .15s',
+                  }}>
+                    {opt.label}
+                    {active && <span style={{ fontSize:9, marginLeft:5, opacity:0.7 }}>✓</span>}
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ fontSize:10, color:'#444', marginTop:5, lineHeight:1.5 }}>
+              {targetCodec === 'h265'
+                ? '💎 H.265 — ~40% smaller files, slower encode. If source is already H.265, stream copied instantly.'
+                : '⚡ H.264 — fastest, widest compatibility. If source is already H.264, stream copied instantly.'}
+            </div>
+          </div>
+
+          {/* ── RESOLUTION TOGGLE ── */}
+          <div style={{ marginBottom:'1rem' }}>
+            <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Resolution</div>
+            <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+              {[
+                {val:'source', label:'Source', desc:'Keep original'},
+                {val:'1280x720',  label:'720p',   desc:'1280×720'},
+                {val:'1920x1080', label:'1080p',  desc:'1920×1080'},
+                {val:'3840x2160', label:'4K',     desc:'3840×2160'},
+              ].map(opt => {
+                const active = targetRes === opt.val
+                return (
+                  <button key={opt.val} onClick={() => setTargetRes(opt.val)} style={{
+                    flex:1, minWidth:'calc(50% - 3px)', padding:'7px 4px', borderRadius:8, cursor:'pointer', fontFamily:'inherit',
+                    fontSize:11, fontWeight:700, textAlign:'center',
+                    border: active ? '1px solid rgba(29,158,117,0.5)' : '1px solid rgba(255,255,255,0.08)',
+                    background: active ? 'rgba(29,158,117,0.15)' : 'rgba(255,255,255,0.03)',
+                    color: active ? '#5DCAA5' : '#555',
+                    transition:'all .15s',
+                  }}>
+                    {opt.label}
+                    <div style={{ fontSize:9, fontWeight:400, color: active ? '#3a8a6a' : '#3a3a50', marginTop:1 }}>{opt.desc}</div>
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ fontSize:10, color:'#444', marginTop:5, lineHeight:1.5 }}>
+              {targetRes === 'source'
+                ? '↔ Keep source resolution — no scaling applied.'
+                : `⇄ Scale to ${targetRes.replace('x','×')} — if source already matches, no scaling needed.`}
+            </div>
+          </div>
+
+          <div style={{ height:1, background:'rgba(255,255,255,0.06)', margin:'.75rem 0' }} />
           <div style={{ marginBottom:'1rem' }}>
             <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Encoding preset</div>
             {PRESETS.map(preset => {
@@ -1664,6 +1759,8 @@ export default function App() {
     subtitleMode: 'convert',
   })
   const [doNormalize, setDoNormalize] = useState(true)
+  const [targetCodec, setTargetCodec] = useState(() => localStorage.getItem('yt_target_codec') || 'h264')
+  const [targetRes,   setTargetRes]   = useState(() => localStorage.getItem('yt_target_res')   || '1920x1080')
 
   // Build final flags with subtitle mode injected
   const effectiveFlags = (cfg = normConfig) => {
@@ -1824,7 +1921,7 @@ export default function App() {
   const allReady = items.every(it => it.info && it.selectedFormat)
 
   const _dispatchDownload = async (it) => {
-    const res = await apiFetch(`${getApiBase()}/download/batch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{url:it.url.trim(),format_id:it.selectedFormat.format_id,session_id:user?.session_id||null}],norm_flags:doNormalize ? effectiveFlags() : null,output_ext:normConfig.outputExt||'same'})})
+    const res = await apiFetch(`${getApiBase()}/download/batch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{url:it.url.trim(),format_id:it.selectedFormat.format_id,session_id:user?.session_id||null}],norm_flags:doNormalize ? effectiveFlags() : null,output_ext:normConfig.outputExt||'same',codec:targetCodec,resolution:targetRes})})
     const data = await res.json()
     if (res.ok && data.jobs?.length) { const j=data.jobs[0]; return {jobId:j.job_id,url:j.url,title:it.info?.title||j.url,format:it.selectedFormat?.label||'',status:'queued',progress:0,normProgress:0,queue_position:j.queue_position,downloadUrl:null,outFilename:null,error:null} }
     return null
@@ -2003,6 +2100,9 @@ export default function App() {
         normConfig={normConfig}
         apiFetchFn={(path, opts) => apiFetch(path, opts)}
         onSetSubtitleMode={(mode) => setNormConfig(c => ({ ...c, subtitleMode: mode }))}
+        targetCodec={targetCodec}
+        targetRes={targetRes}
+        doNormalize={doNormalize}
       />
 
       {/* ── LEFT TAB ── */}
@@ -2034,6 +2134,12 @@ export default function App() {
         apiFetchFn={(path, opts) => apiFetch(path, opts)}
         jobs={jobs}
         onRefreshJobs={refreshJobs}
+        targetCodec={targetCodec}
+        setTargetCodec={(v) => { setTargetCodec(v); localStorage.setItem('yt_target_codec', v) }}
+        targetRes={targetRes}
+        setTargetRes={(v) => { setTargetRes(v); localStorage.setItem('yt_target_res', v) }}
+        doNormalize={doNormalize}
+        setDoNormalize={setDoNormalize}
         onClearJobs={async () => {
           try { await apiFetch('/queue/clear-all', { method: 'POST' }) } catch(_) {}
           setJobs([])
@@ -2215,22 +2321,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* ── Normalize toggle ── */}
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16, padding:'8px 14px', borderRadius:10, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' }}>
-          <div onClick={()=>setDoNormalize(v=>!v)} style={{ width:38, height:22, borderRadius:11, background:doNormalize?'#7c6af7':'rgba(255,255,255,0.1)', cursor:'pointer', position:'relative', transition:'background .2s', flexShrink:0 }}>
-            <div style={{ width:16, height:16, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:doNormalize?19:3, transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
-          </div>
-          <div style={{ flex:1 }}>
-            <span style={{ fontSize:12, fontWeight:600, color:doNormalize?'#7c6af7':'#64748b' }}>
-              {doNormalize ? '⚡ Normalize after download' : '⬇️ Download only (no normalize)'}
-            </span>
-            <span style={{ fontSize:10, color:'#555', marginLeft:8 }}>
-              {doNormalize
-                ? `ffmpeg · ${normConfig.presetId} · ${normConfig.subtitleMode==='drop'?'no subs':normConfig.subtitleMode==='copy'?'copy subs':'convert subs'}`
-                : 'saves raw file with video title as filename'}
-            </span>
-          </div>
-        </div>
+
         <div style={{ display:'flex', gap:6, marginBottom:24, flexWrap:'wrap' }}>
           <input ref={fileInputRef} type="file" accept=".json,.csv" onChange={importUrls} style={{ display:'none' }} />
           {showSearch && <SearchPanel onAddUrl={addUrlFromSearch} onClose={()=>setShowSearch(false)} />}
