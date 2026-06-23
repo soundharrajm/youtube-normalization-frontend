@@ -627,7 +627,7 @@ function CompletionPopup({ jobs, onClose }) {
 }
 
 // ── LocalPanel (left slide panel) ─────────────────────────────────────────
-function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetSubtitleMode, targetCodec, targetRes, doNormalize }) {
+function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetSubtitleMode, targetCodec, targetRes, doNormalize, forceReencode }) {
   const [paths, setPaths]           = useState('')
   const [recursive, setRecursive]   = useState(false)
   const [skipDone, setSkipDone]     = useState(true)
@@ -718,7 +718,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     const baseFlags = (normConfig?.flags || '-c:v libx264 -crf 19 -forced-idr 1 -c:a copy').replace(/-c:s\s+\S+|-sn/g, '').trim()
     const finalFlags = doNormalize ? `${baseFlags} ${subFlag}`.trim() : null
     try {
-      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList, norm_flags:finalFlags, recursive, skip_already_normalized:skipDone, codec:targetCodec||'h264', resolution:targetRes||'1920x1080', output_ext:normConfig.outputExt||'same'}) })
+      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList, norm_flags:finalFlags, recursive, skip_already_normalized:skipDone, codec:targetCodec||'h264', resolution:targetRes||'1920x1080', output_ext:normConfig.outputExt||'same', force_reencode:!!forceReencode}) })
       if (res.ok) {
         const created = await res.json()
         setLocalJobs(prev => [...created.map(j=>({...j,status:'queued',normalize_progress:0,title:j.source_path.split(/[/\\]/).pop()})),...prev])
@@ -857,7 +857,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
             </div>
             <div style={{ fontSize:10, color:'#555', marginBottom:10, lineHeight:1.5 }}>
               {doNormalize
-                ? `⚡ ffmpeg · ${targetCodec?.toUpperCase()||'H.264'} · ${targetRes==='source'?'source res':targetRes?.replace('x','×')||'1920×1080'} — set in ⚙ Settings`
+                ? `${forceReencode ? '🔄 force re-encode' : '⚡ smart copy'} · ${targetCodec?.toUpperCase()||'H.264'} · ${targetRes==='source'?'source res':targetRes?.replace('x','×')||'1920×1080'} — set in ⚙ Settings`
                 : '⬇️ Download only mode — ffmpeg skipped — set in ⚙ Settings'}
             </div>
 
@@ -1240,7 +1240,7 @@ function DownloadHistory({ apiFetchFn, jobs, onClearAll }) {
   )
 }
 
-function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs, onClearQueued, onRemoveJob, bgImage, bgBrightness, setBgBrightness, targetCodec, setTargetCodec, targetRes, setTargetRes, doNormalize, setDoNormalize }) {
+function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs, onClearQueued, onRemoveJob, bgImage, bgBrightness, setBgBrightness, targetCodec, setTargetCodec, targetRes, setTargetRes, doNormalize, setDoNormalize, forceReencode, setForceReencode }) {
   const activePreset = PRESETS.find(p => p.id === normConfig.presetId) || PRESETS[2]
   const [customFlags, setCustomFlags] = useState(normConfig.presetId==='custom' ? normConfig.flags : '')
   const [parallelFetch, setParallelFetch] = useState(false)
@@ -1310,9 +1310,34 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
             </div>
           </div>
 
-          <div style={{ height:1, background:'rgba(255,255,255,0.06)', margin:'.75rem 0' }} />
+          {/* ── FORCE RE-ENCODE TOGGLE — only shown when normalize is ON ── */}
+          {doNormalize && (
+            <div style={{ marginBottom:'1rem', marginTop:'-.25rem' }}>
+              <div onClick={() => setForceReencode(v => !v)} style={{
+                display:'flex', alignItems:'center', gap:10,
+                padding:'9px 12px', borderRadius:9, cursor:'pointer',
+                border: forceReencode ? '1px solid rgba(239,68,68,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                background: forceReencode ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.02)',
+                transition:'all .2s', userSelect:'none',
+              }}>
+                <div style={{ width:36, height:20, borderRadius:10, background:forceReencode?'#ef4444':'rgba(255,255,255,0.1)', position:'relative', flexShrink:0, transition:'background .2s' }}>
+                  <div style={{ width:14, height:14, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:forceReencode?19:3, transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:12, fontWeight:600, color:forceReencode?'#f87171':'#555' }}>
+                    {forceReencode ? '🔄 Force re-encode (always)' : '⚡ Smart copy (skip if matching)'}
+                  </div>
+                  <div style={{ fontSize:10, color:'#444', marginTop:2 }}>
+                    {forceReencode
+                      ? 'every file goes through ffmpeg — slower but reprocesses all'
+                      : 'skips re-encode if codec + resolution already match'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
-          {/* Sequential toggle */}
+          <div style={{ height:1, background:'rgba(255,255,255,0.06)', margin:'.75rem 0' }} />
           <div style={{ marginBottom:'1rem' }}>
             <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Download mode</div>
             <button onClick={() => setParallelFetch(v => !v)} style={{
@@ -1761,6 +1786,7 @@ export default function App() {
     subtitleMode: 'convert',
   })
   const [doNormalize, setDoNormalize] = useState(true)
+  const [forceReencode, setForceReencode] = useState(false)
   const [targetCodec, setTargetCodec] = useState(() => localStorage.getItem('yt_target_codec') || 'h264')
   const [targetRes,   setTargetRes]   = useState(() => localStorage.getItem('yt_target_res')   || '1920x1080')
 
@@ -2105,6 +2131,7 @@ export default function App() {
         targetCodec={targetCodec}
         targetRes={targetRes}
         doNormalize={doNormalize}
+        forceReencode={forceReencode}
       />
 
       {/* ── LEFT TAB ── */}
@@ -2142,6 +2169,8 @@ export default function App() {
         setTargetRes={(v) => { setTargetRes(v); localStorage.setItem('yt_target_res', v) }}
         doNormalize={doNormalize}
         setDoNormalize={setDoNormalize}
+        forceReencode={forceReencode}
+        setForceReencode={setForceReencode}
         onClearJobs={async () => {
           try { await apiFetch('/queue/clear-all', { method: 'POST' }) } catch(_) {}
           setJobs([])
