@@ -815,7 +815,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     zIndex:160,
     overflowY:'auto', overflowX:'hidden', display:'flex', flexDirection:'column',
   }
-  const lbl  = { fontSize:12, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
+  const lbl  = { fontSize:13, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
   const sdiv = { height:1, background:'rgba(186,117,23,0.12)', margin:'12px 0' }
 
   return (
@@ -890,15 +890,15 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
             <textarea value={paths} onChange={e=>setPaths(e.target.value)}
               placeholder={'C:\\Videos\\movie.mp4\nC:\\Shows\\Season1\\'}
               style={{ width:'100%', background:'rgba(0,0,0,0.25)', border:'1px solid rgba(255,255,255,0.18)', borderRadius:8, padding:'9px 11px', fontSize:13, ...T.mono, color:'#e0e0f0', outline:'none', resize:'vertical', minHeight:80, boxSizing:'border-box', marginBottom:8 }} />
-            <div style={{ display:'flex', flexDirection:'column', gap:6, fontSize:12, color:'#b0b0c8', marginBottom:8 }}>
+            <div style={{ display:'flex', flexDirection:'column', gap:6, fontSize:14, color:'#b0b0c8', marginBottom:8 }}>
               <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={recursive} onChange={e=>setRecursive(e.target.checked)} /> Scan subfolders recursively</label>
               <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={skipDone} onChange={e=>setSkipDone(e.target.checked)} /> Skip already-normalized files</label>
             </div>
-            <div style={{ fontSize:12, color:'#9090b8', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
+            <div style={{ fontSize:14, color:'#9090b8', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
 
             {/* Subtitle mode */}
             <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:12, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:6 }}>Subtitles</div>
+              <div style={{ fontSize:13, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:6 }}>Subtitles</div>
               <div style={{ display:'flex', gap:5 }}>
                 {[
                   { id:'convert', label:'Convert', desc:'SRT→mov_text (safe)', color:'#22c55e' },
@@ -911,7 +911,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                       onClick={() => {
                         if (typeof onSetSubtitleMode === 'function') onSetSubtitleMode(m.id)
                       }}
-                      style={{ flex:1, padding:'6px 4px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', textAlign:'center',
+                      style={{ flex:1, padding:'6px 4px', borderRadius:6, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit', textAlign:'center',
                         border: active ? `1.5px solid ${m.color}` : '1px solid rgba(255,255,255,0.12)',
                         background: active ? `rgba(${m.id==='convert'?'34,197,94':m.id==='copy'?'59,130,246':'245,158,11'},0.12)` : 'rgba(255,255,255,0.04)',
                         color: active ? m.color : '#777',
@@ -921,7 +921,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                   )
                 })}
               </div>
-              <div style={{ fontSize:12, color:'#505070', marginTop:4, ...T.mono }}>
+              <div style={{ fontSize:14, color:'#505070', marginTop:4, ...T.mono }}>
                 {normConfig?.subtitleMode === 'drop' ? '⚠ -sn — all subtitles removed' :
                  normConfig?.subtitleMode === 'copy' ? '⚡ -c:s copy — fast, may fail on mp4+SRT' :
                  '✓ -c:s mov_text — converts SRT to mp4 format'}
@@ -967,7 +967,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                 )}
               </div>
             )}
-            <div style={{ fontSize:12, color:'#555', marginBottom:10, lineHeight:1.5 }}>
+            <div style={{ fontSize:14, color:'#555', marginBottom:10, lineHeight:1.5 }}>
               {doNormalize
                 ? `${forceReencode ? '🔄 force re-encode' : '⚡ smart copy'} · ${targetCodec?.toUpperCase()||'H.264'} · ${targetRes==='source'?'source res':targetRes?.replace('x','×')||'1920×1080'} — set in ⚙ Settings`
                 : '⬇️ Download only mode — ffmpeg skipped — set in ⚙ Settings'}
