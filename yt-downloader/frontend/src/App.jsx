@@ -681,6 +681,8 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
   }
 
   // Start/stop polling based on whether there are active jobs
+  // Local normalize poll always uses 2s — independent of POLL_ACTIVE_MS config
+  const LOCAL_POLL_MS = 2000
   const startLocalPolling = useCallback(() => {
     if (localPollRef.current) return  // already running
     localPollRef.current = setInterval(() => {
@@ -688,11 +690,10 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
       if (active.length > 0) {
         refreshLocalJobs()
       } else {
-        // No active jobs — stop polling entirely
         clearInterval(localPollRef.current)
         localPollRef.current = null
       }
-    }, getPollMs('active'))
+    }, LOCAL_POLL_MS)
   }, [])
 
   useEffect(() => () => { if (localPollRef.current) clearInterval(localPollRef.current) }, [])
