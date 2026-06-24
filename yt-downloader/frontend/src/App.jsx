@@ -629,7 +629,7 @@ function CompletionPopup({ jobs, onClose }) {
 }
 
 // ── LocalPanel (left slide panel) ─────────────────────────────────────────
-function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetSubtitleMode, targetCodec, targetRes, doNormalize, forceReencode, localJobs, setLocalJobs }) {
+function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetSubtitleMode, targetCodec, targetRes, doNormalize, forceReencode, localJobs, setLocalJobs, startLocalPollingRef }) {
   const [paths, setPaths]       = useState(() => localStorage.getItem('yt_local_paths') || '')
   const [recursive, setRecursive] = useState(() => localStorage.getItem('yt_local_recursive') === 'true')
   const [skipDone, setSkipDone]   = useState(() => localStorage.getItem('yt_local_skipdone') !== 'false')
@@ -2328,6 +2328,7 @@ export default function App() {
         forceReencode={forceReencode}
         localJobs={localJobs}
         setLocalJobs={setLocalJobs}
+        startLocalPollingRef={startLocalPollingRef}
       />
 
       {/* ── LEFT TAB ── */}
