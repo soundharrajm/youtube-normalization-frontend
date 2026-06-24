@@ -1056,8 +1056,8 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                     const totalEta      = _fmtSec(totalRemSecs)
                     return (
                       <div style={{ display:'flex', justifyContent:'space-between', fontSize:10, ...T.mono, marginTop:4 }}>
-                        <span style={{ color:'#f59e0b' }}>⏱ current: {currentEta}</span>
-                        {queuedAfter > 0 && totalEta && <span style={{ color:'#a78bfa' }}>total: {totalEta} ({queuedAfter} queued)</span>}
+                        <span style={{ color:'#f59e0b' }}>⏱ current: {currentEta} left</span>
+                        {queuedAfter > 0 && totalEta && <span style={{ color:'#a78bfa' }}>all done in: {totalEta}</span>}
                       </div>
                     )
                   })()}
@@ -1106,7 +1106,9 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                           </span>
                           <div style={{ flex:1, minWidth:0 }}>
                             <div style={{ fontSize:12, color:'#e0e0f0', wordBreak:'break-word', lineHeight:1.4 }}>{j.title}</div>
-                            {eta && <div style={{ fontSize:11, color:'#f59e0b', ...T.mono, marginTop:2 }}>⏱ {eta}</div>}
+                            {eta && <div style={{ fontSize:11, color:'#f59e0b', ...T.mono, marginTop:2 }}>
+                              {isNorm ? `⏱ ${eta} left` : `⏳ starts in ${eta}`}
+                            </div>}
                           </div>
                           <span style={{ fontSize:11, color:'#9090b8', ...T.mono, flexShrink:0 }}>
                             {j.status==='done'?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}
