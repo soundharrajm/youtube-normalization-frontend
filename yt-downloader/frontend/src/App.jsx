@@ -11,9 +11,9 @@ function getApiBase() { return localStorage.getItem('yt_api_base') || API_DEFAUL
 
 // ── Poll intervals — loaded from backend /config on startup ───────────────────
 // Defaults used until /config responds
-const _pollDefaults = { active: 2000, idle: 30000, download: 800 }
+const _pollDefaults = { active: 2000, idle: 30000, download: 800, local: 2000 }
 let _pollCfg = { ..._pollDefaults }
-function getPollMs(key) { return _pollCfg[key] || _pollDefaults[key] }
+function getPollMs(key) { return _pollCfg[key] || _pollCfg['active'] || _pollDefaults[key] || _pollDefaults['active'] }
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ||
   '406747955382-digauab6tpgo7f9rr7sbl0qoajc01oub.apps.googleusercontent.com'
 const REDIRECT_URI = window.location.origin
@@ -414,16 +414,18 @@ function CircleProgress({ pct, color, size=44, stroke=3, label, done, cancelled,
 function _eta(startedAt, pct) {
   if (!startedAt || pct <= 0 || pct >= 100) return null
   const elapsed = (Date.now() / 1000) - startedAt
-  if (elapsed < 3) return null  // not enough data yet
+  if (elapsed < 3) return null
   const total    = elapsed / (pct / 100)
   const remaining= Math.max(0, total - elapsed)
-  if (remaining > 86400) return null  // unreasonable
-  const h = Math.floor(remaining / 3600)
-  const m = Math.floor((remaining % 3600) / 60)
-  const s = Math.floor(remaining % 60)
-  if (h > 0) return `~${h}h ${m}m left`
-  if (m > 0) return `~${m}m ${s}s left`
-  return `~${s}s left`
+  return _fmtSec(remaining)
+}
+
+function _fmtSec(s) {
+  if (!s || s <= 0 || s > 86400) return null
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60)
+  if (h > 0) return `~${h}h ${m}m`
+  if (m > 0) return `~${m}m ${sec}s`
+  return `~${sec}s`
 }
 
 function JobCard({ job }) {
@@ -639,6 +641,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
   const [localJobsExpanded, setLocalJobsExpanded] = useState(false)
   const [showPopup, setShowPopup]   = useState(false)
   const [copied, setCopied]         = useState(false)
+  const startLocalPollingRef = useRef(null)  // set by LocalPanel on mount
   const localPollRef = useRef(null)
   const prevDoneRef  = useRef(0)
 
@@ -681,10 +684,9 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
   }
 
   // Start/stop polling based on whether there are active jobs
-  // Local normalize poll always uses 2s — independent of POLL_ACTIVE_MS config
-  const LOCAL_POLL_MS = 2000
+  // Uses POLL_LOCAL_MS env (default 2000ms) — set independently from POLL_ACTIVE_MS
   const startLocalPolling = useCallback(() => {
-    if (localPollRef.current) return  // already running
+    if (localPollRef.current) return
     localPollRef.current = setInterval(() => {
       const active = localJobsRef.current.filter(j => j.status !== 'done' && j.status !== 'error')
       if (active.length > 0) {
@@ -693,8 +695,11 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
         clearInterval(localPollRef.current)
         localPollRef.current = null
       }
-    }, LOCAL_POLL_MS)
+    }, getPollMs('local'))
   }, [])
+
+  // Expose to App scope so mount restore can trigger it
+  useEffect(() => { startLocalPollingRef.current = startLocalPolling }, [startLocalPolling])
 
   useEffect(() => () => { if (localPollRef.current) clearInterval(localPollRef.current) }, [])
 
@@ -1038,27 +1043,21 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                   </div>
                   {/* Overall ETA — based on running job progress + queue depth */}
                   {(() => {
-                    const running = localJobs.find(j => j.status === 'normalizing')
-                    if (!running || !running.norm_started_at) return null
-                    const jobEta = _eta(running.norm_started_at, running.normalize_progress || 0)
-                    if (!jobEta) return null
-                    const remaining = jobEta  // current job
-                    const queuedAfter = localJobs.filter(j => j.status === 'queued').length
-                    // Estimate total by extrapolating current job time × remaining jobs
-                    const elapsed = Date.now()/1000 - running.norm_started_at
-                    const pctDone = running.normalize_progress || 1
-                    const secsPerJob = elapsed / (pctDone / 100)
-                    const totalRemainSecs = Math.max(0, secsPerJob * (1 - pctDone/100)) + (queuedAfter * secsPerJob)
-                    const fmtTotal = (s) => {
-                      const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60)
-                      if (h > 0) return `~${h}h ${m}m`
-                      if (m > 0) return `~${m}m ${sec}s`
-                      return `~${sec}s`
-                    }
+                    const running = localJobs.find(j => j.status === 'normalizing' && j.norm_started_at && (j.normalize_progress||0) > 0)
+                    if (!running) return null
+                    const elapsed    = Date.now()/1000 - running.norm_started_at
+                    const pct        = running.normalize_progress
+                    const secsPerJob = elapsed / (pct / 100)
+                    const remCurrent = Math.max(0, secsPerJob * (1 - pct/100))
+                    const currentEta = _fmtSec(remCurrent)
+                    if (!currentEta) return null
+                    const queuedAfter   = localJobs.filter(j => j.status === 'queued').length
+                    const totalRemSecs  = remCurrent + queuedAfter * secsPerJob
+                    const totalEta      = _fmtSec(totalRemSecs)
                     return (
-                      <div style={{ display:'flex', justifyContent:'space-between', fontSize:10, ...T.mono }}>
-                        <span style={{ color:'#f59e0b' }}>⏱ current: {remaining}</span>
-                        {queuedAfter > 0 && <span style={{ color:'#a78bfa' }}>total: {fmtTotal(totalRemainSecs)} ({queuedAfter} queued)</span>}
+                      <div style={{ display:'flex', justifyContent:'space-between', fontSize:10, ...T.mono, marginTop:4 }}>
+                        <span style={{ color:'#f59e0b' }}>⏱ current: {currentEta}</span>
+                        {queuedAfter > 0 && totalEta && <span style={{ color:'#a78bfa' }}>total: {totalEta} ({queuedAfter} queued)</span>}
                       </div>
                     )
                   })()}
@@ -1070,27 +1069,35 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                   const visible = showAll ? localJobs : localJobs.slice(0, 5)
                   return <>
                     {visible.map((j, idx) => {
-                      const isNorm    = j.status === 'normalizing'
-                      const isQueued  = j.status === 'queued'
-                      // ETA for actively encoding job
-                      const encodeEta = isNorm ? _eta(j.norm_started_at, j.normalize_progress||0) : null
-                      // Queue position estimate — extrapolate from running job speed
-                      const runningJob = localJobs.find(r => r.status === 'normalizing' && r.norm_started_at)
+                      const isNorm   = j.status === 'normalizing'
+                      const isQueued = j.status === 'queued'
+
+                      // Live ETA for the actively encoding job
+                      let encodeEta = null
+                      if (isNorm && j.norm_started_at && (j.normalize_progress||0) > 0) {
+                        const elapsed  = Date.now()/1000 - j.norm_started_at
+                        const pct      = j.normalize_progress
+                        const totalSec = elapsed / (pct / 100)
+                        const remSec   = Math.max(0, totalSec - elapsed)
+                        encodeEta = _fmtSec(remSec)
+                      }
+
+                      // Queue ETA — uses running job's live speed to estimate wait
                       let queueEta = null
-                      if (isQueued && runningJob && runningJob.norm_started_at) {
-                        const elapsed = Date.now()/1000 - runningJob.norm_started_at
-                        const pct = runningJob.normalize_progress || 1
-                        const secsPerJob = elapsed / (pct / 100)
-                        const remainCurrent = Math.max(0, secsPerJob * (1 - pct/100))
-                        // how many queued jobs are ahead of this one
-                        const queuedJobs = localJobs.filter(r => r.status === 'queued')
-                        const posAhead = queuedJobs.findIndex(r => r.job_id === j.job_id)
-                        const totalWait = remainCurrent + posAhead * secsPerJob
-                        if (totalWait > 0 && totalWait < 86400) {
-                          const h = Math.floor(totalWait/3600), m = Math.floor((totalWait%3600)/60), s = Math.floor(totalWait%60)
-                          queueEta = h > 0 ? `~${h}h ${m}m` : m > 0 ? `~${m}m ${s}s` : `~${s}s`
+                      if (isQueued) {
+                        const runningJob = localJobs.find(r => r.status === 'normalizing' && r.norm_started_at && (r.normalize_progress||0) > 0)
+                        if (runningJob) {
+                          const elapsed      = Date.now()/1000 - runningJob.norm_started_at
+                          const pct          = runningJob.normalize_progress
+                          const secsPerJob   = elapsed / (pct / 100)
+                          const remCurrent   = Math.max(0, secsPerJob * (1 - pct/100))
+                          const queuedJobs   = localJobs.filter(r => r.status === 'queued')
+                          const posAhead     = queuedJobs.findIndex(r => r.job_id === j.job_id)
+                          const totalWait    = remCurrent + Math.max(0, posAhead) * secsPerJob
+                          queueEta = _fmtSec(totalWait)
                         }
                       }
+
                       const eta = encodeEta || queueEta
                       return (
                         <div key={j.job_id} style={{ display:'flex', alignItems:'flex-start', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'8px 10px', marginBottom:5 }}>
@@ -1995,39 +2002,67 @@ export default function App() {
         if(d.poll_active_ms)   _pollCfg.active   = d.poll_active_ms
         if(d.poll_idle_ms)     _pollCfg.idle      = d.poll_idle_ms
         if(d.poll_download_ms) _pollCfg.download  = d.poll_download_ms
+        if(d.poll_local_ms)    _pollCfg.local     = d.poll_local_ms
         console.log(`[POLL] active=${_pollCfg.active}ms idle=${_pollCfg.idle}ms download=${_pollCfg.download}ms`)
       }
     }).catch(()=>{})
   }, [])
 
-  // ── Restore active jobs on page load/refresh ──────────────────────────────
+  // ── Restore all jobs on page load/rebuild ─────────────────────────────────
   useEffect(() => {
     apiFetch(`${getApiBase()}/jobs`)
       .then(r => r.ok ? r.json() : [])
       .then(data => {
         if (!Array.isArray(data) || !data.length) return
-        // Only restore non-done, non-error jobs + recently done jobs
-        const restored = data
-          .filter(j => j.status && j.url && j.job_id)
-          .map(j => ({
-            jobId           : j.job_id,
-            url             : j.url,
-            title           : j.title || j.url,
-            status          : j.status,
-            progress        : j.progress || 0,
-            normProgress    : j.normalize_progress || 0,
-            error           : j.error || null,
-            downloadUrl     : j.status === 'done' ? `${getApiBase()}/download/file/${j.job_id}` : null,
-            outFilename     : j.filename || null,
-            queue_position  : j.queue_position || 0,
-            started_at      : j.started_at || null,
-            norm_started_at : j.norm_started_at || null,
-          }))
-        if (restored.length) {
-          setJobs(restored)
-          // Start polling if any jobs are still active
-          const hasActive = restored.some(j => !['done','error'].includes(j.status))
+
+        const ytJobs    = []
+        const localJobs = []
+
+        data.forEach(j => {
+          if (!j.job_id || !j.status) return
+          const isYT = j.url && (j.url.startsWith('http') || j.url.startsWith('yt:'))
+          if (isYT) {
+            ytJobs.push({
+              jobId           : j.job_id,
+              url             : j.url,
+              title           : j.title || j.url,
+              status          : j.status,
+              progress        : j.progress || 0,
+              normProgress    : j.normalize_progress || 0,
+              error           : j.error || null,
+              downloadUrl     : j.status === 'done' ? `${getApiBase()}/download/file/${j.job_id}` : null,
+              outFilename     : j.filename || null,
+              queue_position  : j.queue_position || 0,
+              started_at      : j.started_at || null,
+              norm_started_at : j.norm_started_at || null,
+            })
+          } else {
+            // Local normalizer job — url is a file path
+            localJobs.push({
+              job_id            : j.job_id,
+              title             : j.title || (j.url || '').split(/[/\\]/).pop() || j.job_id,
+              status            : j.status,
+              normalize_progress: j.normalize_progress || 0,
+              error             : j.error || null,
+              filepath          : j.filepath || null,
+              filename          : j.filename || null,
+              url               : j.url || '',
+              norm_started_at   : j.norm_started_at || null,
+              started_at        : j.started_at || null,
+            })
+          }
+        })
+
+        if (ytJobs.length) {
+          setJobs(ytJobs)
+          const hasActive = ytJobs.some(j => !['done','error'].includes(j.status))
           if (hasActive) startPolling()
+        }
+
+        if (localJobs.length) {
+          setLocalJobs(localJobs)
+          const hasActive = localJobs.some(j => !['done','error'].includes(j.status))
+          if (hasActive) startLocalPollingRef.current?.()
         }
       })
       .catch(() => {})
