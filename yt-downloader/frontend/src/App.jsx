@@ -2195,7 +2195,7 @@ export default function App() {
   const jobsRef = useRef([])
   useEffect(() => { jobsRef.current = jobs }, [jobs])
 
-  // Poll queue status — fast when jobs active, 10s when idle
+  // Poll queue status — only when YT jobs active, idle heartbeat otherwise
   const lastIdlePollRef = useRef(0)
   useEffect(() => {
     const poll = async () => {
@@ -2206,17 +2206,18 @@ export default function App() {
     }
     poll()
     const t = setInterval(() => {
-      const hasActive = jobsRef.current.some(j => !['done','error'].includes(j.status))
-      if (hasActive) {
+      const hasActiveYT = jobsRef.current.some(j => !['done','error'].includes(j.status))
+      if (hasActiveYT) {
         poll()
       } else {
+        // Only heartbeat every 30s when idle — don't poll during local normalization
         const now = Date.now()
-        if (now - lastIdlePollRef.current > getPollMs("idle")) {
+        if (now - lastIdlePollRef.current > getPollMs('idle')) {
           lastIdlePollRef.current = now
           poll()
         }
       }
-    }, 2000)
+    }, getPollMs('active'))   // uses POLL_ACTIVE_MS (30000ms) as the check interval
     return () => clearInterval(t)
   }, [])
 
@@ -2225,12 +2226,28 @@ export default function App() {
     pollRef.current = setInterval(async () => {
       const allCurrent = jobsRef.current
       const active = allCurrent.filter(j=>!['done','error'].includes(j.status))
+
+      // Stop entirely if no active YouTube jobs
       if (!active.length) {
         clearInterval(pollRef.current)
         pollRef.current = null
         return
       }
-      // Use batch endpoint — 1 request for all active jobs
+
+      // Use slower interval when only queued (not yet downloading)
+      const isDownloading = active.some(j => ['downloading','processing','normalizing'].includes(j.status))
+      const interval = isDownloading ? getPollMs('download') : getPollMs('active')
+
+      // Restart with correct interval if it changed
+      if (pollRef._interval && pollRef._interval !== interval) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+        pollRef._interval = interval
+        startPolling()
+        return
+      }
+      pollRef._interval = interval
+
       try {
         const ids = active.map(j=>j.jobId)
         const res = await apiFetch(`${getApiBase()}/download/status/batch`, {
@@ -2273,7 +2290,7 @@ export default function App() {
       return u.filter(Boolean)
     })
       } catch(_) {}
-    }, getPollMs("download"))
+    }, getPollMs('download'))
   }, [])
 
   useEffect(() => () => pollRef.current && clearInterval(pollRef.current), [])
