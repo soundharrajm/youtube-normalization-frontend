@@ -707,6 +707,8 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
 
   // Cleanup on unmount
   useEffect(() => () => closeAllSSE(), [])
+
+  const refreshLocalJobs = async () => {
     const active = localJobsRef.current.filter(j=>j.status!=='done'&&j.status!=='error')
     if (!active.length) return
     const ids = active.map(j=>j.job_id)
