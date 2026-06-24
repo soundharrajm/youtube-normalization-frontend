@@ -815,7 +815,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     zIndex:160,
     overflowY:'auto', overflowX:'hidden', display:'flex', flexDirection:'column',
   }
-  const lbl  = { fontSize:11, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
+  const lbl  = { fontSize:12, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
   const sdiv = { height:1, background:'rgba(186,117,23,0.12)', margin:'12px 0' }
 
   return (
@@ -872,13 +872,13 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 14px 11px', borderBottom:'1px solid rgba(186,117,23,0.3)', position:'sticky', top:0, background:'#13121f', zIndex:2 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:600, color:'#ffffff' }}>
-          <span style={{ fontSize:18 }}>📁</span> Local Normalizer
-          {activeCount > 0 && <span style={{ fontSize:10, fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:100, padding:'1px 7px' }}>{activeCount}</span>}
+        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:15, fontWeight:600, color:'#ffffff' }}>
+          <span style={{ fontSize:20 }}>📁</span> Local Normalizer
+          {activeCount > 0 && <span style={{ fontSize:11, fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:100, padding:'1px 8px' }}>{activeCount}</span>}
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-          <span style={{ fontSize:9, color:T.am3, background:'rgba(186,117,23,0.13)', border:'1px solid rgba(186,117,23,0.22)', borderRadius:100, padding:'2px 7px', fontWeight:700 }}>LOCAL</span>
-          <button onClick={onClose} style={{ width:26, height:26, borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.05)', color:'#777', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+          <span style={{ fontSize:10, color:T.am3, background:'rgba(186,117,23,0.13)', border:'1px solid rgba(186,117,23,0.22)', borderRadius:100, padding:'2px 8px', fontWeight:700 }}>LOCAL</span>
+          <button onClick={onClose} style={{ width:28, height:28, borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.05)', color:'#777', fontSize:14, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
         </div>
       </div>
 
@@ -894,11 +894,11 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
               <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={recursive} onChange={e=>setRecursive(e.target.checked)} /> Scan subfolders recursively</label>
               <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={skipDone} onChange={e=>setSkipDone(e.target.checked)} /> Skip already-normalized files</label>
             </div>
-            <div style={{ fontSize:11, color:'#9090b8', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
+            <div style={{ fontSize:12, color:'#9090b8', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
 
             {/* Subtitle mode */}
             <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:11, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:6 }}>Subtitles</div>
+              <div style={{ fontSize:12, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:6 }}>Subtitles</div>
               <div style={{ display:'flex', gap:5 }}>
                 {[
                   { id:'convert', label:'Convert', desc:'SRT→mov_text (safe)', color:'#22c55e' },
@@ -921,7 +921,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                   )
                 })}
               </div>
-              <div style={{ fontSize:11, color:'#505070', marginTop:4, ...T.mono }}>
+              <div style={{ fontSize:12, color:'#505070', marginTop:4, ...T.mono }}>
                 {normConfig?.subtitleMode === 'drop' ? '⚠ -sn — all subtitles removed' :
                  normConfig?.subtitleMode === 'copy' ? '⚡ -c:s copy — fast, may fail on mp4+SRT' :
                  '✓ -c:s mov_text — converts SRT to mp4 format'}
@@ -967,7 +967,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                 )}
               </div>
             )}
-            <div style={{ fontSize:10, color:'#555', marginBottom:10, lineHeight:1.5 }}>
+            <div style={{ fontSize:12, color:'#555', marginBottom:10, lineHeight:1.5 }}>
               {doNormalize
                 ? `${forceReencode ? '🔄 force re-encode' : '⚡ smart copy'} · ${targetCodec?.toUpperCase()||'H.264'} · ${targetRes==='source'?'source res':targetRes?.replace('x','×')||'1920×1080'} — set in ⚙ Settings`
                 : '⬇️ Download only mode — ffmpeg skipped — set in ⚙ Settings'}
@@ -998,21 +998,21 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                   <div style={{ ...lbl, marginBottom:0 }}>Jobs <span style={{ color:'#3b82f6' }}>({totalJobs})</span></div>
                   <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
                     {doneCount > 0 && (
-                      <button onClick={copyDoneNames} style={{ fontSize:9, padding:'2px 7px', borderRadius:5, border: copied?'1px solid rgba(34,197,94,0.4)':'1px solid rgba(59,130,246,0.3)', background: copied?'rgba(34,197,94,0.07)':'rgba(59,130,246,0.07)', color: copied?'#22c55e':'#93c5fd', cursor:'pointer', fontFamily:'inherit' }}>
+                      <button onClick={copyDoneNames} style={{ fontSize:10, padding:'3px 8px', borderRadius:5, border: copied?'1px solid rgba(34,197,94,0.4)':'1px solid rgba(59,130,246,0.3)', background: copied?'rgba(34,197,94,0.07)':'rgba(59,130,246,0.07)', color: copied?'#22c55e':'#93c5fd', cursor:'pointer', fontFamily:'inherit' }}>
                         {copied?'✓ Copied!':'📋 Copy Names'}
                       </button>
                     )}
                     {doneCount > 0 && (
-                      <button onClick={()=>setShowPopup(true)} style={{ fontSize:9, padding:'2px 7px', borderRadius:5, border:'1px solid rgba(34,197,94,0.3)', background:'rgba(34,197,94,0.07)', color:'#22c55e', cursor:'pointer', fontFamily:'inherit' }}>
+                      <button onClick={()=>setShowPopup(true)} style={{ fontSize:10, padding:'3px 8px', borderRadius:5, border:'1px solid rgba(34,197,94,0.3)', background:'rgba(34,197,94,0.07)', color:'#22c55e', cursor:'pointer', fontFamily:'inherit' }}>
                         ✅ View Done
                       </button>
                     )}
                     {doneCount > 0 && (
-                      <button onClick={()=>setLocalJobs(prev=>prev.filter(j=>j.status!=='done'&&j.status!=='error'))} style={{ fontSize:9, padding:'2px 7px', borderRadius:5, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>
+                      <button onClick={()=>setLocalJobs(prev=>prev.filter(j=>j.status!=='done'&&j.status!=='error'))} style={{ fontSize:10, padding:'3px 8px', borderRadius:5, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>
                         Clear Done
                       </button>
                     )}
-                    <button onClick={()=>{setLocalJobs([]);prevDoneRef.current=0}} style={{ fontSize:9, padding:'2px 7px', borderRadius:5, border:'1px solid rgba(239,68,68,0.25)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>
+                    <button onClick={()=>{setLocalJobs([]);prevDoneRef.current=0}} style={{ fontSize:10, padding:'3px 8px', borderRadius:5, border:'1px solid rgba(239,68,68,0.25)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>
                       ✕ Clear All
                     </button>
                   </div>
