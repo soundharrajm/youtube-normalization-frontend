@@ -775,18 +775,66 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const saved = localStorage.getItem('yt_local_panel_width')
+    return saved ? parseInt(saved) : 320
+  })
+  const resizing = useRef(false)
+  const startX   = useRef(0)
+  const startW   = useRef(0)
+
+  const onResizeStart = (e) => {
+    resizing.current = true
+    startX.current   = e.clientX
+    startW.current   = panelWidth
+    document.body.style.cursor = 'ew-resize'
+    document.body.style.userSelect = 'none'
+    const onMove = (ev) => {
+      if (!resizing.current) return
+      const newW = Math.min(600, Math.max(260, startW.current + ev.clientX - startX.current))
+      setPanelWidth(newW)
+    }
+    const onUp = () => {
+      resizing.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      localStorage.setItem('yt_local_panel_width', panelWidth)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
   const panelStyle = {
-    position:'fixed', left:0, top:0, height:'100vh', width:'min(300px,90vw)',
+    position:'fixed', left:0, top:0, height:'100vh', width: open ? panelWidth : 0,
+    minWidth: open ? 260 : 0,
     background:'#13121f', borderRight:'1px solid rgba(186,117,23,0.35)',
     transform:open?'translateX(0)':'translateX(-100%)',
-    transition:'transform .25s ease', zIndex:160,
-    overflowY:'auto', display:'flex', flexDirection:'column',
+    transition: resizing.current ? 'none' : 'transform .25s ease',
+    zIndex:160,
+    overflowY:'auto', overflowX:'hidden', display:'flex', flexDirection:'column',
   }
-  const lbl  = { fontSize:10, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
+  const lbl  = { fontSize:11, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
   const sdiv = { height:1, background:'rgba(186,117,23,0.12)', margin:'12px 0' }
 
   return (
     <div style={panelStyle}>
+      {/* Drag-to-resize handle on right edge */}
+      {open && (
+        <div
+          onMouseDown={onResizeStart}
+          style={{
+            position:'absolute', right:0, top:0, width:5, height:'100%',
+            cursor:'ew-resize', zIndex:10,
+            background:'transparent',
+            borderRight:'2px solid rgba(186,117,23,0.0)',
+            transition:'border-color .15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.borderRightColor='rgba(186,117,23,0.6)'}
+          onMouseLeave={e => e.currentTarget.style.borderRightColor='rgba(186,117,23,0)'}
+        />
+      )}
       {/* Completion popup */}
       {showPopup && (
         <div style={{ position:'fixed', inset:0, zIndex:600, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center' }}
@@ -841,16 +889,16 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
             <div style={lbl}>File or folder paths</div>
             <textarea value={paths} onChange={e=>setPaths(e.target.value)}
               placeholder={'C:\\Videos\\movie.mp4\nC:\\Shows\\Season1\\'}
-              style={{ width:'100%', background:'rgba(0,0,0,0.25)', border:'1px solid rgba(255,255,255,0.18)', borderRadius:8, padding:'9px 11px', fontSize:12, ...T.mono, color:'#e0e0f0', outline:'none', resize:'vertical', minHeight:80, boxSizing:'border-box', marginBottom:8 }} />
-            <div style={{ display:'flex', flexDirection:'column', gap:6, fontSize:11, color:'#b0b0c8', marginBottom:8 }}>
+              style={{ width:'100%', background:'rgba(0,0,0,0.25)', border:'1px solid rgba(255,255,255,0.18)', borderRadius:8, padding:'9px 11px', fontSize:13, ...T.mono, color:'#e0e0f0', outline:'none', resize:'vertical', minHeight:80, boxSizing:'border-box', marginBottom:8 }} />
+            <div style={{ display:'flex', flexDirection:'column', gap:6, fontSize:12, color:'#b0b0c8', marginBottom:8 }}>
               <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={recursive} onChange={e=>setRecursive(e.target.checked)} /> Scan subfolders recursively</label>
               <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={skipDone} onChange={e=>setSkipDone(e.target.checked)} /> Skip already-normalized files</label>
             </div>
-            <div style={{ fontSize:10, color:'#9090b8', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
+            <div style={{ fontSize:11, color:'#9090b8', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
 
             {/* Subtitle mode */}
             <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:10, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:6 }}>Subtitles</div>
+              <div style={{ fontSize:11, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:6 }}>Subtitles</div>
               <div style={{ display:'flex', gap:5 }}>
                 {[
                   { id:'convert', label:'Convert', desc:'SRT→mov_text (safe)', color:'#22c55e' },
@@ -861,10 +909,9 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                   return (
                     <button key={m.id} title={m.desc}
                       onClick={() => {
-                        // Update normConfig subtitleMode via setter passed from App
                         if (typeof onSetSubtitleMode === 'function') onSetSubtitleMode(m.id)
                       }}
-                      style={{ flex:1, padding:'5px 4px', borderRadius:6, fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit', textAlign:'center',
+                      style={{ flex:1, padding:'6px 4px', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit', textAlign:'center',
                         border: active ? `1.5px solid ${m.color}` : '1px solid rgba(255,255,255,0.12)',
                         background: active ? `rgba(${m.id==='convert'?'34,197,94':m.id==='copy'?'59,130,246':'245,158,11'},0.12)` : 'rgba(255,255,255,0.04)',
                         color: active ? m.color : '#777',
@@ -874,15 +921,15 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                   )
                 })}
               </div>
-              <div style={{ fontSize:9, color:'#505070', marginTop:4, ...T.mono }}>
+              <div style={{ fontSize:11, color:'#505070', marginTop:4, ...T.mono }}>
                 {normConfig?.subtitleMode === 'drop' ? '⚠ -sn — all subtitles removed' :
                  normConfig?.subtitleMode === 'copy' ? '⚡ -c:s copy — fast, may fail on mp4+SRT' :
                  '✓ -c:s mov_text — converts SRT to mp4 format'}
               </div>
             </div>
             <div style={{ display:'flex', gap:6, marginBottom:6 }}>
-              <button onClick={handleScan} disabled={scanning||!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, padding:'7px 12px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.07)', color:'#c0c0e0', cursor:'pointer', fontFamily:'inherit' }}>🔍 {scanning?'Scanning…':'Preview'}</button>
-              <button onClick={handleNormalize} disabled={!paths.trim()||validating} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, padding:'7px 14px', borderRadius:7, border:`1px solid ${validating?'rgba(245,158,11,0.35)':'rgba(29,158,117,0.35)'}`, background:validating?'rgba(245,158,11,0.08)':'rgba(29,158,117,0.12)', color:validating?'#f59e0b':T.te2, cursor:'pointer', fontFamily:'inherit' }}>
+              <button onClick={handleScan} disabled={scanning||!paths.trim()} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12, padding:'8px 12px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.07)', color:'#c0c0e0', cursor:'pointer', fontFamily:'inherit' }}>🔍 {scanning?'Scanning…':'Preview'}</button>
+              <button onClick={handleNormalize} disabled={!paths.trim()||validating} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12, fontWeight:600, padding:'8px 14px', borderRadius:7, border:`1px solid ${validating?'rgba(245,158,11,0.35)':'rgba(29,158,117,0.35)'}`, background:validating?'rgba(245,158,11,0.08)':'rgba(29,158,117,0.12)', color:validating?'#f59e0b':T.te2, cursor:'pointer', fontFamily:'inherit' }}>
                 {validating ? '🔎 Checking…' : doNormalize ? '▶ Normalize' : '▶ Copy (raw)'}
               </button>
             </div>
@@ -986,9 +1033,35 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                     </div>
                     <span style={{ fontSize:9, color:'#3b82f6', fontWeight:700, ...T.mono }}>{pct}%</span>
                   </div>
-                  <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:100, height:3 }}>
+                  <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:100, height:3, marginBottom:5 }}>
                     <div style={{ height:'100%', borderRadius:100, background: pct===100?'#22c55e':'linear-gradient(90deg,#3b82f6,#6366f1)', width:`${pct}%`, transition:'width 0.5s ease' }} />
                   </div>
+                  {/* Overall ETA — based on running job progress + queue depth */}
+                  {(() => {
+                    const running = localJobs.find(j => j.status === 'normalizing')
+                    if (!running || !running.norm_started_at) return null
+                    const jobEta = _eta(running.norm_started_at, running.normalize_progress || 0)
+                    if (!jobEta) return null
+                    const remaining = jobEta  // current job
+                    const queuedAfter = localJobs.filter(j => j.status === 'queued').length
+                    // Estimate total by extrapolating current job time × remaining jobs
+                    const elapsed = Date.now()/1000 - running.norm_started_at
+                    const pctDone = running.normalize_progress || 1
+                    const secsPerJob = elapsed / (pctDone / 100)
+                    const totalRemainSecs = Math.max(0, secsPerJob * (1 - pctDone/100)) + (queuedAfter * secsPerJob)
+                    const fmtTotal = (s) => {
+                      const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60)
+                      if (h > 0) return `~${h}h ${m}m`
+                      if (m > 0) return `~${m}m ${sec}s`
+                      return `~${sec}s`
+                    }
+                    return (
+                      <div style={{ display:'flex', justifyContent:'space-between', fontSize:10, ...T.mono }}>
+                        <span style={{ color:'#f59e0b' }}>⏱ current: {remaining}</span>
+                        {queuedAfter > 0 && <span style={{ color:'#a78bfa' }}>total: {fmtTotal(totalRemainSecs)} ({queuedAfter} queued)</span>}
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {/* Job rows with ETA + show more */}
@@ -998,21 +1071,18 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                   return <>
                     {visible.map(j => {
                       const isNorm = j.status === 'normalizing'
-                      const isDl   = j.status === 'downloading'
-                      const eta    = isNorm ? _eta(j.norm_started_at, j.normalize_progress||0)
-                                   : isDl   ? _eta(j.started_at,      j.normalize_progress||0)
-                                   : null
+                      const eta    = isNorm ? _eta(j.norm_started_at, j.normalize_progress||0) : null
                       return (
-                        <div key={j.job_id} style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'7px 10px', marginBottom:5 }}>
-                          <span style={{ fontSize:13, color:j.status==='done'?'#22c55e':j.status==='error'?'#ef4444':j.status==='normalizing'?'#3b82f6':'#f59e0b' }}>
+                        <div key={j.job_id} style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'8px 10px', marginBottom:5 }}>
+                          <span style={{ fontSize:14, color:j.status==='done'?'#22c55e':j.status==='error'?'#ef4444':j.status==='normalizing'?'#3b82f6':'#f59e0b' }}>
                             {j.status==='done'?'✓':j.status==='error'?'✗':j.status==='normalizing'?'↻':'⏳'}
                           </span>
-                          <span style={{ flex:1, fontSize:11, color:'#e0e0f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</span>
+                          <span style={{ flex:1, fontSize:12, color:'#e0e0f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</span>
                           <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:1, flexShrink:0 }}>
-                            <span style={{ fontSize:10, color:'#9090b8', ...T.mono }}>
+                            <span style={{ fontSize:11, color:'#9090b8', ...T.mono }}>
                               {j.status==='done'?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}
                             </span>
-                            {eta && <span style={{ fontSize:9, color:'#f59e0b', ...T.mono }}>{eta}</span>}
+                            {eta && <span style={{ fontSize:10, color:'#f59e0b', ...T.mono }}>{eta}</span>}
                           </div>
                         </div>
                       )
@@ -1920,16 +1990,18 @@ export default function App() {
         const restored = data
           .filter(j => j.status && j.url && j.job_id)
           .map(j => ({
-            jobId       : j.job_id,
-            url         : j.url,
-            title       : j.title || j.url,
-            status      : j.status,
-            progress    : j.progress || 0,
-            normProgress: j.normalize_progress || 0,
-            error       : j.error || null,
-            downloadUrl : j.status === 'done' ? `${getApiBase()}/download/file/${j.job_id}` : null,
-            outFilename : j.filename || null,
-            queue_position: j.queue_position || 0,
+            jobId           : j.job_id,
+            url             : j.url,
+            title           : j.title || j.url,
+            status          : j.status,
+            progress        : j.progress || 0,
+            normProgress    : j.normalize_progress || 0,
+            error           : j.error || null,
+            downloadUrl     : j.status === 'done' ? `${getApiBase()}/download/file/${j.job_id}` : null,
+            outFilename     : j.filename || null,
+            queue_position  : j.queue_position || 0,
+            started_at      : j.started_at || null,
+            norm_started_at : j.norm_started_at || null,
           }))
         if (restored.length) {
           setJobs(restored)
