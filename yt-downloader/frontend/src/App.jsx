@@ -629,19 +629,17 @@ function CompletionPopup({ jobs, onClose }) {
 }
 
 // ── LocalPanel (left slide panel) ─────────────────────────────────────────
-function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetSubtitleMode, targetCodec, targetRes, doNormalize, forceReencode }) {
-  const [paths, setPaths]           = useState('')
-  const [recursive, setRecursive]   = useState(false)
-  const [skipDone, setSkipDone]     = useState(true)
+function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetSubtitleMode, targetCodec, targetRes, doNormalize, forceReencode, localJobs, setLocalJobs }) {
+  const [paths, setPaths]       = useState(() => localStorage.getItem('yt_local_paths') || '')
+  const [recursive, setRecursive] = useState(() => localStorage.getItem('yt_local_recursive') === 'true')
+  const [skipDone, setSkipDone]   = useState(() => localStorage.getItem('yt_local_skipdone') !== 'false')
   const [scanResult, setScanResult] = useState(null)
   const [scanning, setScanning]     = useState(false)
   const [validating, setValidating] = useState(false)
   const [validateResult, setValidateResult] = useState(null)
-  const [localJobs, setLocalJobs]         = useState([])
   const [localJobsExpanded, setLocalJobsExpanded] = useState(false)
   const [showPopup, setShowPopup]   = useState(false)
   const [copied, setCopied]         = useState(false)
-  const startLocalPollingRef = useRef(null)  // set by LocalPanel on mount
   const localPollRef = useRef(null)
   const prevDoneRef  = useRef(0)
 
@@ -893,12 +891,14 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
         {isLocalMode ? (
           <>
             <div style={lbl}>File or folder paths</div>
-            <textarea value={paths} onChange={e=>setPaths(e.target.value)}
+            <textarea value={paths}
+              onChange={e => { setPaths(e.target.value); localStorage.setItem('yt_local_paths', e.target.value) }}
               placeholder={'C:\\Videos\\movie.mp4\nC:\\Shows\\Season1\\'}
-              style={{ width:'100%', background:'rgba(0,0,0,0.25)', border:'1px solid rgba(255,255,255,0.18)', borderRadius:8, padding:'9px 11px', fontSize:13, ...T.mono, color:'#e0e0f0', outline:'none', resize:'vertical', minHeight:80, boxSizing:'border-box', marginBottom:8 }} />
+              style={{ width:'100%', background:'rgba(0,0,0,0.25)', border:'1px solid rgba(255,255,255,0.18)', borderRadius:8, padding:'9px 11px', fontSize:13, ...T.mono, color:'#e0e0f0', outline:'none', resize:'vertical', minHeight:80, boxSizing:'border-box', marginBottom:8 }}
+            />
             <div style={{ display:'flex', flexDirection:'column', gap:6, fontSize:14, color:'#b0b0c8', marginBottom:8 }}>
-              <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={recursive} onChange={e=>setRecursive(e.target.checked)} /> Scan subfolders recursively</label>
-              <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={skipDone} onChange={e=>setSkipDone(e.target.checked)} /> Skip already-normalized files</label>
+              <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={recursive} onChange={e=>{ setRecursive(e.target.checked); localStorage.setItem('yt_local_recursive', e.target.checked) }} /> Scan subfolders recursively</label>
+              <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={skipDone} onChange={e=>{ setSkipDone(e.target.checked); localStorage.setItem('yt_local_skipdone', e.target.checked) }} /> Skip already-normalized files</label>
             </div>
             <div style={{ fontSize:14, color:'#9090b8', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
 
@@ -1898,6 +1898,8 @@ export default function App() {
   const [dlIndex, setDlIndex]               = useState(0)
   const [dlTotal, setDlTotal]               = useState(0)
   const [jobs, setJobs]                     = useState([])
+  const [localJobs, setLocalJobs]           = useState([])
+  const startLocalPollingRef                = useRef(null)
   const [showSettings, setShowSettings]     = useState(false)
   const [showLocalPanel, setShowLocalPanel] = useState(false)
   const [showAdvisory, setShowAdvisory]     = useState(false)
@@ -2062,7 +2064,7 @@ export default function App() {
         if (localJobs.length) {
           setLocalJobs(localJobs)
           const hasActive = localJobs.some(j => !['done','error'].includes(j.status))
-          if (hasActive) startLocalPollingRef.current?.()
+          if (hasActive) setTimeout(() => startLocalPollingRef.current?.(), 500)
         }
       })
       .catch(() => {})
@@ -2324,6 +2326,8 @@ export default function App() {
         targetRes={targetRes}
         doNormalize={doNormalize}
         forceReencode={forceReencode}
+        localJobs={localJobs}
+        setLocalJobs={setLocalJobs}
       />
 
       {/* ── LEFT TAB ── */}
