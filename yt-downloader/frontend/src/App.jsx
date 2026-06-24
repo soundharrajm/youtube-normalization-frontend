@@ -654,28 +654,49 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
   const localJobsRef = useRef([])
   useEffect(() => { localJobsRef.current = localJobs }, [localJobs])
   // Manual + auto refresh
+  const lastProgressRef = useRef({})  // track last seen progress per job_id
+
   const refreshLocalJobs = async () => {
     const active = localJobsRef.current.filter(j=>j.status!=='done'&&j.status!=='error')
     if (!active.length) return
     const ids = active.map(j=>j.job_id)
     try {
-      // Use batch endpoint — 1 request for all jobs instead of N individual requests
       const res = await apiFetchFn('/download/status/batch', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify(ids)
       })
       if (!res.ok) return
       const data = await res.json()
+
+      // Only update state if something actually changed
+      let changed = false
+      const updates = {}
+      for (const j of active) {
+        const d = data[j.job_id]
+        if (!d) continue
+        const newPct    = d.normalize_progress || 0
+        const newStatus = d.status
+        const lastPct   = lastProgressRef.current[j.job_id]?.pct
+        const lastStatus= lastProgressRef.current[j.job_id]?.status
+        if (newPct !== lastPct || newStatus !== lastStatus) {
+          changed = true
+          lastProgressRef.current[j.job_id] = { pct: newPct, status: newStatus }
+          updates[j.job_id] = d
+        }
+      }
+
+      if (!changed) return  // nothing changed — skip re-render
+
       setLocalJobs(prev => prev.map(j => {
         if (j.status==='done'||j.status==='error') return j
-        const d = data[j.job_id]
+        const d = updates[j.job_id]
         if (!d) return j
-        if (d.status==='done')  return {...j,status:'done',normalize_progress:100}
-        if (d.status==='error') return {...j,status:'error',error:d.error}
-        return {...j,status:d.status,
-          normalize_progress:Math.max(j.normalize_progress||0, d.normalize_progress||0),
-          started_at:      d.started_at      ?? j.started_at,
-          norm_started_at: d.norm_started_at ?? j.norm_started_at,
+        if (d.status==='done')  return {...j, status:'done',  normalize_progress:100}
+        if (d.status==='error') return {...j, status:'error', error:d.error}
+        return {...j, status:d.status,
+          normalize_progress: Math.max(j.normalize_progress||0, d.normalize_progress||0),
+          started_at:         d.started_at      ?? j.started_at,
+          norm_started_at:    d.norm_started_at ?? j.norm_started_at,
         }
       }))
     } catch(_) {}
