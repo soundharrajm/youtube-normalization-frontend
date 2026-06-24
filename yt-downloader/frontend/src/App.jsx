@@ -2223,9 +2223,10 @@ export default function App() {
 
   const startPolling = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current)
-    pollRef.current = setInterval(async () => {
+
+    const tick = async () => {
       const allCurrent = jobsRef.current
-      const active = allCurrent.filter(j=>!['done','error'].includes(j.status))
+      const active = allCurrent.filter(j => !['done','error'].includes(j.status))
 
       // Stop entirely if no active YouTube jobs
       if (!active.length) {
@@ -2234,63 +2235,73 @@ export default function App() {
         return
       }
 
-      // Use slower interval when only queued (not yet downloading)
-      const isDownloading = active.some(j => ['downloading','processing','normalizing'].includes(j.status))
-      const interval = isDownloading ? getPollMs('download') : getPollMs('active')
-
-      // Restart with correct interval if it changed
-      if (pollRef._interval && pollRef._interval !== interval) {
-        clearInterval(pollRef.current)
-        pollRef.current = null
-        pollRef._interval = interval
-        startPolling()
-        return
-      }
-      pollRef._interval = interval
-
       try {
-        const ids = active.map(j=>j.jobId)
+        const ids = active.map(j => j.jobId)
         const res = await apiFetch(`${getApiBase()}/download/status/batch`, {
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify(ids)
         })
         if (!res.ok) return
         const data = await res.json()
-    setJobs(prev => {
-      let u=[...prev]
-      active.forEach(aj => {
-        const jid = aj.jobId
-        const d   = data[jid]
-        if (!d) return
-        u = u.map(j => {
-          if(j.jobId!==jid) return j
-          if(j.status==='done'||j.status==='error') return j
-          if(d.status==='done'){
-            const doneJob={...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${jid}`,outFilename:d.filename}
-            try {
-              const hist = JSON.parse(localStorage.getItem('yt_dl_history')||'[]')
-              if (!hist.find(h=>h.jobId===jid)) {
-                hist.unshift({ jobId:jid, filename:d.filename, url:j.url, downloadUrl:`${getApiBase()}/download/file/${jid}`, doneAt: new Date().toLocaleString() })
-                localStorage.setItem('yt_dl_history', JSON.stringify(hist.slice(0,50)))
+        setJobs(prev => {
+          let u = [...prev]
+          active.forEach(aj => {
+            const jid = aj.jobId
+            const d   = data[jid]
+            if (!d) return
+            u = u.map(j => {
+              if (j.jobId !== jid) return j
+              if (j.status === 'done' || j.status === 'error') return j
+              if (d.status === 'done') {
+                const doneJob = {...j, status:'done', progress:100, normProgress:100,
+                  downloadUrl:`${getApiBase()}/download/file/${jid}`, outFilename:d.filename}
+                try {
+                  const hist = JSON.parse(localStorage.getItem('yt_dl_history')||'[]')
+                  if (!hist.find(h => h.jobId === jid)) {
+                    hist.unshift({ jobId:jid, filename:d.filename, url:j.url,
+                      downloadUrl:`${getApiBase()}/download/file/${jid}`, doneAt: new Date().toLocaleString() })
+                    localStorage.setItem('yt_dl_history', JSON.stringify(hist.slice(0,50)))
+                  }
+                } catch(_) {}
+                return doneJob
               }
-            } catch(_) {}
-            return doneJob
-          }
-          if(d.status==='error'&&d.error==='Cancelled by user') return null
-          if(d.status==='error') return {...j,status:'error',error:d.error}
-          return {...j,status:d.status,
-            progress:    Math.max(j.progress||0,     d.progress??j.progress),
-            normProgress:Math.max(j.normProgress||0,  d.normalize_progress??j.normProgress),
-            queue_position:d.queue_position??j.queue_position, title:d.title||j.title,
-            started_at:      d.started_at      ?? j.started_at,
-            norm_started_at: d.norm_started_at ?? j.norm_started_at,
-          }
+              if (d.status === 'error' && d.error === 'Cancelled by user') return null
+              if (d.status === 'error') return {...j, status:'error', error:d.error}
+              return {...j, status:d.status,
+                progress:      Math.max(j.progress||0,    d.progress??j.progress),
+                normProgress:  Math.max(j.normProgress||0, d.normalize_progress??j.normProgress),
+                queue_position: d.queue_position ?? j.queue_position,
+                title:          d.title || j.title,
+                started_at:     d.started_at      ?? j.started_at,
+                norm_started_at:d.norm_started_at ?? j.norm_started_at,
+              }
+            })
+          })
+          return u.filter(Boolean)
         })
-      })
-      return u.filter(Boolean)
-    })
       } catch(_) {}
-    }, getPollMs('download'))
+
+      // Reschedule at correct interval based on current state
+      const stillActive = jobsRef.current.filter(j => !['done','error'].includes(j.status))
+      if (!stillActive.length) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+        return
+      }
+      const isDownloading = stillActive.some(j => ['downloading','processing','normalizing'].includes(j.status))
+      const nextMs = isDownloading ? getPollMs('download') : getPollMs('active')
+      if (nextMs !== pollRef._ms) {
+        clearInterval(pollRef.current)
+        pollRef._ms = nextMs
+        pollRef.current = setInterval(tick, nextMs)
+      }
+    }
+
+    // Start at active interval — switches to download speed once downloading begins
+    const isDownloading = jobsRef.current.some(j => ['downloading','processing','normalizing'].includes(j.status))
+    const startMs = isDownloading ? getPollMs('download') : getPollMs('active')
+    pollRef._ms = startMs
+    pollRef.current = setInterval(tick, startMs)
   }, [])
 
   useEffect(() => () => pollRef.current && clearInterval(pollRef.current), [])
