@@ -655,8 +655,58 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
   useEffect(() => { localJobsRef.current = localJobs }, [localJobs])
   // Manual + auto refresh
   const lastProgressRef = useRef({})  // track last seen progress per job_id
+  const sseRefs = useRef({})          // active EventSource connections per job_id
 
-  const refreshLocalJobs = async () => {
+  // Connect SSE stream for a single job — replaces polling for that job
+  const connectSSE = useCallback((job) => {
+    const job_id = job.job_id
+    if (sseRefs.current[job_id]) return  // already connected
+
+    const url = `${getApiBase()}/normalize/local/stream/${job_id}`
+    const es  = new EventSource(url)
+
+    es.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data)
+        setLocalJobs(prev => prev.map(j => {
+          if (j.job_id !== job_id) return j
+          if (d.status === 'done')  {
+            delete sseRefs.current[job_id]
+            es.close()
+            return {...j, status:'done', normalize_progress:100}
+          }
+          if (d.status === 'error') {
+            delete sseRefs.current[job_id]
+            es.close()
+            return {...j, status:'error', error:d.error}
+          }
+          return {...j,
+            status:             d.status             ?? j.status,
+            normalize_progress: d.normalize_progress ?? j.normalize_progress,
+            norm_started_at:    d.norm_started_at    ?? j.norm_started_at,
+          }
+        }))
+      } catch(_) {}
+    }
+
+    es.onerror = () => {
+      // Connection dropped — fall back to poll for this job
+      delete sseRefs.current[job_id]
+      es.close()
+      startLocalPolling()
+    }
+
+    sseRefs.current[job_id] = es
+  }, [])
+
+  // Close all SSE connections
+  const closeAllSSE = useCallback(() => {
+    Object.values(sseRefs.current).forEach(es => es.close())
+    sseRefs.current = {}
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => () => closeAllSSE(), [])
     const active = localJobsRef.current.filter(j=>j.status!=='done'&&j.status!=='error')
     if (!active.length) return
     const ids = active.map(j=>j.job_id)
@@ -687,18 +737,26 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
 
       if (!changed) return  // nothing changed — skip re-render
 
-      setLocalJobs(prev => prev.map(j => {
-        if (j.status==='done'||j.status==='error') return j
-        const d = updates[j.job_id]
-        if (!d) return j
-        if (d.status==='done')  return {...j, status:'done',  normalize_progress:100}
-        if (d.status==='error') return {...j, status:'error', error:d.error}
-        return {...j, status:d.status,
-          normalize_progress: Math.max(j.normalize_progress||0, d.normalize_progress||0),
-          started_at:         d.started_at      ?? j.started_at,
-          norm_started_at:    d.norm_started_at ?? j.norm_started_at,
-        }
-      }))
+      setLocalJobs(prev => {
+        const updated = prev.map(j => {
+          if (j.status==='done'||j.status==='error') return j
+          const d = updates[j.job_id]
+          if (!d) return j
+          if (d.status==='done')  return {...j, status:'done',  normalize_progress:100}
+          if (d.status==='error') return {...j, status:'error', error:d.error}
+          const newJ = {...j, status:d.status,
+            normalize_progress: Math.max(j.normalize_progress||0, d.normalize_progress||0),
+            started_at:         d.started_at      ?? j.started_at,
+            norm_started_at:    d.norm_started_at ?? j.norm_started_at,
+          }
+          // Switch from poll to SSE push as soon as job starts normalizing
+          if (d.status === 'normalizing' && !sseRefs.current[j.job_id]) {
+            setTimeout(() => connectSSE(newJ), 0)
+          }
+          return newJ
+        })
+        return updated
+      })
     } catch(_) {}
   }
 
@@ -708,12 +766,19 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     if (localPollRef.current) return
     localPollRef.current = setInterval(() => {
       const active = localJobsRef.current.filter(j => j.status !== 'done' && j.status !== 'error')
-      if (active.length > 0) {
-        refreshLocalJobs()
-      } else {
+      if (!active.length) {
         clearInterval(localPollRef.current)
         localPollRef.current = null
+        return
       }
+      // Stop polling once all active jobs have SSE connections
+      const allSSE = active.every(j => sseRefs.current[j.job_id])
+      if (allSSE) {
+        clearInterval(localPollRef.current)
+        localPollRef.current = null
+        return
+      }
+      refreshLocalJobs()
     }, getPollMs('local'))
   }, [])
 
@@ -775,8 +840,11 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
       const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList, norm_flags:finalFlags, recursive, skip_already_normalized:skipDone, codec:targetCodec||'h264', resolution:targetRes||'1920x1080', output_ext:normConfig.outputExt||'same', force_reencode:!!forceReencode}) })
       if (res.ok) {
         const created = await res.json()
-        setLocalJobs(prev => [...created.map(j=>({...j,status:'queued',normalize_progress:0,title:j.source_path.split(/[/\\]/).pop()})),...prev])
+        const newJobs = created.map(j => ({...j, status:'queued', normalize_progress:0, title:j.source_path.split(/[/\\]/).pop()}))
+        setLocalJobs(prev => [...newJobs, ...prev])
         setScanResult(null); setValidateResult(null)
+        // Use lightweight poll just to detect queued→normalizing transition,
+        // then switch to SSE push for actual progress (zero API calls during encode)
         startLocalPolling()
       } else {
         const d = await res.json().catch(()=>({}))
