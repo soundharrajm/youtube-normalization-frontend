@@ -976,13 +976,12 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
             {/* Scan result */}
             {scanResult && (
               <div style={{ background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:8, padding:'9px 11px', marginBottom:8 }}>
-                <div style={{ fontSize:11, color:'#9090b8', marginBottom:5 }}>Found {scanResult.count} file{scanResult.count!==1?'s':''}</div>
+                <div style={{ fontSize:13, color:'#9090b8', marginBottom:5 }}>Found {scanResult.count} file{scanResult.count!==1?'s':''}</div>
                 {scanResult.files.map((f,i) => (
-                  <div key={i} style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, padding:'2px 0' }}>
-                    <span style={{ color:'#e0e0f0', ...T.mono, fontWeight:500, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.source.split(/[/\\]/).pop()}</span>
-                    <span style={{ color:'#6666aa', fontSize:10 }}>{f.size_mb}MB</span>
-                    <span style={{ color:T.pu3 }}>→</span>
-                    <span style={{ color:T.te3, ...T.mono, fontSize:11 }}>{f.out.split(/[/\\]/).pop()}</span>
+                  <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:6, fontSize:13, padding:'3px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+                    <span style={{ color:'#6666aa', fontSize:12, flexShrink:0, marginTop:1 }}>{f.size_mb}MB</span>
+                    <span style={{ color:T.pu3, flexShrink:0, marginTop:1 }}>→</span>
+                    <span style={{ color:'#e0e0f0', ...T.mono, fontWeight:500, flex:1, wordBreak:'break-word', lineHeight:1.5 }}>{f.source.split(/[/\\]/).pop()}</span>
                   </div>
                 ))}
               </div>
@@ -1073,17 +1072,17 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                       const isNorm = j.status === 'normalizing'
                       const eta    = isNorm ? _eta(j.norm_started_at, j.normalize_progress||0) : null
                       return (
-                        <div key={j.job_id} style={{ display:'flex', alignItems:'center', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'8px 10px', marginBottom:5 }}>
-                          <span style={{ fontSize:14, color:j.status==='done'?'#22c55e':j.status==='error'?'#ef4444':j.status==='normalizing'?'#3b82f6':'#f59e0b' }}>
+                        <div key={j.job_id} style={{ display:'flex', alignItems:'flex-start', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'8px 10px', marginBottom:5 }}>
+                          <span style={{ fontSize:14, color:j.status==='done'?'#22c55e':j.status==='error'?'#ef4444':j.status==='normalizing'?'#3b82f6':'#f59e0b', flexShrink:0, marginTop:1 }}>
                             {j.status==='done'?'✓':j.status==='error'?'✗':j.status==='normalizing'?'↻':'⏳'}
                           </span>
-                          <span style={{ flex:1, fontSize:12, color:'#e0e0f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</span>
-                          <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:1, flexShrink:0 }}>
-                            <span style={{ fontSize:11, color:'#9090b8', ...T.mono }}>
-                              {j.status==='done'?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}
-                            </span>
-                            {eta && <span style={{ fontSize:10, color:'#f59e0b', ...T.mono }}>{eta}</span>}
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:12, color:'#e0e0f0', wordBreak:'break-word', lineHeight:1.4 }}>{j.title}</div>
+                            {eta && <div style={{ fontSize:11, color:'#f59e0b', ...T.mono, marginTop:2 }}>⏱ {eta}</div>}
                           </div>
+                          <span style={{ fontSize:11, color:'#9090b8', ...T.mono, flexShrink:0 }}>
+                            {j.status==='done'?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}
+                          </span>
                         </div>
                       )
                     })}
