@@ -1068,9 +1068,29 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                   const [showAll, setShowAll] = [localJobsExpanded, setLocalJobsExpanded]
                   const visible = showAll ? localJobs : localJobs.slice(0, 5)
                   return <>
-                    {visible.map(j => {
-                      const isNorm = j.status === 'normalizing'
-                      const eta    = isNorm ? _eta(j.norm_started_at, j.normalize_progress||0) : null
+                    {visible.map((j, idx) => {
+                      const isNorm    = j.status === 'normalizing'
+                      const isQueued  = j.status === 'queued'
+                      // ETA for actively encoding job
+                      const encodeEta = isNorm ? _eta(j.norm_started_at, j.normalize_progress||0) : null
+                      // Queue position estimate — extrapolate from running job speed
+                      const runningJob = localJobs.find(r => r.status === 'normalizing' && r.norm_started_at)
+                      let queueEta = null
+                      if (isQueued && runningJob && runningJob.norm_started_at) {
+                        const elapsed = Date.now()/1000 - runningJob.norm_started_at
+                        const pct = runningJob.normalize_progress || 1
+                        const secsPerJob = elapsed / (pct / 100)
+                        const remainCurrent = Math.max(0, secsPerJob * (1 - pct/100))
+                        // how many queued jobs are ahead of this one
+                        const queuedJobs = localJobs.filter(r => r.status === 'queued')
+                        const posAhead = queuedJobs.findIndex(r => r.job_id === j.job_id)
+                        const totalWait = remainCurrent + posAhead * secsPerJob
+                        if (totalWait > 0 && totalWait < 86400) {
+                          const h = Math.floor(totalWait/3600), m = Math.floor((totalWait%3600)/60), s = Math.floor(totalWait%60)
+                          queueEta = h > 0 ? `~${h}h ${m}m` : m > 0 ? `~${m}m ${s}s` : `~${s}s`
+                        }
+                      }
+                      const eta = encodeEta || queueEta
                       return (
                         <div key={j.job_id} style={{ display:'flex', alignItems:'flex-start', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'8px 10px', marginBottom:5 }}>
                           <span style={{ fontSize:14, color:j.status==='done'?'#22c55e':j.status==='error'?'#ef4444':j.status==='normalizing'?'#3b82f6':'#f59e0b', flexShrink:0, marginTop:1 }}>
