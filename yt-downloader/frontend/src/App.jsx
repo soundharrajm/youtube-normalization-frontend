@@ -2273,10 +2273,9 @@ export default function App() {
     if (pollRef.current) clearInterval(pollRef.current)
 
     const tick = async () => {
-      const allCurrent = jobsRef.current
-      const active = allCurrent.filter(j => !['done','error'].includes(j.status))
+      const active = jobsRef.current.filter(j => !['done','error'].includes(j.status))
 
-      // Stop entirely if no active YouTube jobs
+      // Stop entirely when no active YT jobs
       if (!active.length) {
         clearInterval(pollRef.current)
         pollRef.current = null
@@ -2316,8 +2315,8 @@ export default function App() {
               if (d.status === 'error' && d.error === 'Cancelled by user') return null
               if (d.status === 'error') return {...j, status:'error', error:d.error}
               return {...j, status:d.status,
-                progress:      Math.max(j.progress||0,    d.progress??j.progress),
-                normProgress:  Math.max(j.normProgress||0, d.normalize_progress??j.normProgress),
+                progress:       Math.max(j.progress||0,    d.progress??j.progress),
+                normProgress:   Math.max(j.normProgress||0, d.normalize_progress??j.normProgress),
                 queue_position: d.queue_position ?? j.queue_position,
                 title:          d.title || j.title,
                 started_at:     d.started_at      ?? j.started_at,
@@ -2329,15 +2328,15 @@ export default function App() {
         })
       } catch(_) {}
 
-      // Reschedule at correct interval based on current state
+      // Dynamically adjust interval based on current job state
       const stillActive = jobsRef.current.filter(j => !['done','error'].includes(j.status))
       if (!stillActive.length) {
         clearInterval(pollRef.current)
         pollRef.current = null
         return
       }
-      const isDownloading = stillActive.some(j => ['downloading','processing','normalizing'].includes(j.status))
-      const nextMs = isDownloading ? getPollMs('download') : getPollMs('active')
+      const isActivelyDownloading = stillActive.some(j => j.status === 'downloading' || j.status === 'processing')
+      const nextMs = isActivelyDownloading ? getPollMs('download') : getPollMs('active')
       if (nextMs !== pollRef._ms) {
         clearInterval(pollRef.current)
         pollRef._ms = nextMs
@@ -2345,9 +2344,9 @@ export default function App() {
       }
     }
 
-    // Start at active interval — switches to download speed once downloading begins
-    const isDownloading = jobsRef.current.some(j => ['downloading','processing','normalizing'].includes(j.status))
-    const startMs = isDownloading ? getPollMs('download') : getPollMs('active')
+    // Start fast if already downloading, slow otherwise
+    const isActivelyDownloading = jobsRef.current.some(j => j.status === 'downloading' || j.status === 'processing')
+    const startMs = isActivelyDownloading ? getPollMs('download') : getPollMs('active')
     pollRef._ms = startMs
     pollRef.current = setInterval(tick, startMs)
   }, [])
