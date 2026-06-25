@@ -657,8 +657,17 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
   const lastProgressRef = useRef({})  // track last seen progress per job_id
   const sseRefs = useRef({})          // active EventSource connections per job_id
 
+  // SSE works on real servers with nginx (proxy_buffering off)
+  // Disabled automatically on ngrok (buffers streaming responses)
+  const sseSupported = () => {
+    const base = getApiBase()
+    return !base.includes('ngrok') && !base.includes('localhost') && !base.includes('127.0.0.1')
+  }
+
   // Connect SSE stream for a single job — replaces polling for that job
   const connectSSE = useCallback((job) => {
+    if (!sseSupported()) return  // ngrok/local — use polling instead
+
     const job_id = job.job_id
     if (sseRefs.current[job_id]) return  // already connected
 
@@ -690,7 +699,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     }
 
     es.onerror = () => {
-      // Connection dropped — fall back to poll for this job
+      // Connection dropped — fall back to poll
       delete sseRefs.current[job_id]
       es.close()
       startLocalPolling()
@@ -2093,74 +2102,43 @@ export default function App() {
     apiFetch(`${getApiBase()}/config`).then(r=>r.ok?r.json():null).then(d=>{
       if(d){
         const lm=!!d.local_mode; setIsLocalMode(lm); localStorage.setItem('yt_local_mode', lm)
-        // Apply poll intervals from backend
         if(d.poll_active_ms)   _pollCfg.active   = d.poll_active_ms
         if(d.poll_idle_ms)     _pollCfg.idle      = d.poll_idle_ms
         if(d.poll_download_ms) _pollCfg.download  = d.poll_download_ms
         if(d.poll_local_ms)    _pollCfg.local     = d.poll_local_ms
-        console.log(`[POLL] active=${_pollCfg.active}ms idle=${_pollCfg.idle}ms download=${_pollCfg.download}ms`)
+        console.log(`[POLL] active=${_pollCfg.active}ms idle=${_pollCfg.idle}ms local=${_pollCfg.local}ms download=${_pollCfg.download}ms`)
       }
-    }).catch(()=>{})
-  }, [])
-
-  // ── Restore all jobs on page load/rebuild ─────────────────────────────────
-  useEffect(() => {
-    apiFetch(`${getApiBase()}/jobs`)
-      .then(r => r.ok ? r.json() : [])
-      .then(data => {
-        if (!Array.isArray(data) || !data.length) return
-
-        const ytJobs    = []
-        const localJobs = []
-
-        data.forEach(j => {
-          if (!j.job_id || !j.status) return
-          const isYT = j.url && (j.url.startsWith('http') || j.url.startsWith('yt:'))
-          if (isYT) {
-            ytJobs.push({
-              jobId           : j.job_id,
-              url             : j.url,
-              title           : j.title || j.url,
-              status          : j.status,
-              progress        : j.progress || 0,
-              normProgress    : j.normalize_progress || 0,
-              error           : j.error || null,
-              downloadUrl     : j.status === 'done' ? `${getApiBase()}/download/file/${j.job_id}` : null,
-              outFilename     : j.filename || null,
-              queue_position  : j.queue_position || 0,
-              started_at      : j.started_at || null,
-              norm_started_at : j.norm_started_at || null,
-            })
-          } else {
-            // Local normalizer job — url is a file path
-            localJobs.push({
-              job_id            : j.job_id,
-              title             : j.title || (j.url || '').split(/[/\\]/).pop() || j.job_id,
-              status            : j.status,
-              normalize_progress: j.normalize_progress || 0,
-              error             : j.error || null,
-              filepath          : j.filepath || null,
-              filename          : j.filename || null,
-              url               : j.url || '',
-              norm_started_at   : j.norm_started_at || null,
-              started_at        : j.started_at || null,
-            })
-          }
-        })
-
-        if (ytJobs.length) {
-          setJobs(ytJobs)
-          const hasActive = ytJobs.some(j => !['done','error'].includes(j.status))
-          if (hasActive) startPolling()
-        }
-
-        if (localJobs.length) {
-          setLocalJobs(localJobs)
-          const hasActive = localJobs.some(j => !['done','error'].includes(j.status))
-          if (hasActive) setTimeout(() => startLocalPollingRef.current?.(), 500)
+      // Restore jobs AFTER config is loaded so correct poll intervals are used
+      return apiFetch(`${getApiBase()}/jobs`)
+    }).then(r => r?.ok ? r.json() : []).then(data => {
+      if (!Array.isArray(data) || !data.length) return
+      const ytJobs = [], localJobs = []
+      data.forEach(j => {
+        if (!j.job_id || !j.status) return
+        const isYT = j.url && (j.url.startsWith('http') || j.url.startsWith('yt:'))
+        if (isYT) {
+          ytJobs.push({ jobId:j.job_id, url:j.url, title:j.title||j.url, status:j.status,
+            progress:j.progress||0, normProgress:j.normalize_progress||0, error:j.error||null,
+            downloadUrl: j.status==='done'?`${getApiBase()}/download/file/${j.job_id}`:null,
+            outFilename:j.filename||null, queue_position:j.queue_position||0,
+            started_at:j.started_at||null, norm_started_at:j.norm_started_at||null })
+        } else {
+          localJobs.push({ job_id:j.job_id, title:j.title||(j.url||'').split(/[/\\]/).pop()||j.job_id,
+            status:j.status, normalize_progress:j.normalize_progress||0, error:j.error||null,
+            filepath:j.filepath||null, filename:j.filename||null, url:j.url||'',
+            norm_started_at:j.norm_started_at||null, started_at:j.started_at||null })
         }
       })
-      .catch(() => {})
+      if (ytJobs.length) {
+        setJobs(ytJobs)
+        if (ytJobs.some(j => !['done','error'].includes(j.status))) startPolling()
+      }
+      if (localJobs.length) {
+        setLocalJobs(localJobs)
+        if (localJobs.some(j => !['done','error'].includes(j.status)))
+          setTimeout(() => startLocalPollingRef.current?.(), 500)
+      }
+    }).catch(()=>{})
   }, [])
 
   const logout = async () => {
