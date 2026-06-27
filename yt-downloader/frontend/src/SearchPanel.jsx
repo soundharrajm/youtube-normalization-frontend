@@ -178,7 +178,7 @@ export default function SearchPanel({ onAddUrl, onClose }) {
         style={{
           position:'fixed', inset:0, zIndex:200,
           background:'rgba(0,0,0,0.7)',
-          display:'flex', alignItems:'center', justifyContent:'center',
+          display:'flex', alignItems:'flex-start', justifyContent:'center',
           padding:'16px',
           overflowY:'auto',
         }}
@@ -188,6 +188,8 @@ export default function SearchPanel({ onAddUrl, onClose }) {
           background:'#0e0e1a', border:'1px solid rgba(255,255,255,0.1)',
           borderRadius:16, overflow:'hidden',
           boxShadow:'0 24px 80px rgba(0,0,0,0.6)',
+          display:'flex', flexDirection:'column',
+          maxHeight:'calc(100vh - 32px)',
         }}>
 
           {/* Header */}
@@ -265,7 +267,7 @@ export default function SearchPanel({ onAddUrl, onClose }) {
 
           {/* Results grid */}
           {results.length > 0 && (
-            <div>
+            <div style={{ overflowY:'auto', flex:1 }}>
               <div style={{ padding:'0 20px 10px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                 <span style={{ fontSize:12, color:'#555', fontWeight:600 }}>
                   {results.length} of {totalResults > 0 ? totalResults.toLocaleString() : '?'} results
@@ -358,7 +360,7 @@ export default function SearchPanel({ onAddUrl, onClose }) {
 
           {/* Empty state */}
           {!loading && !error && results.length===0 && (
-            <div style={{ padding:'48px 20px', textAlign:'center', color:'#444' }}>
+            <div style={{ flex:1, padding:'48px 20px', textAlign:'center', color:'#444' }}>
               <div style={{ fontSize:44, marginBottom:12 }}>🎬</div>
               <p style={{ margin:0, fontSize:14, color:'#555' }}>Search for YouTube videos to add to your download queue</p>
               <p style={{ margin:'8px 0 0', fontSize:12, color:'#333' }}>Try: "Gullak season 5 trailer" · "Sony LIV new series" · "Aamir Khan movie"</p>
