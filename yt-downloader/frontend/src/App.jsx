@@ -410,6 +410,37 @@ function CircleProgress({ pct, color, size=44, stroke=3, label, done, cancelled,
   )
 }
 
+// ── VideoPreviewModal ──────────────────────────────────────────────────────────
+function VideoPreviewModal({ src, title, type, onClose }) {
+  // type: 'youtube' | 'file'
+  // src: youtube video ID or backend stream URL
+  return (
+    <div onClick={e => e.target === e.currentTarget && onClose()}
+      style={{ position:'fixed', inset:0, zIndex:500, background:'rgba(0,0,0,0.85)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'min(900px,92vw)', gap:12 }}>
+        <span style={{ fontSize:13, fontWeight:600, color:'#e0e0f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{title}</span>
+        <button onClick={onClose} style={{ flexShrink:0, padding:'5px 14px', borderRadius:7, border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.08)', color:'#aaa', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>✕ Close</button>
+      </div>
+      {type === 'youtube' ? (
+        <iframe
+          src={`https://www.youtube.com/embed/${src}?autoplay=1`}
+          allow="autoplay; encrypted-media; fullscreen"
+          allowFullScreen
+          style={{ width:'min(900px,92vw)', height:'min(506px,52vw)', borderRadius:12, border:'none', background:'#000' }}
+        />
+      ) : (
+        <video
+          src={src}
+          controls
+          autoPlay
+          style={{ width:'min(900px,92vw)', maxHeight:'75vh', borderRadius:12, background:'#000', outline:'none' }}
+        />
+      )}
+      <span style={{ fontSize:11, color:'#555' }}>Click outside to close · Space to pause</span>
+    </div>
+  )
+}
+
 // ── JobCard ────────────────────────────────────────────────────────────────
 function _eta(startedAt, pct) {
   if (!startedAt || pct <= 0 || pct >= 100) return null
@@ -429,6 +460,7 @@ function _fmtSec(s) {
 }
 
 function JobCard({ job }) {
+  const [preview, setPreview] = useState(false)
   const meta = PHASE[job.status] || PHASE.queued
   const isQ   = job.status==='queued'
   const isDl  = job.status==='downloading'||job.status==='processing'
@@ -441,15 +473,33 @@ function JobCard({ job }) {
   const dlPct   = isDl ? job.progress : (isDone||isNorm) ? 100 : 0
   const normPct = isNorm ? job.normProgress : isDone ? 100 : 0
 
-  // ETA calculations
   const dlEta   = isDl   ? _eta(job.started_at,      dlPct)   : null
   const normEta = isNorm ? _eta(job.norm_started_at,  normPct) : null
   const eta     = normEta || dlEta
 
-  // Cancel handler — passed to both rings so either can cancel
   const handleCancel = job.onCancel ? () => job.onCancel(job.jobId) : null
 
+  // Extract YouTube video ID for preview
+  const ytId = (() => {
+    const url = job.url || ''
+    const m = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/) || url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/)
+    return m ? m[1] : null
+  })()
+
+  // Can preview: YT before download, or local file when done
+  const canPreview = ytId || (isDone && job.downloadUrl)
+  const previewSrc = ytId ? ytId : job.downloadUrl?.replace('/download/file/', '/download/preview/')
+
   return (
+    <>
+      {preview && canPreview && (
+        <VideoPreviewModal
+          src={previewSrc}
+          title={job.title || job.url}
+          type={ytId ? 'youtube' : 'file'}
+          onClose={() => setPreview(false)}
+        />
+      )}
     <div style={{ ...T.card, padding:'12px 14px' }}>
       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
         <div style={{ width:32, height:32, borderRadius:'50%', background:`${meta.color}22`, border:`1.5px solid ${meta.color}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:meta.color, flexShrink:0 }}>{meta.icon}</div>
@@ -498,6 +548,12 @@ function JobCard({ job }) {
           {isDone&&job.downloadUrl && (
             <a href={job.downloadUrl} download style={{ background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.3)', borderRadius:8, color:'#34d399', fontSize:12, fontWeight:700, padding:'6px 14px', textDecoration:'none' }}>↓ Save</a>
           )}
+          {/* Preview button — YT (any time) or local file (when done) */}
+          {canPreview && (
+            <button onClick={() => setPreview(true)} title={ytId ? 'Preview on YouTube' : 'Play file'} style={{ background:'rgba(124,106,247,0.12)', border:'1px solid rgba(124,106,247,0.3)', borderRadius:8, color:'#a78bfa', fontSize:12, fontWeight:700, padding:'6px 12px', cursor:'pointer', fontFamily:'inherit' }}>
+              ▶ {ytId ? 'Preview' : 'Play'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -507,6 +563,8 @@ function JobCard({ job }) {
       {isErr&&job.error && (
         <p style={{ margin:'8px 0 0', fontSize:11, color:'#f87171', background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:6, padding:'6px 10px' }}>{job.error}</p>
       )}
+    </div>
+    </>
 
       {/* Actions after completion */}
       {(isErr && !isCancelled) && (
@@ -1171,18 +1229,16 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                     {visible.map((j, idx) => {
                       const isNorm   = j.status === 'normalizing'
                       const isQueued = j.status === 'queued'
+                      const isDone   = j.status === 'done'
 
-                      // Live ETA for the actively encoding job
                       let encodeEta = null
                       if (isNorm && j.norm_started_at && (j.normalize_progress||0) > 0) {
                         const elapsed  = Date.now()/1000 - j.norm_started_at
                         const pct      = j.normalize_progress
                         const totalSec = elapsed / (pct / 100)
-                        const remSec   = Math.max(0, totalSec - elapsed)
-                        encodeEta = _fmtSec(remSec)
+                        encodeEta = _fmtSec(Math.max(0, totalSec - elapsed))
                       }
 
-                      // Queue ETA — uses running job's live speed to estimate wait
                       let queueEta = null
                       if (isQueued) {
                         const runningJob = localJobs.find(r => r.status === 'normalizing' && r.norm_started_at && (r.normalize_progress||0) > 0)
@@ -1191,28 +1247,42 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                           const pct          = runningJob.normalize_progress
                           const secsPerJob   = elapsed / (pct / 100)
                           const remCurrent   = Math.max(0, secsPerJob * (1 - pct/100))
-                          const queuedJobs   = localJobs.filter(r => r.status === 'queued')
-                          const posAhead     = queuedJobs.findIndex(r => r.job_id === j.job_id)
-                          const totalWait    = remCurrent + Math.max(0, posAhead) * secsPerJob
-                          queueEta = _fmtSec(totalWait)
+                          const posAhead     = localJobs.filter(r => r.status === 'queued').findIndex(r => r.job_id === j.job_id)
+                          queueEta = _fmtSec(remCurrent + Math.max(0, posAhead) * secsPerJob)
                         }
                       }
 
-                      const eta = encodeEta || queueEta
+                      const eta        = encodeEta || queueEta
+                      const previewUrl = isDone ? `${getApiBase()}/normalize/local/preview/${j.job_id}` : null
+
                       return (
-                        <div key={j.job_id} style={{ display:'flex', alignItems:'flex-start', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'8px 10px', marginBottom:5 }}>
-                          <span style={{ fontSize:14, color:j.status==='done'?'#22c55e':j.status==='error'?'#ef4444':j.status==='normalizing'?'#3b82f6':'#f59e0b', flexShrink:0, marginTop:1 }}>
-                            {j.status==='done'?'✓':j.status==='error'?'✗':j.status==='normalizing'?'↻':'⏳'}
-                          </span>
-                          <div style={{ flex:1, minWidth:0 }}>
-                            <div style={{ fontSize:12, color:'#e0e0f0', wordBreak:'break-word', lineHeight:1.4 }}>{j.title}</div>
-                            {eta && <div style={{ fontSize:11, color:'#f59e0b', ...T.mono, marginTop:2 }}>
-                              {isNorm ? `⏱ ${eta} left` : `⏳ starts in ${eta}`}
-                            </div>}
+                        <div key={j.job_id}>
+                          {j._preview && previewUrl && (
+                            <VideoPreviewModal src={previewUrl} title={j.title} type="file"
+                              onClose={() => setLocalJobs(prev => prev.map(lj => lj.job_id===j.job_id ? {...lj, _preview:false} : lj))} />
+                          )}
+                          <div style={{ display:'flex', alignItems:'flex-start', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'8px 10px', marginBottom:5 }}>
+                            <span style={{ fontSize:14, color:isDone?'#22c55e':j.status==='error'?'#ef4444':isNorm?'#3b82f6':'#f59e0b', flexShrink:0, marginTop:1 }}>
+                              {isDone?'✓':j.status==='error'?'✗':isNorm?'↻':'⏳'}
+                            </span>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontSize:12, color:'#e0e0f0', wordBreak:'break-word', lineHeight:1.4 }}>{j.title}</div>
+                              {eta && <div style={{ fontSize:11, color:'#f59e0b', ...T.mono, marginTop:2 }}>
+                                {isNorm ? `⏱ ${eta} left` : `⏳ starts in ${eta}`}
+                              </div>}
+                            </div>
+                            <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
+                              <span style={{ fontSize:11, color:'#9090b8', ...T.mono }}>
+                                {isDone?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}
+                              </span>
+                              {isDone && (
+                                <button onClick={() => setLocalJobs(prev => prev.map(lj => lj.job_id===j.job_id ? {...lj, _preview:true} : lj))}
+                                  style={{ fontSize:10, padding:'2px 7px', borderRadius:5, border:'1px solid rgba(124,106,247,0.35)', background:'rgba(124,106,247,0.1)', color:'#a78bfa', cursor:'pointer', fontFamily:'inherit' }}>
+                                  ▶ Play
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <span style={{ fontSize:11, color:'#9090b8', ...T.mono, flexShrink:0 }}>
-                            {j.status==='done'?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}
-                          </span>
                         </div>
                       )
                     })}
