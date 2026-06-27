@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import ReactDOM from 'react-dom'
 import AdminPanel   from './AdminPanel.jsx'
 import HealthPanel   from './HealthPanel.jsx'
 import ChannelPanel  from './ChannelPanel.jsx'
@@ -486,20 +487,26 @@ function JobCard({ job }) {
     return m ? m[1] : null
   })()
 
-  // Can preview: YT before download, or local file when done
+  // Can preview: YT (any time) or local file (when done)
   const canPreview = ytId || (isDone && job.downloadUrl)
   const previewSrc = ytId ? ytId : job.downloadUrl?.replace('/download/file/', '/download/preview/')
 
-  return (
-    <>
-      {preview && canPreview && (
+  // Render modal via portal so it's never clipped by card overflow/z-index
+  const modalEl = preview && canPreview && typeof document !== 'undefined'
+    ? ReactDOM.createPortal(
         <VideoPreviewModal
           src={previewSrc}
           title={job.title || job.url}
           type={ytId ? 'youtube' : 'file'}
           onClose={() => setPreview(false)}
-        />
-      )}
+        />,
+        document.body
+      )
+    : null
+
+  return (
+    <>
+      {modalEl}
     <div style={{ ...T.card, padding:'12px 14px' }}>
       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
         <div style={{ width:32, height:32, borderRadius:'50%', background:`${meta.color}22`, border:`1.5px solid ${meta.color}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:meta.color, flexShrink:0 }}>{meta.icon}</div>
@@ -1256,9 +1263,10 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
 
                       return (
                         <div key={j.job_id}>
-                          {j._preview && previewUrl && (
+                          {j._preview && previewUrl && ReactDOM.createPortal(
                             <VideoPreviewModal src={previewUrl} title={j.title} type="file"
-                              onClose={() => setLocalJobs(prev => prev.map(lj => lj.job_id===j.job_id ? {...lj, _preview:false} : lj))} />
+                              onClose={() => setLocalJobs(prev => prev.map(lj => lj.job_id===j.job_id ? {...lj, _preview:false} : lj))} />,
+                            document.body
                           )}
                           <div style={{ display:'flex', alignItems:'flex-start', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'8px 10px', marginBottom:5 }}>
                             <span style={{ fontSize:14, color:isDone?'#22c55e':j.status==='error'?'#ef4444':isNorm?'#3b82f6':'#f59e0b', flexShrink:0, marginTop:1 }}>
