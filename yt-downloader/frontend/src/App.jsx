@@ -563,8 +563,6 @@ function JobCard({ job }) {
       {isErr&&job.error && (
         <p style={{ margin:'8px 0 0', fontSize:11, color:'#f87171', background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:6, padding:'6px 10px' }}>{job.error}</p>
       )}
-    </div>
-    </>
 
       {/* Actions after completion */}
       {(isErr && !isCancelled) && (
@@ -578,6 +576,7 @@ function JobCard({ job }) {
         </div>
       )}
     </div>
+    </>
   )
 }
 
