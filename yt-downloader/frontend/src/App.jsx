@@ -487,8 +487,8 @@ function JobCard({ job }) {
     return m ? m[1] : null
   })()
 
-  // Can preview: YT (any time) or local file (when done)
-  const canPreview = ytId || (isDone && job.downloadUrl)
+  // Can preview: YT only when queued (deciding) or done (verify output)
+  const canPreview = (isQ && ytId) || (isDone && (ytId || job.downloadUrl))
   const previewSrc = ytId ? ytId : job.downloadUrl?.replace('/download/file/', '/download/preview/')
 
   // Render modal via portal so it's never clipped by card overflow/z-index
