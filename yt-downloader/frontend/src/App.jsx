@@ -1950,11 +1950,33 @@ const newItem = () => ({ id:_id++, url:'', info:null, selectedFormat:null, error
 // ── BackendModal — admin-gated backend URL config ─────────────────────────────
 function BackendModal({ onClose }) {
   const ADMIN_SECRET_KEY = 'yt_admin_verified'
-  const [step,      setStep]    = useState(() => (sessionStorage.getItem(ADMIN_SECRET_KEY) || localStorage.getItem('yt_admin_token')) ? 'url' : 'auth')
+  const [step,      setStep]    = useState('loading')  // loading | auth | url
   const [secret,    setSecret]  = useState('')
   const [secretErr, setSecretErr] = useState('')
   const [urlInput,  setUrlInput] = useState(localStorage.getItem('yt_api_base') || '')
   const [saved,     setSaved]   = useState(false)
+
+  // On mount — check if token already saved in backend temp file
+  useEffect(() => {
+    const checkToken = async () => {
+      try {
+        const res = await apiFetch('/admin-token')
+        const d   = await res.json()
+        if (d.token) {
+          sessionStorage.setItem(ADMIN_SECRET_KEY, '1')
+          setStep('url')
+          return
+        }
+      } catch {}
+      // Fall back to sessionStorage check
+      if (sessionStorage.getItem(ADMIN_SECRET_KEY)) {
+        setStep('url')
+      } else {
+        setStep('auth')
+      }
+    }
+    checkToken()
+  }, [])
 
   const verifySecret = async () => {
     if (!secret.trim()) { setSecretErr('Enter admin secret'); return }
@@ -1965,16 +1987,19 @@ function BackendModal({ onClose }) {
         body: JSON.stringify({ secret: secret.trim() }),
       })
       if (res.ok) {
-        localStorage.setItem('yt_admin_token', secret.trim())
+        // Save token to backend temp file — not localStorage
+        await apiFetch('/admin-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: secret.trim() }),
+        })
         sessionStorage.setItem(ADMIN_SECRET_KEY, '1')
         setStep('url'); setSecretErr('')
       } else {
         setSecretErr('Wrong secret')
       }
     } catch {
-      // Backend unreachable — this is exactly when BE URL needs changing
-      // Accept any input so admin can fix the URL
-      localStorage.setItem('yt_admin_token', secret.trim())
+      // Backend unreachable — allow admin to fix the URL without verifying
       sessionStorage.setItem(ADMIN_SECRET_KEY, '1')
       setStep('url'); setSecretErr('')
     }
@@ -1992,6 +2017,18 @@ function BackendModal({ onClose }) {
     localStorage.removeItem('yt_api_base')
     setSaved(true)
     setTimeout(() => { setSaved(false); onClose(); window.location.reload() }, 900)
+  }
+
+  const clearToken = async () => {
+    // Clear token from backend temp file
+    await apiFetch('/admin-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: '' }),
+    }).catch(() => {})
+    sessionStorage.removeItem(ADMIN_SECRET_KEY)
+    localStorage.removeItem('yt_admin_token')
+    setStep('auth')
   }
 
   const overlay = { position:'fixed', inset:0, zIndex:600, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center' }
@@ -2012,7 +2049,9 @@ function BackendModal({ onClose }) {
           <button onClick={onClose} style={{ background:'none', border:'1px solid rgba(255,255,255,0.1)', borderRadius:6, color:'#555', fontSize:14, width:28, height:28, cursor:'pointer' }}>✕</button>
         </div>
 
-        {step === 'auth' ? (
+        {step === 'loading' ? (
+          <div style={{ textAlign:'center', padding:'20px 0', color:'#555', fontSize:13 }}>🔄 Checking stored credentials…</div>
+        ) : step === 'auth' ? (
           <>
             <div style={{ fontSize:12, color:'#7878a0', marginBottom:10 }}>🔒 Admin secret required to change backend URL</div>
             <input
@@ -2054,6 +2093,9 @@ function BackendModal({ onClose }) {
                 🟣 Custom URL active — <span style={{ color:'#f59e0b' }}>default: {API_DEFAULT}</span>
               </div>
             )}
+            <button onClick={clearToken} style={{ marginTop:12, width:'100%', padding:'7px', borderRadius:8, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color:'#444', fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>
+              🔒 Clear saved credentials
+            </button>
           </>
         )}
       </div>
