@@ -978,13 +978,13 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
   const panelStyle = {
     position:'fixed', left:0, top:0, height:'100vh', width: open ? panelWidth : 0,
     minWidth: open ? 260 : 0,
-    background:'#13121f', borderRight:'1px solid rgba(186,117,23,0.35)',
+    background:'#f8f8fc', borderRight:'1px solid rgba(0,0,0,0.1)',
     transform:open?'translateX(0)':'translateX(-100%)',
     transition: resizing.current ? 'none' : 'transform .25s ease',
     zIndex:160,
     overflowY:'auto', overflowX:'hidden', display:'flex', flexDirection:'column',
   }
-  const lbl  = { fontSize:13, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
+  const lbl  = { fontSize:11, color:'#333355', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:7 }
   const sdiv = { height:1, background:'rgba(186,117,23,0.12)', margin:'12px 0' }
 
   return (
@@ -1022,7 +1022,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
             <div style={{ flex:1, overflowY:'auto', padding:'10px 18px' }}>
               {doneJobs.map((j,i) => (
                 <div key={j.job_id||i} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
-                  <span style={{ color:'#22c55e', fontSize:12, flexShrink:0 }}>✓</span>
+                  <span style={{ color:'#065f46', fontSize:12, flexShrink:0 }}>✓</span>
                   <span style={{ flex:1, fontSize:11, color:'#6ee7b7', fontFamily:'monospace', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                     {j.out_path?.split(/[/\\]/).pop() || j.title}
                   </span>
@@ -1030,7 +1030,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
               ))}
             </div>
             <div style={{ padding:'10px 18px', borderTop:'1px solid rgba(255,255,255,0.08)', display:'flex', gap:8, justifyContent:'flex-end' }}>
-              <button onClick={() => { copyDoneNames(); }} style={{ padding:'7px 14px', borderRadius:7, border:'1px solid rgba(59,130,246,0.4)', background:'rgba(59,130,246,0.08)', color:'#93c5fd', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+              <button onClick={() => { copyDoneNames(); }} style={{ padding:'7px 14px', borderRadius:7, border:'1px solid rgba(59,130,246,0.4)', background:'rgba(59,130,246,0.08)', color:'#1d4ed8', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
                 {copied ? '✓ Copied!' : '📋 Copy All Names'}
               </button>
               <button onClick={()=>setShowPopup(false)} style={{ padding:'7px 14px', borderRadius:7, border:'none', background:'rgba(127,119,221,0.8)', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Done</button>
@@ -1040,14 +1040,14 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
       )}
 
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 14px 11px', borderBottom:'1px solid rgba(186,117,23,0.3)', position:'sticky', top:0, background:'#13121f', zIndex:2 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:15, fontWeight:600, color:'#ffffff' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 14px 11px', borderBottom:'1px solid rgba(0,0,0,0.08)', position:'sticky', top:0, background:'#ffffff', zIndex:2, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:15, fontWeight:700, color:'#1a1a2e' }}>
           <span style={{ fontSize:20 }}>📁</span> Local Normalizer
           {activeCount > 0 && <span style={{ fontSize:11, fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:100, padding:'1px 8px' }}>{activeCount}</span>}
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-          <span style={{ fontSize:10, color:T.am3, background:'rgba(186,117,23,0.13)', border:'1px solid rgba(186,117,23,0.22)', borderRadius:100, padding:'2px 8px', fontWeight:700 }}>LOCAL</span>
-          <button onClick={onClose} style={{ width:28, height:28, borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.05)', color:'#777', fontSize:14, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+          <span style={{ fontSize:10, color:'#92400e', background:'rgba(245,158,11,0.12)', border:'1px solid rgba(245,158,11,0.35)', borderRadius:100, padding:'2px 8px', fontWeight:700 }}>LOCAL</span>
+          <button onClick={onClose} style={{ width:28, height:28, borderRadius:6, border:'1px solid rgba(0,0,0,0.12)', background:'rgba(0,0,0,0.04)', color:'#555', fontSize:14, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
         </div>
       </div>
 
@@ -1059,22 +1059,22 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
             <textarea value={paths}
               onChange={e => { setPaths(e.target.value); localStorage.setItem('yt_local_paths', e.target.value) }}
               placeholder={'C:\\Videos\\movie.mp4\nC:\\Shows\\Season1\\'}
-              style={{ width:'100%', background:'rgba(0,0,0,0.25)', border:'1px solid rgba(255,255,255,0.18)', borderRadius:8, padding:'9px 11px', fontSize:13, ...T.mono, color:'#e0e0f0', outline:'none', resize:'vertical', minHeight:80, boxSizing:'border-box', marginBottom:8 }}
+              style={{ width:'100%', background:'#ffffff', border:'1px solid rgba(0,0,0,0.15)', borderRadius:8, padding:'9px 11px', fontSize:13, ...T.mono, color:'#1a1a2e', outline:'none', resize:'vertical', minHeight:80, boxSizing:'border-box', marginBottom:8 }}
             />
-            <div style={{ display:'flex', flexDirection:'column', gap:6, fontSize:14, color:'#b0b0c8', marginBottom:8 }}>
+            <div style={{ display:'flex', flexDirection:'column', gap:6, fontSize:14, color:'#333355', marginBottom:8 }}>
               <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={recursive} onChange={e=>{ setRecursive(e.target.checked); localStorage.setItem('yt_local_recursive', e.target.checked) }} /> Scan subfolders recursively</label>
               <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}><input type="checkbox" checked={skipDone} onChange={e=>{ setSkipDone(e.target.checked); localStorage.setItem('yt_local_skipdone', e.target.checked) }} /> Skip already-normalized files</label>
             </div>
-            <div style={{ fontSize:14, color:'#9090b8', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
+            <div style={{ fontSize:13, color:'#555577', ...T.mono, lineHeight:1.6, marginBottom:10 }}>Supported: .mp4 .mkv .mov .avi .ts .m4v .wmv .flv .webm .mxf .mts .m2ts .mpg .mpeg .vob .3gp .ogv .rm .rmvb .asf .divx .f4v .dv .gxf .mj2 .qt .r3d</div>
 
             {/* Subtitle mode */}
             <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:13, color:'#8888aa', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:6 }}>Subtitles</div>
+              <div style={{ fontSize:11, color:'#333355', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:6 }}>Subtitles</div>
               <div style={{ display:'flex', gap:5 }}>
                 {[
-                  { id:'convert', label:'Convert', desc:'SRT→mov_text (safe)', color:'#22c55e' },
-                  { id:'copy',    label:'Copy',    desc:'Fast, may fail mp4', color:'#3b82f6' },
-                  { id:'drop',    label:'Drop',    desc:'Remove all subs',    color:'#f59e0b' },
+                  { id:'convert', label:'Convert', desc:'SRT→mov_text (safe)', color:'#065f46' },
+                  { id:'copy',    label:'Copy',    desc:'Fast, may fail mp4', color:'#1d4ed8' },
+                  { id:'drop',    label:'Drop',    desc:'Remove all subs',    color:'#92400e' },
                 ].map(m => {
                   const active = (normConfig?.subtitleMode || 'convert') === m.id
                   return (
@@ -1092,7 +1092,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                   )
                 })}
               </div>
-              <div style={{ fontSize:14, color:'#505070', marginTop:4, ...T.mono }}>
+              <div style={{ fontSize:13, color:'#555577', marginTop:4, ...T.mono }}>
                 {normConfig?.subtitleMode === 'drop' ? '⚠ -sn — all subtitles removed' :
                  normConfig?.subtitleMode === 'copy' ? '⚡ -c:s copy — fast, may fail on mp4+SRT' :
                  '✓ -c:s mov_text — converts SRT to mp4 format'}
@@ -1124,21 +1124,21 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                 )}
                 {validateResult.results.some(r=>r.warnings?.length>0) && (
                   <div style={{ background:'rgba(245,158,11,0.07)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:8, padding:'10px 12px' }}>
-                    <div style={{ fontSize:11, fontWeight:700, color:'#f59e0b', marginBottom:6 }}>⚠ Warnings — will proceed with these changes:</div>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#92400e', marginBottom:6 }}>⚠ Warnings — will proceed with these changes:</div>
                     {validateResult.results.filter(r=>r.warnings?.length>0).map((r,i) => (
                       <div key={i} style={{ marginBottom:6 }}>
-                        <div style={{ fontSize:10, color:'#f59e0b', fontWeight:600, ...T.mono, marginBottom:2 }}>{r.file}</div>
+                        <div style={{ fontSize:10, color:'#92400e', fontWeight:600, ...T.mono, marginBottom:2 }}>{r.file}</div>
                         {r.warnings.map((w,j) => <div key={j} style={{ fontSize:10, color:'#fcd34d', lineHeight:1.5, paddingLeft:8 }}>• {w}</div>)}
                       </div>
                     ))}
-                    <button onClick={handleNormalize} disabled={validating} style={{ marginTop:8, fontSize:11, fontWeight:600, padding:'6px 14px', borderRadius:7, border:'1px solid rgba(245,158,11,0.4)', background:'rgba(245,158,11,0.12)', color:'#f59e0b', cursor:'pointer', fontFamily:'inherit' }}>
+                    <button onClick={handleNormalize} disabled={validating} style={{ marginTop:8, fontSize:11, fontWeight:600, padding:'6px 14px', borderRadius:7, border:'1px solid rgba(245,158,11,0.4)', background:'rgba(245,158,11,0.12)', color:'#92400e', cursor:'pointer', fontFamily:'inherit' }}>
                       Proceed anyway →
                     </button>
                   </div>
                 )}
               </div>
             )}
-            <div style={{ fontSize:14, color:'#555', marginBottom:10, lineHeight:1.5 }}>
+            <div style={{ fontSize:13, color:'#555577', marginBottom:10, lineHeight:1.5 }}>
               {doNormalize
                 ? `${forceReencode ? '🔄 force re-encode' : '⚡ smart copy'} · ${targetCodec?.toUpperCase()||'H.264'} · ${targetRes==='source'?'source res':targetRes?.replace('x','×')||'1920×1080'} — set in ⚙ Settings`
                 : '⬇️ Download only mode — ffmpeg skipped — set in ⚙ Settings'}
@@ -1146,13 +1146,13 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
 
             {/* Scan result */}
             {scanResult && (
-              <div style={{ background:'rgba(0,0,0,0.2)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:8, padding:'9px 11px', marginBottom:8 }}>
-                <div style={{ fontSize:13, color:'#9090b8', marginBottom:5 }}>Found {scanResult.count} file{scanResult.count!==1?'s':''}</div>
+              <div style={{ background:'#f0f4ff', border:'1px solid rgba(0,0,0,0.08)', borderRadius:8, padding:'9px 11px', marginBottom:8 }}>
+                <div style={{ fontSize:13, color:'#555577', marginBottom:5 }}>Found {scanResult.count} file{scanResult.count!==1?'s':''}</div>
                 {scanResult.files.map((f,i) => (
                   <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:6, fontSize:13, padding:'3px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
                     <span style={{ color:'#6666aa', fontSize:12, flexShrink:0, marginTop:1 }}>{f.size_mb}MB</span>
                     <span style={{ color:T.pu3, flexShrink:0, marginTop:1 }}>→</span>
-                    <span style={{ color:'#e0e0f0', ...T.mono, fontWeight:500, flex:1, wordBreak:'break-word', lineHeight:1.5 }}>{f.source.split(/[/\\]/).pop()}</span>
+                    <span style={{ color:'#1a1a2e', ...T.mono, fontWeight:500, flex:1, wordBreak:'break-word', lineHeight:1.5 }}>{f.source.split(/[/\\]/).pop()}</span>
                   </div>
                 ))}
               </div>
@@ -1165,7 +1165,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
 
                 {/* Jobs header with action buttons */}
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8, flexWrap:'wrap', gap:5 }}>
-                  <div style={{ ...lbl, marginBottom:0 }}>Jobs <span style={{ color:'#3b82f6' }}>({totalJobs})</span></div>
+                  <div style={{ ...lbl, marginBottom:0 }}>Jobs <span style={{ color:'#1d4ed8' }}>({totalJobs})</span></div>
                   <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
                     {doneCount > 0 && (
                       <button onClick={copyDoneNames} style={{ fontSize:10, padding:'3px 8px', borderRadius:5, border: copied?'1px solid rgba(34,197,94,0.4)':'1px solid rgba(59,130,246,0.3)', background: copied?'rgba(34,197,94,0.07)':'rgba(59,130,246,0.07)', color: copied?'#22c55e':'#93c5fd', cursor:'pointer', fontFamily:'inherit' }}>
@@ -1173,12 +1173,12 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                       </button>
                     )}
                     {doneCount > 0 && (
-                      <button onClick={()=>setShowPopup(true)} style={{ fontSize:10, padding:'3px 8px', borderRadius:5, border:'1px solid rgba(34,197,94,0.3)', background:'rgba(34,197,94,0.07)', color:'#22c55e', cursor:'pointer', fontFamily:'inherit' }}>
+                      <button onClick={()=>setShowPopup(true)} style={{ fontSize:10, padding:'3px 8px', borderRadius:5, border:'1px solid rgba(34,197,94,0.3)', background:'rgba(34,197,94,0.07)', color:'#065f46', cursor:'pointer', fontFamily:'inherit' }}>
                         ✅ View Done
                       </button>
                     )}
                     {doneCount > 0 && (
-                      <button onClick={()=>setLocalJobs(prev=>prev.filter(j=>j.status!=='done'&&j.status!=='error'))} style={{ fontSize:10, padding:'3px 8px', borderRadius:5, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>
+                      <button onClick={()=>setLocalJobs(prev=>prev.filter(j=>j.status!=='done'&&j.status!=='error'))} style={{ fontSize:10, padding:'3px 8px', borderRadius:5, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#555577', cursor:'pointer', fontFamily:'inherit' }}>
                         Clear Done
                       </button>
                     )}
@@ -1189,21 +1189,21 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                 </div>
 
                 {/* Queue status bar */}
-                <div style={{ marginBottom:8, padding:'7px 10px', borderRadius:7, background:'rgba(59,130,246,0.07)', border:'1px solid rgba(59,130,246,0.18)' }}>
+                <div style={{ marginBottom:8, padding:'7px 10px', borderRadius:7, background:'rgba(239,246,255,1)', border:'1px solid rgba(59,130,246,0.25)' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:5 }}>
                     <button onClick={refreshLocalJobs}
-                      style={{ fontSize:9, color:'#3b82f6', fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit', display:'flex', alignItems:'center', gap:4 }}>
+                      style={{ fontSize:9, color:'#1d4ed8', fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit', display:'flex', alignItems:'center', gap:4 }}>
                       ↻ Status
                     </button>
                     <div style={{ display:'flex', gap:8, fontSize:9, ...T.mono }}>
-                      {runningCount > 0 && <span style={{ color:'#3b82f6' }}>↻ {runningCount} running</span>}
-                      {queuedCount  > 0 && <span style={{ color:'#f59e0b' }}>⏳ {queuedCount} waiting</span>}
-                      {doneCount    > 0 && <span style={{ color:'#22c55e' }}>✓ {doneCount} done</span>}
-                      {errorCount   > 0 && <span style={{ color:'#ef4444' }}>✕ {errorCount} error</span>}
+                      {runningCount > 0 && <span style={{ color:'#1d4ed8' }}>↻ {runningCount} running</span>}
+                      {queuedCount  > 0 && <span style={{ color:'#92400e' }}>⏳ {queuedCount} waiting</span>}
+                      {doneCount    > 0 && <span style={{ color:'#065f46' }}>✓ {doneCount} done</span>}
+                      {errorCount   > 0 && <span style={{ color:'#991b1b' }}>✕ {errorCount} error</span>}
                     </div>
-                    <span style={{ fontSize:9, color:'#3b82f6', fontWeight:700, ...T.mono }}>{pct}%</span>
+                    <span style={{ fontSize:9, color:'#1d4ed8', fontWeight:700, ...T.mono }}>{pct}%</span>
                   </div>
-                  <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:100, height:3, marginBottom:5 }}>
+                  <div style={{ background:'rgba(0,0,0,0.08)', borderRadius:100, height:3, marginBottom:5 }}>
                     <div style={{ height:'100%', borderRadius:100, background: pct===100?'#22c55e':'linear-gradient(90deg,#3b82f6,#6366f1)', width:`${pct}%`, transition:'width 0.5s ease' }} />
                   </div>
                   {/* Overall ETA — based on running job progress + queue depth */}
@@ -1221,8 +1221,8 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                     const totalEta      = _fmtSec(totalRemSecs)
                     return (
                       <div style={{ display:'flex', justifyContent:'space-between', fontSize:10, ...T.mono, marginTop:4 }}>
-                        <span style={{ color:'#f59e0b' }}>⏱ current: {currentEta} left</span>
-                        {queuedAfter > 0 && totalEta && <span style={{ color:'#a78bfa' }}>all done in: {totalEta}</span>}
+                        <span style={{ color:'#92400e' }}>⏱ current: {currentEta} left</span>
+                        {queuedAfter > 0 && totalEta && <span style={{ color:'#5b21b6' }}>all done in: {totalEta}</span>}
                       </div>
                     )
                   })()}
@@ -1269,23 +1269,23 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                               onClose={() => setLocalJobs(prev => prev.map(lj => lj.job_id===j.job_id ? {...lj, _preview:false} : lj))} />,
                             document.body
                           )}
-                          <div style={{ display:'flex', alignItems:'flex-start', gap:8, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:7, padding:'8px 10px', marginBottom:5 }}>
+                          <div style={{ display:'flex', alignItems:'flex-start', gap:8, background:'#ffffff', border:'1px solid rgba(0,0,0,0.1)', borderRadius:7, padding:'8px 10px', marginBottom:5 }}>
                             <span style={{ fontSize:14, color:isDone?'#22c55e':j.status==='error'?'#ef4444':isNorm?'#3b82f6':'#f59e0b', flexShrink:0, marginTop:1 }}>
                               {isDone?'✓':j.status==='error'?'✗':isNorm?'↻':'⏳'}
                             </span>
                             <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontSize:12, color:'#e0e0f0', wordBreak:'break-word', lineHeight:1.4 }}>{j.title}</div>
-                              {eta && <div style={{ fontSize:11, color:'#f59e0b', ...T.mono, marginTop:2 }}>
+                              <div style={{ fontSize:12, color:'#1a1a2e', wordBreak:'break-word', lineHeight:1.4 }}>{j.title}</div>
+                              {eta && <div style={{ fontSize:11, color:'#92400e', ...T.mono, marginTop:2 }}>
                                 {isNorm ? `⏱ ${eta} left` : `⏳ starts in ${eta}`}
                               </div>}
                             </div>
                             <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
-                              <span style={{ fontSize:11, color:'#9090b8', ...T.mono }}>
+                              <span style={{ fontSize:11, color:'#555577', ...T.mono }}>
                                 {isDone?'done':j.status==='error'?'err':`${j.normalize_progress||0}%`}
                               </span>
                               {isDone && (
                                 <button onClick={() => setLocalJobs(prev => prev.map(lj => lj.job_id===j.job_id ? {...lj, _preview:true} : lj))}
-                                  style={{ fontSize:10, padding:'2px 7px', borderRadius:5, border:'1px solid rgba(124,106,247,0.35)', background:'rgba(124,106,247,0.1)', color:'#a78bfa', cursor:'pointer', fontFamily:'inherit' }}>
+                                  style={{ fontSize:10, padding:'2px 7px', borderRadius:5, border:'1px solid rgba(124,106,247,0.35)', background:'rgba(124,106,247,0.1)', color:'#5b21b6', cursor:'pointer', fontFamily:'inherit' }}>
                                   ▶ Play
                                 </button>
                               )}
@@ -1296,7 +1296,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
                     })}
                     {localJobs.length > 5 && (
                       <button onClick={()=>setLocalJobsExpanded(v=>!v)}
-                        style={{ width:'100%', padding:'5px', borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.03)', color:'#777', fontSize:10, cursor:'pointer', fontFamily:'inherit', marginTop:2 }}>
+                        style={{ width:'100%', padding:'5px', borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.03)', color:'#555577', fontSize:10, cursor:'pointer', fontFamily:'inherit', marginTop:2 }}>
                         {showAll ? `▲ Show less` : `▼ Show all ${localJobs.length} jobs`}
                       </button>
                     )}
@@ -1463,7 +1463,7 @@ function CodecAdvisory({ open, onClose }) {
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <span style={{ fontSize:18 }}>📋</span>
-            <span style={{ fontSize:14, fontWeight:600, color:'#93c5fd' }}>Codec Advisory</span>
+            <span style={{ fontSize:14, fontWeight:600, color:'#1d4ed8' }}>Codec Advisory</span>
             <span style={{ fontSize:11, color:'#555' }}>— container compatibility reference</span>
           </div>
           <button onClick={onClose} style={{ width:28, height:28, borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)', color:'#888', fontSize:14, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
@@ -1473,7 +1473,7 @@ function CodecAdvisory({ open, onClose }) {
             <thead>
               <tr style={{ background:'rgba(59,130,246,0.1)', borderBottom:'1px solid rgba(59,130,246,0.2)' }}>
                 {['Container','Video codec','Audio codec','Status / Notes','Recommended use','If forced: disadvantage'].map(h => (
-                  <th key={h} style={{ padding:'8px 12px', textAlign:'left', color:'#93c5fd', fontWeight:600, whiteSpace:'nowrap' }}>{h}</th>
+                  <th key={h} style={{ padding:'8px 12px', textAlign:'left', color:'#1d4ed8', fontWeight:600, whiteSpace:'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -1716,7 +1716,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
           <div style={{ marginBottom:'1rem' }}>
             <div style={{ fontSize:11, color:'#333355', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Video codec</div>
             <div style={{ display:'flex', gap:6 }}>
-              {[{val:'h264',label:'H.264',color:'#3b82f6'},{val:'h265',label:'H.265',color:'#7c3aed'}].map(opt => {
+              {[{val:'h264',label:'H.264',color:'#1d4ed8'},{val:'h265',label:'H.265',color:'#7c3aed'}].map(opt => {
                 const active = targetCodec === opt.val
                 return (
                   <button key={opt.val} onClick={() => setTargetCodec(opt.val)} style={{
@@ -1745,9 +1745,9 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
             <div style={{ fontSize:11, color:'#333355', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Audio codec</div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
               {[
-                {val:'aac',  label:'AAC',  color:'#3b82f6', desc:'Standard MP4 audio — best compatibility'},
+                {val:'aac',  label:'AAC',  color:'#1d4ed8', desc:'Standard MP4 audio — best compatibility'},
                 {val:'opus', label:'Opus', color:'#10b981', desc:'Smaller files, modern players only'},
-                {val:'mp3',  label:'MP3',  color:'#f59e0b', desc:'Universal compatibility, lossy'},
+                {val:'mp3',  label:'MP3',  color:'#92400e', desc:'Universal compatibility, lossy'},
                 {val:'ac3',  label:'AC3',  color:'#8b5cf6', desc:'Dolby Digital — TV/broadcast standard'},
                 {val:'eac3', label:'EAC3', color:'#fb923c', desc:'Dolby Digital Plus — enhanced surround'},
                 {val:'flac', label:'FLAC', color:'#06b6d4', desc:'Lossless — larger files, no quality loss'},
@@ -1944,7 +1944,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                   <button onClick={async () => {
                     try { await apiFetchFn('/queue/clear', { method:'POST' }) } catch(_) {}
                     onClearQueued()
-                  }} title="Cancel all queued jobs" style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(245,158,11,0.25)', background:'rgba(245,158,11,0.07)', color:'#f59e0b', cursor:'pointer', fontFamily:'inherit' }}>⏳ Clear Queue</button>
+                  }} title="Cancel all queued jobs" style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(245,158,11,0.25)', background:'rgba(245,158,11,0.07)', color:'#92400e', cursor:'pointer', fontFamily:'inherit' }}>⏳ Clear Queue</button>
                   <button onClick={onClearJobs} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#991b1b', cursor:'pointer', fontFamily:'inherit' }}>✕ Clear All</button>
                 </div>
               </div>
@@ -2205,7 +2205,7 @@ function BackendModal({ onClose }) {
             </div>
             {localStorage.getItem('yt_api_base') && (
               <div style={{ marginTop:10, fontSize:11, color:'#444466', textAlign:'center' }}>
-                🟣 Custom URL active — <span style={{ color:'#f59e0b' }}>default: {API_DEFAULT}</span>
+                🟣 Custom URL active — <span style={{ color:'#92400e' }}>default: {API_DEFAULT}</span>
               </div>
             )}
             <button onClick={clearToken} style={{ marginTop:12, width:'100%', padding:'7px', borderRadius:8, border:'1px solid rgba(0,0,0,0.1)', background:'transparent', color:'#444', fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>
