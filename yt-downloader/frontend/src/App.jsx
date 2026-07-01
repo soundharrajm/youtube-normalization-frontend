@@ -1732,7 +1732,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                 {val:'opus', label:'Opus', color:'#10b981', desc:'Smaller files, modern players only'},
                 {val:'mp3',  label:'MP3',  color:'#f59e0b', desc:'Universal compatibility, lossy'},
                 {val:'ac3',  label:'AC3',  color:'#8b5cf6', desc:'Dolby Digital — TV/broadcast standard'},
-                {val:'eac3', label:'EAC3', color:'#ec4899', desc:'Dolby Digital Plus — enhanced surround'},
+                {val:'eac3', label:'EAC3', color:'#fb923c', desc:'Dolby Digital Plus — enhanced surround'},
                 {val:'flac', label:'FLAC', color:'#06b6d4', desc:'Lossless — larger files, no quality loss'},
                 {val:'pcm',  label:'PCM',  color:'#84cc16', desc:'Uncompressed — maximum quality, huge files'},
                 {val:'copy', label:'Copy', color:'#94a3b8', desc:'Keep original stream — fastest, no re-encode'},
@@ -1742,9 +1742,9 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                   <button key={opt.val} onClick={() => setTargetAudio(opt.val)} title={opt.desc} style={{
                     flex:'1 1 calc(25% - 6px)', minWidth:56, padding:'6px 0', borderRadius:8,
                     cursor:'pointer', fontFamily:'inherit', fontSize:11, fontWeight:700,
-                    border: active ? `1px solid ${opt.color}88` : '1px solid rgba(255,255,255,0.08)',
-                    background: active ? `${opt.color}22` : 'rgba(255,255,255,0.03)',
-                    color: active ? opt.color : '#555',
+                    border: active ? `1px solid ${opt.color}88` : '1px solid rgba(255,255,255,0.15)',
+                    background: active ? `${opt.color}22` : 'rgba(255,255,255,0.05)',
+                    color: active ? opt.color : '#888',
                     transition:'all .15s',
                   }}>
                     {opt.label}
@@ -1773,22 +1773,21 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
 
             // Audio vs container
             if (ext === 'mp4') {
-              if (targetAudio === 'opus')  { issues.push('Opus audio in MP4 — limited player support'); fixes.push({audio:'aac', label:'Switch to AAC'}) }
-              if (targetAudio === 'flac')  { issues.push('FLAC audio not supported in MP4'); fixes.push({audio:'aac', label:'Switch to AAC'}) }
-              if (targetAudio === 'pcm')   { issues.push('PCM audio in MP4 causes compatibility issues'); fixes.push({audio:'aac', label:'Switch to AAC'}) }
+              if (targetAudio === 'opus')  { issues.push({ msg: 'Opus in MP4', reason: 'MP4 spec does not officially support Opus — most players will fail to decode audio' }); fixes.push({audio:'aac', label:'Switch to AAC'}) }
+              if (targetAudio === 'flac')  { issues.push({ msg: 'FLAC in MP4', reason: 'MP4 container cannot store FLAC streams — ffmpeg will error during mux' }); fixes.push({audio:'aac', label:'Switch to AAC'}) }
+              if (targetAudio === 'pcm')   { issues.push({ msg: 'PCM in MP4', reason: 'Raw PCM is not a valid audio codec for MP4/M4A containers — use AAC or AC3 instead' }); fixes.push({audio:'aac', label:'Switch to AAC'}) }
             }
             if (ext === 'mkv') {
-              if (targetAudio === 'eac3') { issues.push('EAC3 in MKV has limited support') }
+              if (targetAudio === 'eac3') { issues.push({ msg: 'EAC3 in MKV', reason: 'EAC3 (Dolby Digital Plus) has inconsistent support in MKV — use AC3 for better compatibility' }) }
             }
             if (ext === 'webm') {
-              if (!['opus','copy'].includes(targetAudio)) { issues.push(`WebM only supports Opus audio (selected: ${targetAudio.toUpperCase()})`); fixes.push({audio:'opus', label:'Switch to Opus'}) }
-              if (!['h264','h265','copy'].includes(targetCodec)) { issues.push('WebM video codec mismatch') }
+              if (!['opus','copy'].includes(targetAudio)) { issues.push({ msg: `${targetAudio.toUpperCase()} in WebM`, reason: 'WebM is a restricted container — it only accepts Opus (or Vorbis) audio by specification' }); fixes.push({audio:'opus', label:'Switch to Opus'}) }
             }
             if (ext === 'avi') {
-              if (['opus','flac'].includes(targetAudio)) { issues.push(`${targetAudio.toUpperCase()} not compatible with AVI`); fixes.push({audio:'mp3', label:'Switch to MP3'}) }
+              if (['opus','flac'].includes(targetAudio)) { issues.push({ msg: `${targetAudio.toUpperCase()} in AVI`, reason: 'AVI predates these codecs and has no codec tag support for Opus or FLAC — use MP3 or AC3' }); fixes.push({audio:'mp3', label:'Switch to MP3'}) }
             }
             if (ext === 'ts' || ext === 'mts') {
-              if (['flac','pcm','opus'].includes(targetAudio)) { issues.push(`${targetAudio.toUpperCase()} not compatible with TS container`); fixes.push({audio:'ac3', label:'Switch to AC3'}) }
+              if (['flac','pcm','opus'].includes(targetAudio)) { issues.push({ msg: `${targetAudio.toUpperCase()} in TS`, reason: 'MPEG-TS container only supports broadcast audio codecs — AC3, AAC, or MP2. Not FLAC/PCM/Opus' }); fixes.push({audio:'ac3', label:'Switch to AC3'}) }
             }
 
             if (!issues.length) return (
@@ -1800,7 +1799,12 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
             return (
               <div style={{ marginBottom:'1rem', padding:'10px 12px', borderRadius:7, background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)' }}>
                 <div style={{ fontSize:10, fontWeight:700, color:'#f87171', marginBottom:6 }}>⚠ Compatibility issues:</div>
-                {issues.map((iss, i) => <div key={i} style={{ fontSize:10, color:'#fca5a5', marginBottom:3 }}>• {iss}</div>)}
+                {issues.map((iss, i) => (
+                  <div key={i} style={{ marginBottom:6 }}>
+                    <div style={{ fontSize:10, color:'#fca5a5', fontWeight:600 }}>• {iss.msg}</div>
+                    <div style={{ fontSize:10, color:'#888', marginLeft:8, lineHeight:1.5 }}>{iss.reason}</div>
+                  </div>
+                ))}
                 {fixes.length > 0 && (
                   <div style={{ display:'flex', gap:5, marginTop:8, flexWrap:'wrap' }}>
                     {fixes.map((fix, i) => (
