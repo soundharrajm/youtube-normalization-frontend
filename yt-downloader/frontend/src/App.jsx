@@ -1592,22 +1592,39 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
     else setNormConfig(v => ({...v, presetId:preset.id, flags:preset.flags}))
   }
 
+  // Light theme tokens for settings panel
+  const S = {
+    bg:         '#f8f8fc',
+    bgHeader:   '#ffffff',
+    border:     'rgba(0,0,0,0.08)',
+    borderMed:  'rgba(0,0,0,0.12)',
+    text:       '#1a1a2e',
+    textSub:    '#555577',
+    textMuted:  '#8888aa',
+    label:      '#333355',
+    sectionBg:  'rgba(0,0,0,0.03)',
+    inputBg:    '#ffffff',
+    btnBorder:  'rgba(0,0,0,0.12)',
+    btnBg:      'rgba(0,0,0,0.04)',
+  }
+
   return (
     <>
-      {/* Settings Panel */}
+      {/* Settings Panel — light theme */}
       <div style={{
         position:'fixed', right:0, top:0, height:'100vh', width:'min(320px, 90vw)',
-        background:'#0d0d1c', borderLeft:'1px solid rgba(127,119,221,0.18)',
+        background: S.bg, borderLeft:`1px solid ${S.borderMed}`,
         transform:open?'translateX(0)':'translateX(100%)',
         transition:'transform .25s ease', zIndex:160,
         overflowY:'auto', display:'flex', flexDirection:'column',
+        boxShadow: open ? '-8px 0 32px rgba(0,0,0,0.12)' : 'none',
       }}>
         {/* Header */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'.9rem 1.1rem .75rem', borderBottom:'1px solid rgba(255,255,255,0.07)', position:'sticky', top:0, background:'#0d0d1c', zIndex:2 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:7, fontSize:13, fontWeight:500 }}>
-            <span style={{ fontSize:17, color:T.pu3 }}>⚙</span> Settings
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'.9rem 1.1rem .75rem', borderBottom:`1px solid ${S.border}`, position:'sticky', top:0, background:S.bgHeader, zIndex:2, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:7, fontSize:14, fontWeight:700, color:S.text }}>
+            <span style={{ fontSize:17, color:'#7F77DD' }}>⚙</span> Settings
           </div>
-          <button onClick={onClose} style={{ width:26, height:26, borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.05)', color:'#666', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+          <button onClick={onClose} style={{ width:28, height:28, borderRadius:7, border:`1px solid ${S.borderMed}`, background:'rgba(0,0,0,0.04)', color:'#666', fontSize:14, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
         </div>
 
         <div style={{ padding:'.9rem 1.1rem', flex:1 }}>
@@ -1615,7 +1632,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
           {/* Background brightness slider — only when bg image is set */}
           {bgImage && (
             <div style={{ marginBottom:'1rem' }}>
-              <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:8 }}>Background brightness</div>
+              <div style={{ fontSize:11, color:'#333355', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:8 }}>Background brightness</div>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                 <input type="range" min={5} max={80} value={bgBrightness}
                   onChange={e=>{ const v=Number(e.target.value); setBgBrightness(v); localStorage.setItem('yt_bg_brightness',v) }}
@@ -1627,23 +1644,23 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
 
           {/* ── NORMALIZE TOGGLE ── */}
           <div style={{ marginBottom:'1rem' }}>
-            <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Normalize</div>
+            <div style={{ fontSize:11, color:'#333355', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Normalize</div>
             <div onClick={() => setDoNormalize(v => !v)} style={{
               display:'flex', alignItems:'center', gap:10,
               padding:'10px 12px', borderRadius:9, cursor:'pointer',
-              border: doNormalize ? '1px solid rgba(124,106,247,0.35)' : '1px solid rgba(255,255,255,0.07)',
-              background: doNormalize ? 'rgba(124,106,247,0.1)' : 'rgba(255,255,255,0.03)',
+              border: doNormalize ? '1px solid rgba(124,106,247,0.4)' : '1px solid rgba(0,0,0,0.1)',
+              background: doNormalize ? 'rgba(124,106,247,0.08)' : 'rgba(0,0,0,0.02)',
               transition:'all .2s', userSelect:'none',
             }}>
               {/* pill toggle */}
-              <div style={{ width:36, height:20, borderRadius:10, background:doNormalize?'#7c6af7':'rgba(255,255,255,0.1)', position:'relative', flexShrink:0, transition:'background .2s' }}>
+              <div style={{ width:36, height:20, borderRadius:10, background:doNormalize?'#7c6af7':'rgba(0,0,0,0.15)', position:'relative', flexShrink:0, transition:'background .2s' }}>
                 <div style={{ width:14, height:14, borderRadius:'50%', background:'#fff', position:'absolute', top:3, left:doNormalize?19:3, transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
               </div>
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:12, fontWeight:600, color:doNormalize?'#a78bfa':'#64748b' }}>
+                <div style={{ fontSize:12, fontWeight:600, color:doNormalize?'#6d28d9':'#475569' }}>
                   {doNormalize ? '⚡ Normalize after download' : '⬇️ Download only (skip ffmpeg)'}
                 </div>
-                <div style={{ fontSize:10, color:'#444', marginTop:2 }}>
+                <div style={{ fontSize:11, color:'#333355', marginTop:2 }}>
                   {doNormalize
                     ? `applies to YouTube + local files`
                     : 'raw file saved with video title as filename'}
@@ -1669,7 +1686,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                   <div style={{ fontSize:12, fontWeight:600, color:forceReencode?'#f87171':'#555' }}>
                     {forceReencode ? '🔄 Force re-encode (always)' : '⚡ Smart copy (skip if matching)'}
                   </div>
-                  <div style={{ fontSize:10, color:'#444', marginTop:2 }}>
+                  <div style={{ fontSize:11, color:'#333355', marginTop:2 }}>
                     {forceReencode
                       ? 'every file goes through ffmpeg — slower but reprocesses all'
                       : 'skips re-encode if codec + resolution already match'}
@@ -1681,7 +1698,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
 
           <div style={{ height:1, background:'rgba(255,255,255,0.06)', margin:'.75rem 0' }} />
           <div style={{ marginBottom:'1rem' }}>
-            <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Download mode</div>
+            <div style={{ fontSize:11, color:'#333355', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Download mode</div>
             <button onClick={() => setParallelFetch(v => !v)} style={{
               width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:6,
               fontSize:12, fontWeight:600, padding:'8px 14px', borderRadius:8, cursor:'pointer', fontFamily:'inherit',
@@ -1697,7 +1714,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
 
           {/* ── CODEC TOGGLE ── */}
           <div style={{ marginBottom:'1rem' }}>
-            <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Video codec</div>
+            <div style={{ fontSize:11, color:'#333355', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Video codec</div>
             <div style={{ display:'flex', gap:6 }}>
               {[{val:'h264',label:'H.264',color:'#3b82f6'},{val:'h265',label:'H.265',color:'#7c3aed'}].map(opt => {
                 const active = targetCodec === opt.val
@@ -1705,8 +1722,8 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                   <button key={opt.val} onClick={() => setTargetCodec(opt.val)} style={{
                     flex:1, padding:'7px 0', borderRadius:8, cursor:'pointer', fontFamily:'inherit',
                     fontSize:12, fontWeight:700,
-                    border: active ? `1px solid ${opt.color}66` : '1px solid rgba(255,255,255,0.08)',
-                    background: active ? `${opt.color}22` : 'rgba(255,255,255,0.03)',
+                    border: active ? `1px solid ${opt.color}66` : '1px solid rgba(0,0,0,0.1)',
+                    background: active ? `${opt.color}22` : 'rgba(0,0,0,0.02)',
                     color: active ? opt.color : '#555',
                     transition:'all .15s',
                   }}>
@@ -1716,7 +1733,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                 )
               })}
             </div>
-            <div style={{ fontSize:10, color:'#444', marginTop:5, lineHeight:1.5 }}>
+            <div style={{ fontSize:11, color:'#333355', marginTop:5, lineHeight:1.5 }}>
               {targetCodec === 'h265'
                 ? '💎 H.265 — ~40% smaller files, slower encode. If source is already H.265, stream copied instantly.'
                 : '⚡ H.264 — fastest, widest compatibility. If source is already H.264, stream copied instantly.'}
@@ -1725,7 +1742,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
 
           {/* ── AUDIO CODEC TOGGLE ── */}
           <div style={{ marginBottom:'1rem' }}>
-            <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Audio codec</div>
+            <div style={{ fontSize:11, color:'#333355', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Audio codec</div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
               {[
                 {val:'aac',  label:'AAC',  color:'#3b82f6', desc:'Standard MP4 audio — best compatibility'},
@@ -1742,9 +1759,9 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                   <button key={opt.val} onClick={() => setTargetAudio(opt.val)} title={opt.desc} style={{
                     flex:'1 1 calc(25% - 6px)', minWidth:56, padding:'6px 0', borderRadius:8,
                     cursor:'pointer', fontFamily:'inherit', fontSize:11, fontWeight:700,
-                    border: active ? `1px solid ${opt.color}88` : '1px solid rgba(255,255,255,0.15)',
-                    background: active ? `${opt.color}22` : 'rgba(255,255,255,0.05)',
-                    color: active ? opt.color : '#888',
+                    border: active ? `1px solid ${opt.color}88` : '1px solid rgba(0,0,0,0.15)',
+                    background: active ? `${opt.color}22` : 'rgba(0,0,0,0.04)',
+                    color: active ? opt.color : '#444466',
                     transition:'all .15s',
                   }}>
                     {opt.label}
@@ -1753,7 +1770,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                 )
               })}
             </div>
-            <div style={{ fontSize:11, color:'#7878a0', marginTop:6, lineHeight:1.6, padding:'6px 8px', background:'rgba(255,255,255,0.03)', borderRadius:6, border:'1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ fontSize:11, color:'#444466', marginTop:6, lineHeight:1.6, padding:'6px 8px', background:'rgba(0,0,0,0.02)', borderRadius:6, border:'1px solid rgba(255,255,255,0.06)' }}>
               {targetAudio === 'aac'  && '🔊 AAC 256kbps — standard for MP4, works on all devices including TVs and phones.'}
               {targetAudio === 'opus' && '🎵 Opus 128kbps — excellent quality at low bitrate, requires modern player.'}
               {targetAudio === 'mp3'  && '🎶 MP3 256kbps — universally supported, good for music and general use.'}
@@ -1791,18 +1808,18 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
             }
 
             if (!issues.length) return (
-              <div style={{ marginBottom:'1rem', padding:'8px 10px', borderRadius:7, background:'rgba(16,185,129,0.07)', border:'1px solid rgba(16,185,129,0.2)', fontSize:10, color:'#34d399' }}>
+              <div style={{ marginBottom:'1rem', padding:'8px 10px', borderRadius:7, background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.35)', fontSize:10, color:'#065f46' }}>
                 ✓ Video + Audio + Container are compatible
               </div>
             )
 
             return (
-              <div style={{ marginBottom:'1rem', padding:'10px 12px', borderRadius:7, background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)' }}>
-                <div style={{ fontSize:10, fontWeight:700, color:'#f87171', marginBottom:6 }}>⚠ Compatibility issues:</div>
+              <div style={{ marginBottom:'1rem', padding:'10px 12px', borderRadius:7, background:'rgba(254,242,242,1)', border:'1px solid rgba(239,68,68,0.35)' }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'#991b1b', marginBottom:6 }}>⚠ Compatibility issues:</div>
                 {issues.map((iss, i) => (
                   <div key={i} style={{ marginBottom:6 }}>
-                    <div style={{ fontSize:10, color:'#fca5a5', fontWeight:600 }}>• {iss.msg}</div>
-                    <div style={{ fontSize:10, color:'#888', marginLeft:8, lineHeight:1.5 }}>{iss.reason}</div>
+                    <div style={{ fontSize:10, color:'#dc2626', fontWeight:600 }}>• {iss.msg}</div>
+                    <div style={{ fontSize:10, color:'#555577', marginLeft:8, lineHeight:1.5 }}>{iss.reason}</div>
                   </div>
                 ))}
                 {fixes.length > 0 && (
@@ -1822,7 +1839,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
 
           {/* ── RESOLUTION TOGGLE ── */}
           <div style={{ marginBottom:'1rem' }}>
-            <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Resolution</div>
+            <div style={{ fontSize:11, color:'#333355', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Resolution</div>
             <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
               {[
                 {val:'source', label:'Source', desc:'Keep original'},
@@ -1835,8 +1852,8 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                   <button key={opt.val} onClick={() => setTargetRes(opt.val)} style={{
                     flex:1, minWidth:'calc(50% - 3px)', padding:'7px 4px', borderRadius:8, cursor:'pointer', fontFamily:'inherit',
                     fontSize:11, fontWeight:700, textAlign:'center',
-                    border: active ? '1px solid rgba(29,158,117,0.5)' : '1px solid rgba(255,255,255,0.08)',
-                    background: active ? 'rgba(29,158,117,0.15)' : 'rgba(255,255,255,0.03)',
+                    border: active ? '1px solid rgba(29,158,117,0.5)' : '1px solid rgba(0,0,0,0.1)',
+                    background: active ? 'rgba(29,158,117,0.15)' : 'rgba(0,0,0,0.02)',
                     color: active ? '#5DCAA5' : '#555',
                     transition:'all .15s',
                   }}>
@@ -1846,7 +1863,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                 )
               })}
             </div>
-            <div style={{ fontSize:10, color:'#444', marginTop:5, lineHeight:1.5 }}>
+            <div style={{ fontSize:11, color:'#333355', marginTop:5, lineHeight:1.5 }}>
               {targetRes === 'source'
                 ? '↔ Keep source resolution — no scaling applied.'
                 : `⇄ Scale to ${targetRes.replace('x','×')} — if source already matches, no scaling needed.`}
@@ -1855,12 +1872,12 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
 
           <div style={{ height:1, background:'rgba(255,255,255,0.06)', margin:'.75rem 0' }} />
           <div style={{ marginBottom:'1rem' }}>
-            <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Encoding preset</div>
+            <div style={{ fontSize:11, color:'#333355', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Encoding preset</div>
             {PRESETS.map(preset => {
               const active = activePreset.id === preset.id
               return (
                 <div key={preset.id} onClick={() => selectPreset(preset)} style={{
-                  background:active?'rgba(127,119,221,0.12)':'rgba(255,255,255,0.03)',
+                  background:active?'rgba(127,119,221,0.12)':'rgba(0,0,0,0.02)',
                   border:`1px solid ${active?'rgba(127,119,221,0.32)':'rgba(255,255,255,0.07)'}`,
                   borderRadius:8, padding:'.65rem .85rem', cursor:'pointer', marginBottom:5, transition:'all .15s',
                 }}>
@@ -1889,17 +1906,17 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
               }
               return (
                 <div style={{ marginTop:8, background:'rgba(0,0,0,0.25)', border:'1px solid rgba(127,119,221,0.2)', borderRadius:8, padding:'10px 12px' }}>
-                  <div style={{ fontSize:10, color:'#555', fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8 }}>Watermark position</div>
+                  <div style={{ fontSize:11, color:'#444466', fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8 }}>Watermark position</div>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
                     {[['x','Left edge',dx],['y','Top edge',dy],['w','Width',dw],['h','Height',dh]].map(([k,label,val]) => (
                       <div key={k}>
-                        <div style={{ fontSize:10, color:'#555', marginBottom:3 }}>{label}</div>
+                        <div style={{ fontSize:11, color:'#444466', marginBottom:3 }}>{label}</div>
                         <input type="number" value={val} onChange={e=>update(k,e.target.value)}
                           style={{ width:'100%', background:'rgba(0,0,0,0.3)', border:'1px solid rgba(127,119,221,0.25)', borderRadius:6, padding:'5px 8px', fontSize:12, color:T.pu2, outline:'none', boxSizing:'border-box', ...T.mono }} />
                       </div>
                     ))}
                   </div>
-                  <div style={{ fontSize:10, color:'#444', marginTop:8, lineHeight:1.5 }}>
+                  <div style={{ fontSize:11, color:'#333355', marginTop:8, lineHeight:1.5 }}>
                     x/y = top-left corner of watermark in pixels<br/>
                     w/h = width and height of watermark region
                   </div>
@@ -1915,7 +1932,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
             <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:12, marginTop:4 }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                  <span style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700 }}>Downloads</span>
+                  <span style={{ fontSize:11, color:'#333355', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700 }}>Downloads</span>
                   <span style={{ fontSize:10, fontWeight:700, color:'#fff',
                     background: jobs.some(j=>!['done','error'].includes(j.status)) ? '#ef4444' : '#10b981',
                     borderRadius:100, padding:'1px 7px' }}>
@@ -1923,12 +1940,12 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                   </span>
                 </div>
                 <div style={{ display:'flex', gap:5 }}>
-                  <button onClick={onRefreshJobs} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>↻</button>
+                  <button onClick={onRefreshJobs} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(0,0,0,0.03)', color:'#444466', cursor:'pointer', fontFamily:'inherit' }}>↻</button>
                   <button onClick={async () => {
                     try { await apiFetchFn('/queue/clear', { method:'POST' }) } catch(_) {}
                     onClearQueued()
                   }} title="Cancel all queued jobs" style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(245,158,11,0.25)', background:'rgba(245,158,11,0.07)', color:'#f59e0b', cursor:'pointer', fontFamily:'inherit' }}>⏳ Clear Queue</button>
-                  <button onClick={onClearJobs} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#f87171', cursor:'pointer', fontFamily:'inherit' }}>✕ Clear All</button>
+                  <button onClick={onClearJobs} style={{ fontSize:11, padding:'3px 9px', borderRadius:6, border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#991b1b', cursor:'pointer', fontFamily:'inherit' }}>✕ Clear All</button>
                 </div>
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
@@ -1978,7 +1995,7 @@ function BgButton({ bgImage, bgBrightness, onUpload, onRemove, onBrightness }) {
         display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px',
         borderRadius:7, cursor:'pointer', fontFamily:'inherit',
         border: bgImage ? '1px solid rgba(127,119,221,0.4)' : '1px solid rgba(255,255,255,0.09)',
-        background: bgImage ? 'rgba(127,119,221,0.14)' : 'rgba(255,255,255,0.04)',
+        background: bgImage ? 'rgba(127,119,221,0.14)' : 'rgba(0,0,0,0.03)',
         color: bgImage ? '#c4beff' : '#999',
       }}>
         🖼 {bgImage ? 'BG ●' : 'BG'}
@@ -2016,7 +2033,7 @@ function BgButton({ bgImage, bgBrightness, onUpload, onRemove, onBrightness }) {
           {bgImage && (
             <div style={{ marginBottom:8 }}>
               <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                <span style={{ fontSize:10, color:'#555', textTransform:'uppercase', letterSpacing:'.06em', fontWeight:700 }}>Brightness</span>
+                <span style={{ fontSize:11, color:'#444466', textTransform:'uppercase', letterSpacing:'.06em', fontWeight:700 }}>Brightness</span>
                 <span style={{ fontSize:10, color:'#c4beff', ...T.mono }}>{bgBrightness}%</span>
               </div>
               <input type="range" min={5} max={80} value={bgBrightness}
@@ -2030,7 +2047,7 @@ function BgButton({ bgImage, bgBrightness, onUpload, onRemove, onBrightness }) {
             <button onClick={()=>{ onRemove(); setOpen(false) }} style={{
               width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:6,
               fontSize:12, padding:'7px', borderRadius:8, cursor:'pointer', fontFamily:'inherit',
-              border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#f87171',
+              border:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.06)', color:'#991b1b',
             }}>
               ✕ Remove background
             </button>
@@ -2141,17 +2158,17 @@ function BackendModal({ onClose }) {
             <span style={{ fontSize:20 }}>🖥️</span>
             <div>
               <div style={{ fontSize:14, fontWeight:700, color:'#e2e2f0' }}>Backend URL</div>
-              <div style={{ fontSize:11, color:'#555' }}>Override the API server address</div>
+              <div style={{ fontSize:11, color:'#444466' }}>Override the API server address</div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background:'none', border:'1px solid rgba(255,255,255,0.1)', borderRadius:6, color:'#555', fontSize:14, width:28, height:28, cursor:'pointer' }}>✕</button>
+          <button onClick={onClose} style={{ background:'none', border:'1px solid rgba(255,255,255,0.1)', borderRadius:6, color:'#444466', fontSize:14, width:28, height:28, cursor:'pointer' }}>✕</button>
         </div>
 
         {step === 'loading' ? (
-          <div style={{ textAlign:'center', padding:'20px 0', color:'#555', fontSize:13 }}>🔄 Checking stored credentials…</div>
+          <div style={{ textAlign:'center', padding:'20px 0', color:'#444466', fontSize:13 }}>🔄 Checking stored credentials…</div>
         ) : step === 'auth' ? (
           <>
-            <div style={{ fontSize:12, color:'#7878a0', marginBottom:10 }}>🔒 Admin secret required to change backend URL</div>
+            <div style={{ fontSize:12, color:'#444466', marginBottom:10 }}>🔒 Admin secret required to change backend URL</div>
             <input
               autoFocus type="password" value={secret}
               onChange={e => { setSecret(e.target.value); setSecretErr('') }}
@@ -2159,18 +2176,18 @@ function BackendModal({ onClose }) {
               placeholder="Admin secret…"
               style={{ width:'100%', background:'#0d0d18', border:`1.5px solid ${secretErr ? '#ef4444' : 'rgba(255,255,255,0.1)'}`, borderRadius:8, padding:'10px 14px', color:'#e2e2f0', fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'inherit', marginBottom:6 }}
             />
-            {secretErr && <div style={{ fontSize:11, color:'#f87171', marginBottom:8 }}>{secretErr}</div>}
+            {secretErr && <div style={{ fontSize:11, color:'#991b1b', marginBottom:8 }}>{secretErr}</div>}
             <button onClick={verifySecret} style={{ width:'100%', padding:'10px', borderRadius:8, border:'none', background:'rgba(127,119,221,0.8)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginTop:4 }}>
               Verify →
             </button>
           </>
         ) : (
           <>
-            <div style={{ fontSize:11, color:'#7878a0', marginBottom:6 }}>Current backend</div>
+            <div style={{ fontSize:11, color:'#444466', marginBottom:6 }}>Current backend</div>
             <div style={{ fontSize:12, color:'#6ee7b7', background:'#0d0d18', borderRadius:6, padding:'7px 12px', marginBottom:14, fontFamily:'monospace', wordBreak:'break-all' }}>
               {getApiBase()}
             </div>
-            <div style={{ fontSize:11, color:'#7878a0', marginBottom:6 }}>New URL <span style={{ color:'#444' }}>(leave empty to reset to default)</span></div>
+            <div style={{ fontSize:11, color:'#444466', marginBottom:6 }}>New URL <span style={{ color:'#444' }}>(leave empty to reset to default)</span></div>
             <input
               autoFocus value={urlInput}
               onChange={e => setUrlInput(e.target.value)}
@@ -2179,7 +2196,7 @@ function BackendModal({ onClose }) {
               style={{ width:'100%', background:'#0d0d18', border:'1.5px solid rgba(255,255,255,0.1)', borderRadius:8, padding:'10px 14px', color:'#e2e2f0', fontSize:13, outline:'none', boxSizing:'border-box', fontFamily:'monospace', marginBottom:14 }}
             />
             <div style={{ display:'flex', gap:8 }}>
-              <button onClick={reset} style={{ flex:1, padding:'9px', borderRadius:8, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.07)', color:'#f87171', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+              <button onClick={reset} style={{ flex:1, padding:'9px', borderRadius:8, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.07)', color:'#991b1b', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
                 Reset to default
               </button>
               <button onClick={saveUrl} style={{ flex:2, padding:'9px', borderRadius:8, border:'none', background: saved ? 'rgba(16,185,129,0.8)' : 'rgba(127,119,221,0.8)', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', transition:'background .2s' }}>
@@ -2187,11 +2204,11 @@ function BackendModal({ onClose }) {
               </button>
             </div>
             {localStorage.getItem('yt_api_base') && (
-              <div style={{ marginTop:10, fontSize:11, color:'#7878a0', textAlign:'center' }}>
+              <div style={{ marginTop:10, fontSize:11, color:'#444466', textAlign:'center' }}>
                 🟣 Custom URL active — <span style={{ color:'#f59e0b' }}>default: {API_DEFAULT}</span>
               </div>
             )}
-            <button onClick={clearToken} style={{ marginTop:12, width:'100%', padding:'7px', borderRadius:8, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color:'#444', fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>
+            <button onClick={clearToken} style={{ marginTop:12, width:'100%', padding:'7px', borderRadius:8, border:'1px solid rgba(0,0,0,0.1)', background:'transparent', color:'#444', fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>
               🔒 Clear saved credentials
             </button>
           </>
@@ -2256,7 +2273,7 @@ export default function App() {
   const tx = bgImage ? (bgDark ? '#ffffff' : '#111111') : '#e8e8f0'
   const txMid = bgImage ? (bgDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.65)') : '#6b6b80'
   const txDim = bgImage ? (bgDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)') : '#3a3a50'
-  const cardBg = bgImage ? (bgDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)') : 'rgba(255,255,255,0.03)'
+  const cardBg = bgImage ? (bgDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)') : 'rgba(0,0,0,0.02)'
   const cardBorder = bgImage ? (bgDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)') : 'rgba(255,255,255,0.08)'
   const [isLocalMode, setIsLocalMode] = useState(() => localStorage.getItem('yt_local_mode') === 'true')
   const pollRef    = useRef(null)
@@ -2755,8 +2772,8 @@ export default function App() {
             <span style={{ fontSize:17, fontWeight:600, letterSpacing:'-0.3px', color:tx }}>YT Downloader</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <button onClick={()=>setShowAdmin(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(255,255,255,0.04)', color:'#777', cursor:'pointer', fontFamily:'inherit' }}>🔧 Admin</button>
-            <button onClick={()=>setShowBE(true)} title="Backend URL" style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border: localStorage.getItem('yt_api_base') ? '1px solid rgba(127,119,221,0.4)' : '1px solid rgba(255,255,255,0.09)', background: localStorage.getItem('yt_api_base') ? 'rgba(127,119,221,0.12)' : 'rgba(255,255,255,0.04)', color: localStorage.getItem('yt_api_base') ? '#c4beff' : '#777', cursor:'pointer', fontFamily:'inherit' }}>🖥️ BE</button>
+            <button onClick={()=>setShowAdmin(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(255,255,255,0.09)', background:'rgba(0,0,0,0.03)', color:'#444466', cursor:'pointer', fontFamily:'inherit' }}>🔧 Admin</button>
+            <button onClick={()=>setShowBE(true)} title="Backend URL" style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border: localStorage.getItem('yt_api_base') ? '1px solid rgba(127,119,221,0.4)' : '1px solid rgba(255,255,255,0.09)', background: localStorage.getItem('yt_api_base') ? 'rgba(127,119,221,0.12)' : 'rgba(0,0,0,0.03)', color: localStorage.getItem('yt_api_base') ? '#c4beff' : '#777', cursor:'pointer', fontFamily:'inherit' }}>🖥️ BE</button>
             <button onClick={()=>setShowAdvisory(true)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border:'1px solid rgba(59,130,246,0.3)', background:'rgba(59,130,246,0.08)', color:'#93c5fd', cursor:'pointer', fontFamily:'inherit' }}>📋 Advisory</button>
             <button onClick={()=>setShowHealth(v=>!v)} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, padding:'5px 11px', borderRadius:7, border: showHealth ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(34,197,94,0.2)', background: showHealth ? 'rgba(34,197,94,0.12)' : 'rgba(34,197,94,0.05)', color:'#22c55e', cursor:'pointer', fontFamily:'inherit' }}>● Health</button>
             <BgButton
@@ -2824,9 +2841,9 @@ export default function App() {
         <div style={{ background:cardBg, border:`1px solid ${cardBorder}`, borderRadius:14, padding:16, display:'flex', flexDirection:'column', gap:12, marginBottom:12, maxHeight: items.length > 5 ? 420 : 'none', overflowY: items.length > 5 ? 'auto' : 'visible' }}>
             {items.map((item, i) => (
               <div key={item.id}>
-                {i > 0 && <div style={{ height:1, background:'rgba(255,255,255,0.05)', marginBottom:12 }} />}
+                {i > 0 && <div style={{ height:1, background:'rgba(0,0,0,0.04)', marginBottom:12 }} />}
                 <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-                  <span style={{ fontSize:10, color:'#5555aa', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:5, padding:'1px 7px', ...T.mono }}>#{i+1}</span>
+                  <span style={{ fontSize:10, color:'#5555aa', background:'rgba(0,0,0,0.04)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:5, padding:'1px 7px', ...T.mono }}>#{i+1}</span>
                 </div>
                 <UrlRow item={item} onChange={(key,val)=>updateItem(item.id,key,val)} onRemove={()=>removeItem(item.id)} canRemove={items.length>1}
                 onOpenChannel={(plUrl) => { setChannelInitUrl(plUrl); setShowChannel(true) }} />
@@ -2845,14 +2862,14 @@ export default function App() {
           <button onClick={()=>setShowChannel(true)} style={{
             display:'flex', alignItems:'center', justifyContent:'center', gap:8,
             fontSize:14, fontWeight:600, padding:'13px 18px', borderRadius:11,
-            border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.08)', color:'#f87171',
+            border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.08)', color:'#991b1b',
             cursor:'pointer', fontFamily:'inherit',
           }}>📺 Channel</button>
           <button onClick={startAll} disabled={dlTotal>0||!items.some(it=>it.info&&it.selectedFormat)} style={{
             flex:1, minWidth:160, display:'flex', alignItems:'center', justifyContent:'center', gap:8, position:'relative', overflow:'hidden',
             fontSize:14, fontWeight:700, padding:'13px 18px', borderRadius:11,
             border:'1px solid rgba(29,158,117,0.4)',
-            background:(allReady&&items.some(it=>it.info)&&dlTotal===0)?'rgba(29,158,117,0.16)':'rgba(255,255,255,0.03)',
+            background:(allReady&&items.some(it=>it.info)&&dlTotal===0)?'rgba(29,158,117,0.16)':'rgba(0,0,0,0.02)',
             color:(allReady&&items.some(it=>it.info)&&dlTotal===0)?T.te2:'#444',
             cursor:(dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))?'not-allowed':'pointer',
             fontFamily:'inherit', opacity:(dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))?0.5:1,
@@ -2887,7 +2904,7 @@ export default function App() {
               }}
             />
           )}
-          <button onClick={addItem} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px dashed rgba(255,255,255,0.18)', background:'rgba(255,255,255,0.04)', color:'#999', cursor:'pointer', fontFamily:'inherit' }}>+ Add URL</button>
+          <button onClick={addItem} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px dashed rgba(255,255,255,0.18)', background:'rgba(0,0,0,0.03)', color:'#999', cursor:'pointer', fontFamily:'inherit' }}>+ Add URL</button>
           <button onClick={()=>fileInputRef.current?.click()} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 13px', borderRadius:8, border:'1px dashed rgba(99,102,241,0.28)', background:'rgba(99,102,241,0.05)', color:'#818cf8', cursor:'pointer', fontFamily:'inherit' }}>↑ Import JSON/CSV</button>
           <button onClick={fetchAll} disabled={fetchingAll||!items.some(it=>it.url.trim()&&!it.info)} style={{
             flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:5, fontSize:12, fontWeight:500, padding:'8px 13px', borderRadius:8, cursor:'pointer', fontFamily:'inherit',
