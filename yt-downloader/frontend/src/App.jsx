@@ -693,7 +693,7 @@ function CompletionPopup({ jobs, onClose }) {
 }
 
 // ── LocalPanel (left slide panel) ─────────────────────────────────────────
-function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetSubtitleMode, targetCodec, targetRes, doNormalize, forceReencode, localJobs, setLocalJobs, startLocalPollingRef }) {
+function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetSubtitleMode, targetCodec, targetRes, doNormalize, forceReencode, localJobs, setLocalJobs, startLocalPollingRef, targetAudio }) {
   const [paths, setPaths]       = useState(() => localStorage.getItem('yt_local_paths') || '')
   const [recursive, setRecursive] = useState(() => localStorage.getItem('yt_local_recursive') === 'true')
   const [skipDone, setSkipDone]   = useState(() => localStorage.getItem('yt_local_skipdone') !== 'false')
@@ -896,6 +896,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
           output_ext:     normConfig.outputExt || 'same',
           subtitle_mode:  normConfig.subtitleMode || 'drop',
           codec:          targetCodec || 'h264',
+          audio_codec:    targetAudio || 'aac',
           force_reencode: !!forceReencode,
         }),
       })
@@ -912,7 +913,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
 
     // ── Step 2: all clear — queue jobs ────────────────────────────────────────
     try {
-      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList, norm_flags:finalFlags, recursive, skip_already_normalized:skipDone, codec:targetCodec||'h264', resolution:targetRes||'1920x1080', output_ext:normConfig.outputExt||'same', force_reencode:!!forceReencode}) })
+      const res = await apiFetchFn('/normalize/local', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paths:pathList, norm_flags:finalFlags, recursive, skip_already_normalized:skipDone, codec:targetCodec||'h264', resolution:targetRes||'1920x1080', output_ext:normConfig.outputExt||'same', force_reencode:!!forceReencode, audio_codec:targetAudio||'aac'}) })
       if (res.ok) {
         const created = await res.json()
         const newJobs = created.map(j => ({...j, status:'queued', normalize_progress:0, title:j.source_path.split(/[/\\]/).pop()}))
@@ -1581,7 +1582,7 @@ function DownloadHistory({ apiFetchFn, jobs, onClearAll }) {
   )
 }
 
-function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs, onClearQueued, onRemoveJob, bgImage, bgBrightness, setBgBrightness, targetCodec, setTargetCodec, targetRes, setTargetRes, doNormalize, setDoNormalize, forceReencode, setForceReencode }) {
+function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, apiFetchFn, jobs, onRefreshJobs, onClearJobs, onClearQueued, onRemoveJob, bgImage, bgBrightness, setBgBrightness, targetCodec, setTargetCodec, targetRes, setTargetRes, doNormalize, setDoNormalize, forceReencode, setForceReencode, targetAudio, setTargetAudio }) {
   const activePreset = PRESETS.find(p => p.id === normConfig.presetId) || PRESETS[2]
   const [customFlags, setCustomFlags] = useState(normConfig.presetId==='custom' ? normConfig.flags : '')
   const [parallelFetch, setParallelFetch] = useState(false)
@@ -1595,7 +1596,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
     <>
       {/* Settings Panel */}
       <div style={{
-        position:'fixed', right:0, top:0, height:'100vh', width:'min(300px, 90vw)',
+        position:'fixed', right:0, top:0, height:'100vh', width:'min(320px, 90vw)',
         background:'#0d0d1c', borderLeft:'1px solid rgba(127,119,221,0.18)',
         transform:open?'translateX(0)':'translateX(100%)',
         transition:'transform .25s ease', zIndex:160,
@@ -1719,6 +1720,48 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
               {targetCodec === 'h265'
                 ? '💎 H.265 — ~40% smaller files, slower encode. If source is already H.265, stream copied instantly.'
                 : '⚡ H.264 — fastest, widest compatibility. If source is already H.264, stream copied instantly.'}
+            </div>
+          </div>
+
+          {/* ── AUDIO CODEC TOGGLE ── */}
+          <div style={{ marginBottom:'1rem' }}>
+            <div style={{ fontSize:10, color:'#444', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, marginBottom:'.55rem' }}>Audio codec</div>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+              {[
+                {val:'aac',  label:'AAC',  color:'#3b82f6', desc:'Standard MP4 audio — best compatibility'},
+                {val:'opus', label:'Opus', color:'#10b981', desc:'Smaller files, modern players only'},
+                {val:'mp3',  label:'MP3',  color:'#f59e0b', desc:'Universal compatibility, lossy'},
+                {val:'ac3',  label:'AC3',  color:'#8b5cf6', desc:'Dolby Digital — TV/broadcast standard'},
+                {val:'eac3', label:'EAC3', color:'#ec4899', desc:'Dolby Digital Plus — enhanced surround'},
+                {val:'flac', label:'FLAC', color:'#06b6d4', desc:'Lossless — larger files, no quality loss'},
+                {val:'pcm',  label:'PCM',  color:'#84cc16', desc:'Uncompressed — maximum quality, huge files'},
+                {val:'copy', label:'Copy', color:'#94a3b8', desc:'Keep original stream — fastest, no re-encode'},
+              ].map(opt => {
+                const active = targetAudio === opt.val
+                return (
+                  <button key={opt.val} onClick={() => setTargetAudio(opt.val)} title={opt.desc} style={{
+                    flex:'1 1 calc(25% - 6px)', minWidth:56, padding:'6px 0', borderRadius:8,
+                    cursor:'pointer', fontFamily:'inherit', fontSize:11, fontWeight:700,
+                    border: active ? `1px solid ${opt.color}88` : '1px solid rgba(255,255,255,0.08)',
+                    background: active ? `${opt.color}22` : 'rgba(255,255,255,0.03)',
+                    color: active ? opt.color : '#555',
+                    transition:'all .15s',
+                  }}>
+                    {opt.label}
+                    {active && <span style={{ fontSize:8, marginLeft:4, opacity:0.8 }}>✓</span>}
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ fontSize:10, color:'#555', marginTop:6, lineHeight:1.5 }}>
+              {targetAudio === 'aac'  && '🔊 AAC 192kbps — standard for MP4, works on all devices including TVs and phones.'}
+              {targetAudio === 'opus' && '🎵 Opus 128kbps — excellent quality at low bitrate, requires modern player.'}
+              {targetAudio === 'mp3'  && '🎶 MP3 192kbps — universally supported, good for music and general use.'}
+              {targetAudio === 'ac3'  && '📺 AC3 (Dolby Digital) — standard for broadcast TV and DVD content.'}
+              {targetAudio === 'eac3' && '🎭 EAC3 (Dolby Digital Plus) — enhanced surround sound for streaming.'}
+              {targetAudio === 'flac' && '💿 FLAC — lossless compression, identical to source audio, larger files.'}
+              {targetAudio === 'pcm'  && '🔈 PCM s16le — raw uncompressed audio, maximum quality, very large files.'}
+              {targetAudio === 'copy' && '⚡ Copy — stream original audio unchanged, fastest, no quality loss or gain.'}
             </div>
           </div>
 
@@ -2174,6 +2217,7 @@ export default function App() {
   const [forceReencode, setForceReencode] = useState(false)
   const [targetCodec, setTargetCodec] = useState(() => localStorage.getItem('yt_target_codec') || 'h264')
   const [targetRes,   setTargetRes]   = useState(() => localStorage.getItem('yt_target_res')   || '1920x1080')
+  const [targetAudio, setTargetAudio] = useState(() => localStorage.getItem('yt_target_audio') || 'aac')
 
   // Build final flags with subtitle mode injected
   const effectiveFlags = (cfg = normConfig) => {
@@ -2333,7 +2377,7 @@ export default function App() {
   const allReady = items.every(it => it.info && it.selectedFormat)
 
   const _dispatchDownload = async (it) => {
-    const res = await apiFetch(`${getApiBase()}/download/batch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{url:it.url.trim(),format_id:it.selectedFormat.format_id,session_id:user?.session_id||null}],norm_flags:doNormalize ? effectiveFlags() : null,output_ext:normConfig.outputExt||'same',codec:targetCodec,resolution:targetRes})})
+    const res = await apiFetch(`${getApiBase()}/download/batch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{url:it.url.trim(),format_id:it.selectedFormat.format_id,session_id:user?.session_id||null}],norm_flags:doNormalize ? effectiveFlags() : null,output_ext:normConfig.outputExt||'same',codec:targetCodec,resolution:targetRes,audio_codec:targetAudio})})
     const data = await res.json()
     if (res.ok && data.jobs?.length) { const j=data.jobs[0]; return {jobId:j.job_id,url:j.url,title:it.info?.title||j.url,format:it.selectedFormat?.label||'',status:'queued',progress:0,normProgress:0,queue_position:j.queue_position,downloadUrl:null,outFilename:null,error:null} }
     return null
@@ -2543,6 +2587,7 @@ export default function App() {
         targetRes={targetRes}
         doNormalize={doNormalize}
         forceReencode={forceReencode}
+        targetAudio={targetAudio}
         localJobs={localJobs}
         setLocalJobs={setLocalJobs}
         startLocalPollingRef={startLocalPollingRef}
@@ -2581,6 +2626,8 @@ export default function App() {
         setTargetCodec={(v) => { setTargetCodec(v); localStorage.setItem('yt_target_codec', v) }}
         targetRes={targetRes}
         setTargetRes={(v) => { setTargetRes(v); localStorage.setItem('yt_target_res', v) }}
+        targetAudio={targetAudio}
+        setTargetAudio={(v) => { setTargetAudio(v); localStorage.setItem('yt_target_audio', v) }}
         doNormalize={doNormalize}
         setDoNormalize={setDoNormalize}
         forceReencode={forceReencode}
