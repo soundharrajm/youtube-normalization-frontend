@@ -1754,9 +1754,9 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
               })}
             </div>
             <div style={{ fontSize:10, color:'#555', marginTop:6, lineHeight:1.5 }}>
-              {targetAudio === 'aac'  && '🔊 AAC 192kbps — standard for MP4, works on all devices including TVs and phones.'}
+              {targetAudio === 'aac'  && '🔊 AAC 256kbps — standard for MP4, works on all devices including TVs and phones.'}
               {targetAudio === 'opus' && '🎵 Opus 128kbps — excellent quality at low bitrate, requires modern player.'}
-              {targetAudio === 'mp3'  && '🎶 MP3 192kbps — universally supported, good for music and general use.'}
+              {targetAudio === 'mp3'  && '🎶 MP3 256kbps — universally supported, good for music and general use.'}
               {targetAudio === 'ac3'  && '📺 AC3 (Dolby Digital) — standard for broadcast TV and DVD content.'}
               {targetAudio === 'eac3' && '🎭 EAC3 (Dolby Digital Plus) — enhanced surround sound for streaming.'}
               {targetAudio === 'flac' && '💿 FLAC — lossless compression, identical to source audio, larger files.'}
@@ -1764,6 +1764,57 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
               {targetAudio === 'copy' && '⚡ Copy — stream original audio unchanged, fastest, no quality loss or gain.'}
             </div>
           </div>
+
+          {/* ── COMPATIBILITY CHECK ── */}
+          {(() => {
+            const ext = (normConfig.outputExt === 'same' ? 'mp4' : normConfig.outputExt) || 'mp4'
+            const issues = []
+            const fixes  = []
+
+            // Audio vs container
+            if (ext === 'mp4') {
+              if (targetAudio === 'opus')  { issues.push('Opus audio in MP4 — limited player support'); fixes.push({audio:'aac', label:'Switch to AAC'}) }
+              if (targetAudio === 'flac')  { issues.push('FLAC audio not supported in MP4'); fixes.push({audio:'aac', label:'Switch to AAC'}) }
+              if (targetAudio === 'pcm')   { issues.push('PCM audio in MP4 causes compatibility issues'); fixes.push({audio:'aac', label:'Switch to AAC'}) }
+            }
+            if (ext === 'mkv') {
+              if (targetAudio === 'eac3') { issues.push('EAC3 in MKV has limited support') }
+            }
+            if (ext === 'webm') {
+              if (!['opus','copy'].includes(targetAudio)) { issues.push(`WebM only supports Opus audio (selected: ${targetAudio.toUpperCase()})`); fixes.push({audio:'opus', label:'Switch to Opus'}) }
+              if (!['h264','h265','copy'].includes(targetCodec)) { issues.push('WebM video codec mismatch') }
+            }
+            if (ext === 'avi') {
+              if (['opus','flac'].includes(targetAudio)) { issues.push(`${targetAudio.toUpperCase()} not compatible with AVI`); fixes.push({audio:'mp3', label:'Switch to MP3'}) }
+            }
+            if (ext === 'ts' || ext === 'mts') {
+              if (['flac','pcm','opus'].includes(targetAudio)) { issues.push(`${targetAudio.toUpperCase()} not compatible with TS container`); fixes.push({audio:'ac3', label:'Switch to AC3'}) }
+            }
+
+            if (!issues.length) return (
+              <div style={{ marginBottom:'1rem', padding:'8px 10px', borderRadius:7, background:'rgba(16,185,129,0.07)', border:'1px solid rgba(16,185,129,0.2)', fontSize:10, color:'#34d399' }}>
+                ✓ Video + Audio + Container are compatible
+              </div>
+            )
+
+            return (
+              <div style={{ marginBottom:'1rem', padding:'10px 12px', borderRadius:7, background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)' }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'#f87171', marginBottom:6 }}>⚠ Compatibility issues:</div>
+                {issues.map((iss, i) => <div key={i} style={{ fontSize:10, color:'#fca5a5', marginBottom:3 }}>• {iss}</div>)}
+                {fixes.length > 0 && (
+                  <div style={{ display:'flex', gap:5, marginTop:8, flexWrap:'wrap' }}>
+                    {fixes.map((fix, i) => (
+                      <button key={i} onClick={() => fix.audio && setTargetAudio(fix.audio)}
+                        style={{ fontSize:10, padding:'3px 9px', borderRadius:5, cursor:'pointer', fontFamily:'inherit',
+                          border:'1px solid rgba(251,191,36,0.4)', background:'rgba(251,191,36,0.1)', color:'#fbbf24' }}>
+                        ⚡ {fix.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* ── RESOLUTION TOGGLE ── */}
           <div style={{ marginBottom:'1rem' }}>
