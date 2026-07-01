@@ -1753,7 +1753,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                 )
               })}
             </div>
-            <div style={{ fontSize:10, color:'#555', marginTop:6, lineHeight:1.5 }}>
+            <div style={{ fontSize:11, color:'#7878a0', marginTop:6, lineHeight:1.6, padding:'6px 8px', background:'rgba(255,255,255,0.03)', borderRadius:6, border:'1px solid rgba(255,255,255,0.06)' }}>
               {targetAudio === 'aac'  && '🔊 AAC 256kbps — standard for MP4, works on all devices including TVs and phones.'}
               {targetAudio === 'opus' && '🎵 Opus 128kbps — excellent quality at low bitrate, requires modern player.'}
               {targetAudio === 'mp3'  && '🎶 MP3 256kbps — universally supported, good for music and general use.'}
