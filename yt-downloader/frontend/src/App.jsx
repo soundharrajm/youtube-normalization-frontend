@@ -2518,7 +2518,7 @@ export default function App() {
     finally { setDlIndex(0); setDlTotal(0) }
   }
 
-
+  const jobsRef = useRef([])
   useEffect(() => { jobsRef.current = jobs }, [jobs])
 
   // Poll queue status — only when YT jobs active, idle heartbeat otherwise
