@@ -5,6 +5,7 @@ import HealthPanel   from './HealthPanel.jsx'
 import ChannelPanel  from './ChannelPanel.jsx'
 import CookieSetup from './CookieSetup.jsx'
 import SearchPanel from './SearchPanel.jsx'
+import MergeAudio from './MergeAudio.jsx'
 
 // v3.0.0
 const API_DEFAULT = import.meta.env.VITE_API_URL || '/api'
@@ -2229,6 +2230,7 @@ export default function App() {
   const [fetchIndex, setFetchIndex]         = useState(0)
   const [fetchTotal, setFetchTotal]         = useState(0)
   const [parallelFetch, setParallelFetch]   = useState(false)
+  const [mergeAudioMode, setMergeAudioMode] = useState(false)
   const [showSearch, setShowSearch]         = useState(false)
   const [dlCountdown, setDlCountdown]       = useState(0)
   const [dlIndex, setDlIndex]               = useState(0)
@@ -2475,7 +2477,48 @@ export default function App() {
     } finally { setDlIndex(0); setDlTotal(0); setDlCountdown(0) }
   }
 
-  const jobsRef = useRef([])
+  const mergeAll = async () => {
+    const videoItem = items[0]
+    const audioItems = items.slice(1).filter(it => it.url.trim())
+    if (!videoItem?.url.trim() || !audioItems.length) return
+    setDlTotal(1); setDlIndex(1)
+    try {
+      const res = await apiFetch(`${getApiBase()}/merge-audio/start`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_url: videoItem.url.trim(),
+          audio_sources: audioItems.map(it => ({
+            url: it.url.trim(),
+            language: it.language?.trim() || null,
+            offset_sec: 0,
+          })),
+          include_original_audio: true,
+          original_language: videoItem.language?.trim() || null,
+          session_id: user?.session_id || null,
+          norm_flags: doNormalize ? effectiveFlags() : null,
+          output_ext: normConfig.outputExt || 'same',
+          codec: targetCodec, resolution: targetRes, audio_codec: targetAudio,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.job_id) {
+        setJobs(prev => [{
+          jobId: data.job_id, url: videoItem.url,
+          title: (videoItem.info?.title || videoItem.url) + ' (multi-audio)',
+          format: `${audioItems.length + 1} audio track(s)`,
+          status: 'queued', progress: 0, normProgress: 0,
+          queue_position: data.queue_position,
+          downloadUrl: null, outFilename: null, error: null,
+        }, ...prev])
+        startPolling()
+      } else {
+        throw new Error(data.detail || 'Failed to start merge job')
+      }
+    } catch (_) {}
+    finally { setDlIndex(0); setDlTotal(0) }
+  }
+
+
   useEffect(() => { jobsRef.current = jobs }, [jobs])
 
   // Poll queue status — only when YT jobs active, idle heartbeat otherwise
@@ -2837,6 +2880,19 @@ export default function App() {
           </div>
         </div>
 
+        {/* ── MERGE AUDIO MODE TOGGLE ── */}
+        <div style={{ background: mergeAudioMode ? 'rgba(168,85,247,0.08)' : (bgImage ? (bgDark?'rgba(0,0,0,0.4)':'rgba(255,255,255,0.5)') : 'rgba(83,74,183,0.08)'), border:`1px solid ${mergeAudioMode ? 'rgba(168,85,247,0.35)' : 'rgba(127,119,221,0.22)'}`, borderRadius:12, padding:'10px 14px', marginBottom:'.65rem', display:'flex', alignItems:'center', gap:10 }}>
+          <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, fontWeight:700, color: mergeAudioMode ? '#c084fc' : '#c4beff', cursor:'pointer', flex:1 }}>
+            <input type="checkbox" checked={mergeAudioMode} onChange={e=>setMergeAudioMode(e.target.checked)} />
+            🎬 Merge all audio into first video
+          </label>
+          {mergeAudioMode && (
+            <span style={{ fontSize:11, color:'#9898b8' }}>
+              #1 = video (visuals kept) · #2+ = audio-only sources muxed on top
+            </span>
+          )}
+        </div>
+
         {/* ── URL INPUTS — full width ── */}
         <div style={{ background:cardBg, border:`1px solid ${cardBorder}`, borderRadius:14, padding:16, display:'flex', flexDirection:'column', gap:12, marginBottom:12, maxHeight: items.length > 5 ? 420 : 'none', overflowY: items.length > 5 ? 'auto' : 'visible' }}>
             {items.map((item, i) => (
@@ -2844,9 +2900,22 @@ export default function App() {
                 {i > 0 && <div style={{ height:1, background:'rgba(0,0,0,0.04)', marginBottom:12 }} />}
                 <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
                   <span style={{ fontSize:10, color:'#5555aa', background:'rgba(0,0,0,0.04)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:5, padding:'1px 7px', ...T.mono }}>#{i+1}</span>
+                  {mergeAudioMode && (
+                    <span style={{ fontSize:10, fontWeight:700, padding:'1px 8px', borderRadius:5, background: i===0 ? 'rgba(59,130,246,0.12)' : 'rgba(168,85,247,0.12)', color: i===0 ? '#60a5fa' : '#c084fc' }}>
+                      {i===0 ? '🎬 VIDEO (visuals + own audio)' : '🎧 AUDIO ONLY'}
+                    </span>
+                  )}
                 </div>
                 <UrlRow item={item} onChange={(key,val)=>updateItem(item.id,key,val)} onRemove={()=>removeItem(item.id)} canRemove={items.length>1}
                 onOpenChannel={(plUrl) => { setChannelInitUrl(plUrl); setShowChannel(true) }} />
+                {mergeAudioMode && (
+                  <input
+                    value={item.language || ''}
+                    onChange={e=>updateItem(item.id,'language',e.target.value)}
+                    placeholder={i===0 ? 'Label for this video\u2019s own audio (optional, e.g. English)' : 'Language of this audio track (e.g. Hindi)'}
+                    style={{ width:'100%', marginTop:6, boxSizing:'border-box', fontSize:12, padding:'7px 10px', borderRadius:6, border:'1px solid rgba(168,85,247,0.25)', background:'rgba(168,85,247,0.04)', color:'#e2e2f0', outline:'none', fontFamily:'inherit' }}
+                  />
+                )}
               </div>
             ))}
         </div>
@@ -2865,23 +2934,40 @@ export default function App() {
             border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.08)', color:'#991b1b',
             cursor:'pointer', fontFamily:'inherit',
           }}>📺 Channel</button>
-          <button onClick={startAll} disabled={dlTotal>0||!items.some(it=>it.info&&it.selectedFormat)} style={{
+          <button
+            onClick={mergeAudioMode ? mergeAll : startAll}
+            disabled={mergeAudioMode
+              ? (dlTotal>0 || !items[0]?.url.trim() || items.slice(1).filter(it=>it.url.trim()).length===0)
+              : (dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))}
+            style={{
             flex:1, minWidth:160, display:'flex', alignItems:'center', justifyContent:'center', gap:8, position:'relative', overflow:'hidden',
             fontSize:14, fontWeight:700, padding:'13px 18px', borderRadius:11,
-            border:'1px solid rgba(29,158,117,0.4)',
-            background:(allReady&&items.some(it=>it.info)&&dlTotal===0)?'rgba(29,158,117,0.16)':'rgba(0,0,0,0.02)',
-            color:(allReady&&items.some(it=>it.info)&&dlTotal===0)?T.te2:'#444',
-            cursor:(dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))?'not-allowed':'pointer',
-            fontFamily:'inherit', opacity:(dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))?0.5:1,
+            border: mergeAudioMode ? '1px solid rgba(168,85,247,0.4)' : '1px solid rgba(29,158,117,0.4)',
+            background: mergeAudioMode
+              ? ((items[0]?.url.trim() && items.slice(1).some(it=>it.url.trim()) && dlTotal===0) ? 'rgba(168,85,247,0.16)' : 'rgba(0,0,0,0.02)')
+              : ((allReady&&items.some(it=>it.info)&&dlTotal===0)?'rgba(29,158,117,0.16)':'rgba(0,0,0,0.02)'),
+            color: mergeAudioMode
+              ? ((items[0]?.url.trim() && items.slice(1).some(it=>it.url.trim()) && dlTotal===0) ? '#c084fc' : '#444')
+              : ((allReady&&items.some(it=>it.info)&&dlTotal===0)?T.te2:'#444'),
+            cursor: (mergeAudioMode
+              ? (dlTotal>0 || !items[0]?.url.trim() || items.slice(1).filter(it=>it.url.trim()).length===0)
+              : (dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))) ? 'not-allowed' : 'pointer',
+            fontFamily:'inherit',
+            opacity: (mergeAudioMode
+              ? (dlTotal>0 || !items[0]?.url.trim() || items.slice(1).filter(it=>it.url.trim()).length===0)
+              : (dlTotal>0||!items.some(it=>it.info&&it.selectedFormat))) ? 0.5 : 1,
           }}>
             {dlTotal > 0 ? (
               <>
                 <div style={{ position:'absolute', inset:0, zIndex:0, background:'rgba(0,0,0,0.2)', width:dlCountdown>0?`${((4-dlCountdown)/4)*100}%`:'100%', transition:'width 1s linear', borderRadius:11 }} />
-                {parallelFetch ? <span style={{ position:'relative', zIndex:1 }}>⚡ Sending {dlTotal} in parallel…</span>
+                {mergeAudioMode ? <span style={{ position:'relative', zIndex:1 }}>🎬 Merging & queuing…</span>
+                  : parallelFetch ? <span style={{ position:'relative', zIndex:1 }}>⚡ Sending {dlTotal} in parallel…</span>
                   : dlCountdown > 0 ? <span style={{ position:'relative', zIndex:1 }}>⏱ Next in {dlCountdown}s · {dlIndex}/{dlTotal}</span>
                   : <span style={{ position:'relative', zIndex:1 }}>↓ Sending {dlIndex}/{dlTotal}…</span>}
               </>
-            ) : <>⚡ Download All ({items.filter(it=>it.info&&it.selectedFormat).length})</>}
+            ) : mergeAudioMode
+              ? <>🎬 Merge & Download ({items.slice(1).filter(it=>it.url.trim()).length} audio track{items.slice(1).filter(it=>it.url.trim()).length===1?'':'s'})</>
+              : <>⚡ Download All ({items.filter(it=>it.info&&it.selectedFormat).length})</>}
           </button>
         </div>
 
