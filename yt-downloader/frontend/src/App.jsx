@@ -1629,7 +1629,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
     <>
       {/* Settings Panel — light theme */}
       <div style={{
-        position:'fixed', right:0, top:0, height:'100vh', width:'min(320px, 90vw)',
+        position:'fixed', right:0, top:0, height:'100vh', width:'clamp(380px, 35%, 90vw)',
         background: S.bg, borderLeft:`1px solid ${S.borderMed}`,
         transform:open?'translateX(0)':'translateX(100%)',
         transition:'transform .25s ease', zIndex:160,
