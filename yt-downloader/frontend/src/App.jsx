@@ -963,7 +963,11 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
 
   const [panelWidth, setPanelWidth] = useState(() => {
     const saved = localStorage.getItem('yt_local_panel_width')
-    return saved ? parseInt(saved) : 320
+    if (saved) return parseInt(saved)
+    // Percentage-based default (35% of viewport, clamped 380-600px) —
+    // same approach as the Settings panel. Still fully drag-resizable below.
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+    return Math.min(600, Math.max(380, Math.round(vw * 0.35)))
   })
   const resizing = useRef(false)
   const startX   = useRef(0)
@@ -977,7 +981,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
     document.body.style.userSelect = 'none'
     const onMove = (ev) => {
       if (!resizing.current) return
-      const newW = Math.min(600, Math.max(260, startW.current + ev.clientX - startX.current))
+      const newW = Math.min(600, Math.max(380, startW.current + ev.clientX - startX.current))
       setPanelWidth(newW)
     }
     const onUp = () => {
@@ -994,7 +998,7 @@ function LocalPanel({ open, onClose, isLocalMode, normConfig, apiFetchFn, onSetS
 
   const panelStyle = {
     position:'fixed', left:0, top:0, height:'100vh', width: open ? panelWidth : 0,
-    minWidth: open ? 260 : 0,
+    minWidth: open ? 380 : 0,
     background:'#f8f8fc', borderRight:'1px solid rgba(0,0,0,0.1)',
     transform:open?'translateX(0)':'translateX(-100%)',
     transition: resizing.current ? 'none' : 'transform .25s ease',
