@@ -6,6 +6,7 @@ import ChannelPanel  from './ChannelPanel.jsx'
 import CookieSetup from './CookieSetup.jsx'
 import SearchPanel from './SearchPanel.jsx'
 import MergeAudio from './MergeAudio.jsx'
+import AudioLanguagePicker from './AudioLanguagePicker.jsx'
 
 // v3.0.0
 const API_DEFAULT = import.meta.env.VITE_API_URL || '/api'
@@ -461,7 +462,7 @@ function _fmtSec(s) {
   return `~${sec}s`
 }
 
-function JobCard({ job }) {
+function JobCard({ job, apiFetch }) {
   const [preview, setPreview] = useState(false)
   const meta = PHASE[job.status] || PHASE.queued
   const isQ   = job.status==='queued'
@@ -567,6 +568,21 @@ function JobCard({ job }) {
 
       {isDone&&job.outFilename && (
         <div style={{ marginTop:8, fontSize:10, color:'#10b981', ...T.mono, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)', borderRadius:5, padding:'3px 8px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>✓ {job.outFilename}</div>
+      )}
+
+      {isDone && job.detected_audio_languages?.length > 0 && (
+        <>
+          {job.needs_language_review && (
+            <p style={{ margin:'8px 0 0', fontSize:11, color:'#f59e0b' }}>
+              ⚠️ Some audio tracks came through unlabeled ("und") — assign languages below.
+            </p>
+          )}
+          <AudioLanguagePicker
+            apiFetch={apiFetch}
+            jobId={job.jobId}
+            detectedLanguages={job.detected_audio_languages}
+          />
+        </>
       )}
       {isErr&&job.error && (
         <p style={{ margin:'8px 0 0', fontSize:11, color:'#f87171', background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:6, padding:'6px 10px' }}>{job.error}</p>
@@ -1950,7 +1966,7 @@ function SettingsPanel({ open, onClose, normConfig, setNormConfig, isLocalMode, 
                 </div>
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-                {jobs.map(job => <JobCard key={job.jobId} job={{
+                {jobs.map(job => <JobCard key={job.jobId} apiFetch={apiFetchFn} job={{
                   ...job,
                   onCancel: async (id) => {
                     try {
@@ -2441,7 +2457,7 @@ export default function App() {
         if (j.status==='done'||j.status==='error') return j
         const d = data[j.jobId]
         if (!d) return j
-        if (d.status==='done') return {...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${j.jobId}`,outFilename:d.filename}
+        if (d.status==='done') return {...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${j.jobId}`,outFilename:d.filename,detected_audio_languages:d.detected_audio_languages||null,needs_language_review:!!d.needs_language_review,audio_tracks:d.audio_tracks||null}
         if (d.status==='error') return {...j,status:'error',error:d.error}
         return {...j,status:d.status,progress:d.progress??j.progress,normProgress:d.normalize_progress??j.normProgress,title:d.title||j.title}
       }))
@@ -2579,7 +2595,10 @@ export default function App() {
               if (j.status === 'done' || j.status === 'error') return j
               if (d.status === 'done') {
                 const doneJob = {...j, status:'done', progress:100, normProgress:100,
-                  downloadUrl:`${getApiBase()}/download/file/${jid}`, outFilename:d.filename}
+                  downloadUrl:`${getApiBase()}/download/file/${jid}`, outFilename:d.filename,
+                  detected_audio_languages:d.detected_audio_languages||null,
+                  needs_language_review:!!d.needs_language_review,
+                  audio_tracks:d.audio_tracks||null}
                 try {
                   const hist = JSON.parse(localStorage.getItem('yt_dl_history')||'[]')
                   if (!hist.find(h => h.jobId === jid)) {
