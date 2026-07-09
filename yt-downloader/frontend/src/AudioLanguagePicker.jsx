@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // Comprehensive ISO 639-2 language list (106 languages) — with 100+ possible
 // codes, most detected/typed values should match a preset directly instead
@@ -113,6 +113,85 @@ const LANGUAGE_PRESETS = [
 ];
 const NAME_BY_CODE = Object.fromEntries(LANGUAGE_PRESETS.map(l => [l.code, l.name]));
 
+function LanguageCombobox({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const wrapperRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const selected = LANGUAGE_PRESETS.find(l => l.code === value);
+  const displayValue = open
+    ? query
+    : (selected ? `${selected.name} (${selected.code})` : (value === "custom" ? "Custom code…" : ""));
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? LANGUAGE_PRESETS.filter(l => l.name.toLowerCase().includes(q) || l.code.includes(q))
+    : LANGUAGE_PRESETS;
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function pick(code) {
+    onChange(code);
+    setOpen(false);
+    setQuery("");
+  }
+
+  function openDropdown() {
+    setOpen(true);
+    setQuery("");
+    setTimeout(() => inputRef.current?.select(), 0);
+  }
+
+  return (
+    <div ref={wrapperRef} style={S.comboWrapper}>
+      <input
+        ref={inputRef}
+        style={S.select}
+        value={displayValue}
+        onChange={e => { setQuery(e.target.value); if (!open) setOpen(true); }}
+        onFocus={openDropdown}
+        onClick={openDropdown}
+        placeholder="Type to search 106 languages…"
+        readOnly={!open}
+      />
+      <span style={S.comboArrow}>{open ? "▲" : "▼"}</span>
+
+      {open && (
+        <div style={S.dropdown}>
+          {filtered.length === 0 && (
+            <div style={S.dropdownEmpty}>No matches — use "Custom code…" below</div>
+          )}
+          {filtered.map(l => (
+            <div
+              key={l.code}
+              style={{ ...S.dropdownItem, ...(l.code === value ? S.dropdownItemActive : {}) }}
+              onMouseDown={e => { e.preventDefault(); pick(l.code); }}
+            >
+              {l.name} <span style={S.dropdownItemCode}>({l.code})</span>
+            </div>
+          ))}
+          <div
+            style={{ ...S.dropdownItem, ...S.dropdownItemCustom, ...(value === "custom" ? S.dropdownItemActive : {}) }}
+            onMouseDown={e => { e.preventDefault(); pick("custom"); }}
+          >
+            ✏️ Custom code…
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function rowFromDetected(code, i) {
   const known = NAME_BY_CODE[code];
   return {
@@ -128,6 +207,7 @@ export default function AudioLanguagePicker({ apiFetch, jobId, detectedLanguages
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   const updateRow = (i, field, value) =>
     setRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
@@ -166,13 +246,28 @@ export default function AudioLanguagePicker({ apiFetch, jobId, detectedLanguages
     finally { setSaving(false); }
   }
 
+  const [collapsed, setCollapsed] = useState(false);
+
   if (!rows.length) return null;
+
+  if (collapsed) {
+    return (
+      <div style={S.wrapper}>
+        <button style={S.collapsedBar} onClick={() => setCollapsed(false)} title="Show audio language settings">
+          <span style={S.headerIcon}>🌐</span>
+          <span style={S.headerTitle}>Assign audio track languages</span>
+          <span style={S.expandHint}>click to show ▾</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={S.wrapper}>
       <div style={S.header}>
         <span style={S.headerIcon}>🌐</span>
         <span style={S.headerTitle}>Assign audio track languages</span>
+        <button style={S.closeBtn} onClick={() => setCollapsed(true)} title="Hide (can be shown again)">✕</button>
       </div>
       <p style={S.headerHint}>Order below = order in the file. {LANGUAGE_PRESETS.length} languages available — search by typing in the dropdown.</p>
 
@@ -186,10 +281,7 @@ export default function AudioLanguagePicker({ apiFetch, jobId, detectedLanguages
               <button style={S.reorderBtn} disabled={i === rows.length - 1} onClick={() => moveRow(i, 1)} title="Move down">▼</button>
             </div>
 
-            <select style={S.select} value={r.code} onChange={e => updateRow(i, "code", e.target.value)}>
-              {LANGUAGE_PRESETS.map(l => <option key={l.code} value={l.code}>{l.name} ({l.code})</option>)}
-              <option value="custom">✏️ Custom code…</option>
-            </select>
+            <LanguageCombobox value={r.code} onChange={code => updateRow(i, "code", code)} />
 
             <label style={S.defaultLabel} title="Plays by default when the file is opened">
               <input type="radio" name={`default-${jobId}`} checked={r.isDefault} onChange={() => setDefault(i)} />
@@ -235,6 +327,10 @@ export default function AudioLanguagePicker({ apiFetch, jobId, detectedLanguages
 const S = {
   wrapper:      { background: "rgba(168,85,247,0.05)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: 8, padding: "10px 12px", marginTop: 8, fontFamily: "'Inter','Segoe UI',sans-serif", width: "100%", boxSizing: "border-box" },
   header:       { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 },
+  closeBtn:     { marginLeft: "auto", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 5, width: 20, height: 20, color: "#9898b8", fontSize: 11, cursor: "pointer", lineHeight: 1, padding: 0, flexShrink: 0 },
+
+  collapsedBar: { width: "100%", display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" },
+  expandHint:   { marginLeft: "auto", fontSize: 10, color: "#6060a0", flexShrink: 0 },
   headerIcon:   { fontSize: 13 },
   headerTitle:  { fontSize: 12, fontWeight: 700, color: "#c084fc" },
   headerHint:   { fontSize: 10, color: "#6060a0", margin: "0 0 10px", lineHeight: 1.4 },
@@ -245,7 +341,16 @@ const S = {
   reorderCol:   { display: "flex", flexDirection: "column", gap: 1, flexShrink: 0 },
   reorderBtn:   { fontSize: 8, width: 16, height: 13, padding: 0, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 3, color: "#9898b8", cursor: "pointer" },
 
-  select:       { background: "#0d0d18", border: "1px solid #3a3a5c", borderRadius: 6, padding: "7px 8px", color: "#e2e2f0", fontSize: 12, outline: "none", fontFamily: "inherit", flex: "1 1 140px", minWidth: 0, boxSizing: "border-box" },
+  select:       { background: "#0d0d18", border: "1px solid #3a3a5c", borderRadius: 6, padding: "7px 26px 7px 8px", color: "#e2e2f0", fontSize: 12, outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box", cursor: "text" },
+
+  comboWrapper: { position: "relative", flex: "1 1 140px", minWidth: 0 },
+  comboArrow:   { position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 9, color: "#9898b8", pointerEvents: "none" },
+  dropdown:     { position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, maxHeight: 240, overflowY: "auto", background: "#14141f", border: "1px solid #3a3a5c", borderRadius: 6, zIndex: 50, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" },
+  dropdownItem: { padding: "7px 10px", fontSize: 12, color: "#e2e2f0", cursor: "pointer" },
+  dropdownItemActive: { background: "rgba(168,85,247,0.18)", color: "#e9d5ff" },
+  dropdownItemCode: { color: "#6060a0", fontSize: 10.5 },
+  dropdownItemCustom: { borderTop: "1px solid rgba(255,255,255,0.08)", color: "#f59e0b", fontWeight: 600, position: "sticky", bottom: 0, background: "#14141f" },
+  dropdownEmpty: { padding: "10px", fontSize: 11, color: "#6b7280", fontStyle: "italic" },
 
   defaultLabel: { display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#9898b8", whiteSpace: "nowrap", cursor: "pointer", flexShrink: 0 },
 

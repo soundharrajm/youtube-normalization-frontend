@@ -584,6 +584,28 @@ function JobCard({ job, apiFetch }) {
           />
         </>
       )}
+
+      {isDone && job.sync_analysis?.length > 0 && (
+        <div style={{ marginTop:8, background:'rgba(59,130,246,0.05)', border:'1px solid rgba(59,130,246,0.15)', borderRadius:8, padding:'8px 10px' }}>
+          <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:'#60a5fa' }}>🔊 Sync check (vs. video's own audio)</p>
+          {job.sync_analysis.map((s, i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:6, fontSize:10.5, color:'#9898b8', marginBottom:i<job.sync_analysis.length-1?3:0 }}>
+              <span style={{ minWidth:70, color:'#c4beff', fontWeight:600 }}>{s.language}</span>
+              {s.skipped ? (
+                <span style={{ color:'#6b7280' }}>— {s.skipped}</span>
+              ) : s.reliable ? (
+                Math.abs(s.offset_sec) >= 0.3 ? (
+                  <span style={{ color:'#f59e0b' }}>⚙ auto-corrected {s.offset_sec > 0 ? '+' : ''}{s.offset_sec}s offset (confidence {Math.round(s.confidence*100)}%)</span>
+                ) : (
+                  <span style={{ color:'#34d399' }}>✓ in sync (confidence {Math.round(s.confidence*100)}%)</span>
+                )
+              ) : (
+                <span style={{ color:'#6b7280' }}>? inconclusive (confidence {Math.round((s.confidence||0)*100)}%) — no offset applied</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       {isErr&&job.error && (
         <p style={{ margin:'8px 0 0', fontSize:11, color:'#f87171', background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:6, padding:'6px 10px' }}>{job.error}</p>
       )}
@@ -2461,7 +2483,7 @@ export default function App() {
         if (j.status==='done'||j.status==='error') return j
         const d = data[j.jobId]
         if (!d) return j
-        if (d.status==='done') return {...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${j.jobId}`,outFilename:d.filename,detected_audio_languages:d.detected_audio_languages||null,needs_language_review:!!d.needs_language_review,audio_tracks:d.audio_tracks||null}
+        if (d.status==='done') return {...j,status:'done',progress:100,normProgress:100,downloadUrl:`${getApiBase()}/download/file/${j.jobId}`,outFilename:d.filename,detected_audio_languages:d.detected_audio_languages||null,needs_language_review:!!d.needs_language_review,audio_tracks:d.audio_tracks||null,sync_analysis:d.sync_analysis||null}
         if (d.status==='error') return {...j,status:'error',error:d.error}
         return {...j,status:d.status,progress:d.progress??j.progress,normProgress:d.normalize_progress??j.normProgress,title:d.title||j.title}
       }))
@@ -2602,7 +2624,8 @@ export default function App() {
                   downloadUrl:`${getApiBase()}/download/file/${jid}`, outFilename:d.filename,
                   detected_audio_languages:d.detected_audio_languages||null,
                   needs_language_review:!!d.needs_language_review,
-                  audio_tracks:d.audio_tracks||null}
+                  audio_tracks:d.audio_tracks||null,
+                  sync_analysis:d.sync_analysis||null}
                 try {
                   const hist = JSON.parse(localStorage.getItem('yt_dl_history')||'[]')
                   if (!hist.find(h => h.jobId === jid)) {
