@@ -1,11 +1,24 @@
 import { useState } from "react";
 
+// Presets define ONLY video+audio codec flags — subtitle handling is driven
+// entirely by the separate Subtitles selector below (SUBTITLE_MODES), never
+// baked into a preset string. Mixing both in one raw string is what caused
+// the presets to carry a stale "-c:s copy" that silently overrode whatever
+// subtitle mode you actually picked in the UI — the "Drop" button did
+// nothing when using presets other than Custom, since the preset's own
+// "-c:s copy" always won.
+//
+// "-vf yadif=deint=interlaced" only auto-deinterlaces frames that are
+// actually flagged interlaced — a no-op on already-progressive footage, so
+// it's safe to include by default on every RE-ENCODING preset. Not added to
+// "fast" since that preset is a pure stream copy — filters don't apply
+// (and can't) when nothing is being re-encoded.
 const PRESETS = [
-  { id:"fast",    label:"⚡ Fast",         desc:"Copy streams, no re-encode",           flags:"-c:v copy -c:a copy -c:s copy",                            badge:"fastest",  badgeColor:"#22c55e" },
-  { id:"balanced",label:"⚖️ Balanced",     desc:"H.264 CRF 23 — good size/quality",    flags:"-c:v libx264 -crf 23 -preset medium -c:a copy -c:s copy", badge:"default",  badgeColor:"#3b82f6" },
-  { id:"hq",      label:"🎬 High Quality", desc:"H.264 CRF 19 + forced IDR (original)", flags:"-c:v libx264 -crf 19 -forced-idr 1 -c:a copy -c:s copy", badge:"original", badgeColor:"#a855f7" },
-  { id:"hq265",   label:"💎 H.265",        desc:"HEVC CRF 24 — smaller files",          flags:"-c:v libx265 -crf 24 -preset medium -c:a copy -c:s copy", badge:"smaller",  badgeColor:"#f59e0b" },
-  { id:"custom",  label:"✏️ Custom",       desc:"Enter your own ffmpeg flags",           flags:"",                                                         badge:"custom",   badgeColor:"#6b7280" },
+  { id:"fast",    label:"⚡ Fast",         desc:"Copy streams, no re-encode",           codecFlags:"-c:v copy -c:a copy",                                          badge:"fastest",  badgeColor:"#22c55e" },
+  { id:"balanced",label:"⚖️ Balanced",     desc:"H.264 CRF 23 — good size/quality",    codecFlags:"-c:v libx264 -crf 23 -preset medium -vf yadif=deint=interlaced -c:a copy", badge:"default",  badgeColor:"#3b82f6" },
+  { id:"hq",      label:"🎬 High Quality", desc:"H.264 CRF 19 + forced IDR (original)", codecFlags:"-c:v libx264 -crf 19 -forced-idr 1 -vf yadif=deint=interlaced -c:a copy", badge:"original", badgeColor:"#a855f7" },
+  { id:"hq265",   label:"💎 H.265",        desc:"HEVC CRF 24 — smaller files",          codecFlags:"-c:v libx265 -crf 24 -preset medium -vf yadif=deint=interlaced -c:a copy", badge:"smaller",  badgeColor:"#f59e0b" },
+  { id:"custom",  label:"✏️ Custom",       desc:"Enter your own ffmpeg flags",           codecFlags:"",                                                              badge:"custom",   badgeColor:"#6b7280" },
 ];
 
 const OUTPUT_FORMATS = [
@@ -23,25 +36,35 @@ const SUBTITLE_MODES = [
 ]
 
 export default function NormSettings({ value, onChange }) {
-  const [customInput, setCustomInput] = useState(value?.presetId === "custom" ? value.flags : "")
+  const [customInput, setCustomInput] = useState(value?.presetId === "custom" ? value.codecFlags ?? value.flags ?? "" : "")
   const [open, setOpen] = useState(false)
 
   const activePreset   = PRESETS.find(p => p.id === value?.presetId) || PRESETS[2]
   const activeExt      = value?.outputExt || "same"
   const activeSubMode  = value?.subtitleMode || "convert"
 
+  // The ONE place codec flags + subtitle flag get combined into the final
+  // string that's actually sent to the backend — used both here and for the
+  // live preview, so what you see is always exactly what gets sent.
+  function buildFinalFlags(codecFlags, subtitleModeId) {
+    const subFlag = SUBTITLE_MODES.find(m => m.id === subtitleModeId)?.flag || "-sn"
+    return `${codecFlags} ${subFlag}`.trim()
+  }
+
   function selectPreset(preset) {
-    if (preset.id === "custom") onChange({ ...value, presetId:"custom", flags:customInput })
-    else onChange({ ...value, presetId:preset.id, flags:preset.flags })
+    const codecFlags = preset.id === "custom" ? customInput : preset.codecFlags
+    onChange({ ...value, presetId: preset.id, codecFlags, flags: buildFinalFlags(codecFlags, activeSubMode) })
   }
 
   function selectSubMode(mode) {
-    onChange({ ...value, subtitleMode: mode.id })
+    const codecFlags = activePreset.id === "custom" ? customInput : activePreset.codecFlags
+    onChange({ ...value, subtitleMode: mode.id, flags: buildFinalFlags(codecFlags, mode.id) })
   }
 
   function handleCustomChange(e) {
-    setCustomInput(e.target.value)
-    onChange({ ...value, presetId:"custom", flags:e.target.value })
+    const codecFlags = e.target.value
+    setCustomInput(codecFlags)
+    onChange({ ...value, presetId:"custom", codecFlags, flags: buildFinalFlags(codecFlags, activeSubMode) })
   }
 
   function selectExt(ext) {
@@ -130,7 +153,7 @@ export default function NormSettings({ value, onChange }) {
                     <span style={{ ...S.badge, background:preset.badgeColor }}>{preset.badge}</span>
                   </div>
                   <p style={S.presetDesc}>{preset.desc}</p>
-                  {preset.id !== "custom" && <code style={S.presetCode}>{preset.flags}</code>}
+                  {preset.id !== "custom" && <code style={S.presetCode}>{preset.codecFlags}</code>}
                 </button>
               )
             })}
@@ -150,7 +173,9 @@ export default function NormSettings({ value, onChange }) {
             <span style={S.previewLabel}>Command preview</span>
             <code style={S.previewCode}>
               ffmpeg -y -i <span style={{color:"#f59e0b"}}>input.mp4</span> -map 0{" "}
-              <span style={{color:"#facc15"}}>{activePreset.id==="custom" ? customInput||"<your flags>" : activePreset.flags}</span>{" "}
+              <span style={{color:"#facc15"}}>
+                {buildFinalFlags(activePreset.id==="custom" ? customInput||"<your flags>" : activePreset.codecFlags, activeSubMode)}
+              </span>{" "}
               <span style={{color:"#6ee7b7"}}>output_normalize.{activeExt==="same" ? "<src_ext>" : activeExt}</span>
             </code>
           </div>
